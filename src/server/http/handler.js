@@ -7,6 +7,7 @@ import { bytesToBase64Url } from "../security/encoding.js";
 import { coerceKey, randomBytes } from "../security/crypto.js";
 import { signState, stampLifetime, verifyState } from "../security/tokens.js";
 import { readJsonBody } from "./body.js";
+import { staticResponse } from "./static.js";
 import { parseActionBody, parseResumeBody, parseStartBody } from "./validation.js";
 
 /**
@@ -21,6 +22,10 @@ export async function handleRequest(request, config = {}) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") {
       return corsPreflight(request, allowedOrigin);
+    }
+    if (request.method === "GET" || request.method === "HEAD") {
+      const page = staticResponse(url.pathname, request.method, config.assets);
+      if (page) return page;
     }
     if (request.method !== "POST") {
       return jsonResponse(request, allowedOrigin, 405, {

@@ -1,5 +1,6 @@
 import { handleRequest } from "../http/handler.js";
 import { edgeConfigValue, readEdgeEnv } from "./edge-env.js";
+import { SITE_ASSETS } from "./site-assets.js";
 
 /**
  * ArvanCloud Edge Compute adapter.
@@ -31,6 +32,7 @@ export function createEdgeConfig() {
     signingKey: edgeConfigValue(readEdgeEnv("GAME_SIGNING_KEY")),
     rngKey: edgeConfigValue(readEdgeEnv("GAME_RNG_KEY")),
     allowedOrigin: edgeConfigValue(readEdgeEnv("FRONTEND_ORIGIN")) || "",
+    assets: SITE_ASSETS,
     now: () => Date.now(),
   };
 }

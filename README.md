@@ -78,13 +78,19 @@ npm run dev:api
 npm run dev:web
 ```
 
-`npm run build` writes the static client to `dist/client` and the edge bundle to `dist/edge/game-api.js`.
+`npm run build` writes the static client to `dist/client` and one edge file to `dist/edge/game-api.js`. That edge file contains the built page and the game API.
 
-## Hosting the client and the API separately
+## Hosting
 
-The React app is a static build. It does not run on the edge. The game API is the edge bundle.
+Deploy `dist/edge/game-api.js` again after each build:
 
-For a same-origin deployment, serve `dist/client` from your site and route `/api/*` to the edge application. Same-origin requests do not need CORS. `FRONTEND_ORIGIN` is only the browser origin allowed to read local cross-origin responses. It is not authentication and it is not replay protection.
+```bash
+arvan ec deploy -f dist/edge/game-api.js monster-journey
+```
+
+Use the project name already created in the panel. Opening the edge URL, for example `https://monster.example.arvanedge.ir/`, returns the game page. `POST /api/game/start`, `/action`, and `/resume` on that same origin run the rules. The React code runs in the browser. It does not decide damage, enemies, or rewards.
+
+`dist/client` remains a separate static build if you later put the page on a CDN and route only `/api` to the edge. `FRONTEND_ORIGIN` is only the browser origin allowed to read cross-origin API responses. Same-origin play does not need it. It is not authentication and it is not replay protection.
 
 The local Node adapter (`src/server/adapters/local.js`) exists for development. It is not part of the edge bundle.
 
@@ -114,13 +120,13 @@ Checked against the public docs while building this repository:
 | --- | --- |
 | Request delivery | Confirmed. Official examples use `addEventListener("fetch", (event) => { event.respondWith(...) })` and a standard `Request`. |
 | Response | Confirmed. Examples return a standard `Response`. |
-| Bundle deploy command | Documented as `r1ec deploy [PROJECTNAME] -f <file>`, or by uploading a built file in the panel. This repository does not run that command. |
+| Bundle deploy command | The panel documents `arvan ec deploy -f <file> <project-name>`, and also uploading a built file. An older English page documents `r1ec deploy`. This repository does not run either command. |
 | Environment variables | Confirmed as per-app JSON values, including encrypted runtime-only values, read from a global `env` binding. `EC_URL` is reserved. The docs' own example names `test-variable` and then reads `env.test.status`, so this project uses unsuffixed names: `env.GAME_SIGNING_KEY` and `env.GAME_RNG_KEY`. |
 | ES modules vs a classic bundle | Not fully confirmed. Official samples are classic scripts. The committed edge artifact is one IIFE bundle with the fetch listener and no `export`. |
-| Web Crypto HMAC-SHA-256 sign, verify, and `getRandomValues` | Not confirmed. The handler uses Web Crypto and returns `CONFIGURATION_ERROR` if it is missing. There is no unsigned or hashed fallback. |
+| Web Crypto HMAC-SHA-256 sign, verify, and `getRandomValues` | Confirmed on the deployed `monster.mahyarrrba3r.arvanedge.ir` function: `POST /api/game/start` returned a signed token. The handler still returns `CONFIGURATION_ERROR` if Web Crypto is missing. There is no unsigned or hashed fallback. |
 | CPU, memory, request, and response limits | Not documented in the pages reviewed. The app enforces a 32 KiB request body itself and keeps tokens small, but platform limits still need to be checked before a production claim. |
 
-No production deployment was performed. Do not treat `dist/edge/game-api.js` as certified for the live runtime until Web Crypto and the resource limits are confirmed against the current ArvanCloud docs or a real function.
+The API bundle was deployed by hand to `monster.mahyarrrba3r.arvanedge.ir`. CPU, memory, and platform body limits are still not documented. The app enforces a 32 KiB request body itself and keeps tokens small.
 
 `src/server/adapters/arvan.js` is the only place that touches the fetch listener and `env`. Game rules stay in the engine. `handleRequest(request, config)` is the platform-independent entry used by both adapters.
 
