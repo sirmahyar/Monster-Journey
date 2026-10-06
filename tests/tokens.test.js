@@ -3,11 +3,11 @@ import { TOKEN_TTL_MS } from "../src/shared/protocol.js";
 import { handleRequest } from "../src/server/http/handler.js";
 import { bytesToBase64Url, canonicalJson, utf8Bytes, utf8String, base64ToBytes } from "../src/server/security/encoding.js";
 import { signRawPayload, signState, verifyState } from "../src/server/security/tokens.js";
-import { NOW, SIGNING_KEY, jsonRequest, routeState } from "./helpers.js";
+import { NOW, SIGNING_KEY, jsonRequest, runState } from "./helpers.js";
 
 const key = SIGNING_KEY;
 
-async function signed(state = routeState()) {
+async function signed(state = runState()) {
   return { state, token: await signState(state, key) };
 }
 
@@ -20,7 +20,7 @@ describe("signed state tokens", () => {
     const pretty = utf8Bytes(JSON.stringify(state));
     const alternate = await signRawPayload(pretty, key);
     expect(alternate).not.toBe(token);
-    await expect(verifyState(alternate, key, NOW)).resolves.toMatchObject({ phase: "route", gameId: state.gameId });
+    await expect(verifyState(alternate, key, NOW)).resolves.toMatchObject({ phase: "run", gameId: state.gameId });
   });
 
   it("rejects a modified payload even when the signature still decodes", async () => {
@@ -33,7 +33,7 @@ describe("signed state tokens", () => {
   });
 
   it("rejects a payload whose bytes were reformatted under the old signature", async () => {
-    const state = routeState();
+    const state = runState();
     const token = await signRawPayload(utf8Bytes(canonicalJson(state)), key);
     const reformatted = utf8Bytes(JSON.stringify(state, null, 2));
     const moved = `${bytesToBase64Url(reformatted)}.${token.split(".")[1]}`;
@@ -51,7 +51,7 @@ describe("signed state tokens", () => {
   });
 
   it("rejects an expired token and accepts it one millisecond earlier", async () => {
-    const state = routeState();
+    const state = runState();
     const { token } = await signed(state);
     await expect(verifyState(token, key, state.expiresAt - 1)).resolves.toMatchObject({ gameId: state.gameId });
     await expect(verifyState(token, key, state.expiresAt)).rejects.toMatchObject({ code: "TOKEN_EXPIRED" });
@@ -59,14 +59,14 @@ describe("signed state tokens", () => {
 
   it("rejects unsupported versions before treating them as a generic schema failure", async () => {
     for (const patch of [{ schemaVersion: 2 }, { rulesVersion: 9 }]) {
-      const broken = { ...routeState(), ...patch };
+      const broken = { ...runState(), ...patch };
       const token = await signRawPayload(utf8Bytes(canonicalJson(broken)), key);
       await expect(verifyState(token, key, NOW)).rejects.toMatchObject({ code: "UNSUPPORTED_VERSION" });
     }
   });
 
   it("rejects an invalid state schema after a good signature", async () => {
-    const broken = routeState();
+    const broken = runState();
     broken.player = { ...broken.player, hp: -1 };
     const token = await signRawPayload(utf8Bytes(canonicalJson(broken)), key);
     await expect(verifyState(token, key, NOW)).rejects.toMatchObject({ code: "INVALID_TOKEN" });

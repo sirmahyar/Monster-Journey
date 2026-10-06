@@ -1,7 +1,7 @@
 import { API_PATHS } from "../../shared/protocol.js";
 import { GameError } from "../errors.js";
 import { createHmacRng } from "../game/rng.js";
-import { createInitialState, transition } from "../game/engine.js";
+import { startRun, transition } from "../game/engine.js";
 import { toPublicView } from "../game/public-view.js";
 import { bytesToBase64Url } from "../security/encoding.js";
 import { coerceKey, randomBytes } from "../security/crypto.js";
@@ -59,13 +59,14 @@ async function startGame(request, allowedOrigin, secrets) {
   const body = await readJsonBody(request);
   parseStartBody(body);
   const gameId = bytesToBase64Url(randomBytes(16));
-  const state = createInitialState(gameId);
-  stampLifetime(state, secrets.now());
-  const token = await signState(state, secrets.signingKey);
+  const rng = createHmacRng(secrets.rngKey, gameId, 0);
+  const opened = await startRun(gameId, rng);
+  stampLifetime(opened.state, secrets.now());
+  const token = await signState(opened.state, secrets.signingKey);
   return jsonResponse(request, allowedOrigin, 200, {
     token,
-    view: toPublicView(state),
-    events: [{ type: "game_started" }],
+    view: toPublicView(opened.state),
+    events: opened.events,
   });
 }
 

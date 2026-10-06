@@ -47,7 +47,7 @@ for (const needle of forbidden) {
     throw new Error(`Edge bundle contains forbidden marker: ${needle}`);
   }
 }
-if (!bundled.includes("سفر بی‌پایان هیولا")) {
+if (!bundled.includes("Endless Monster Journey")) {
   throw new Error("Edge bundle is missing the built game page");
 }
 if (!bundled.includes("addEventListener")) {

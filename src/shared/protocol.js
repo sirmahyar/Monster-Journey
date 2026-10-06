@@ -1,11 +1,9 @@
-/** Public protocol constants. No secrets and no combat formulas. */
+/** Public protocol constants. No secrets and no encounter-generation formulas. */
 
 export const SCHEMA_VERSION = 1;
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 
-export const PHASES = Object.freeze(["route", "combat", "reward", "game_over"]);
-export const ROUTES = Object.freeze(["forest", "cave", "spring"]);
-export const MOVES = Object.freeze(["attack", "defend", "special", "potion"]);
+export const PHASES = Object.freeze(["run", "game_over"]);
 
 export const API_PATHS = Object.freeze({
   start: "/api/game/start",

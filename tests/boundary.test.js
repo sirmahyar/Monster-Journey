@@ -22,6 +22,8 @@ describe("module boundaries", () => {
       expect(source).not.toMatch(/from\s+["'][^"']*server\//);
       expect(source).not.toContain("GAME_SIGNING_KEY");
       expect(source).not.toContain("defenderDefense");
+      expect(source).not.toContain("isin");
+      expect(source).not.toContain("generateLeg");
       expect(source).not.toContain("Math.random");
     }
     for (const source of server) {

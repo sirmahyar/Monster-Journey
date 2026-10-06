@@ -1,52 +1,52 @@
-/** Starting balance. These are tuning values, not a claim of finished design. */
+/** Starting balance for the endless flight. Tuning values, not a finished design. */
+
+export const FIELD_HEIGHT = 360;
+export const PLAYER_X = 86;
+export const PLAYER_RADIUS = 16;
+export const MAX_DY = 26;
+export const LEG_TICKS = 70;
+export const TICK_MS = 40;
+export const VIEW_WIDTH = 520;
+export const ENERGY_REGEN_EVERY = 8;
 
 export const INITIAL_PLAYER = Object.freeze({
   maxHp: 100,
   hp: 100,
-  attack: 14,
-  defense: 4,
   maxEnergy: 5,
   energy: 3,
-  potions: 2,
+  y: 180,
 });
 
-export const SPECIAL_ENERGY_COST = 3;
-export const ATTACK_ENERGY_GAIN = 1;
-export const DEFEND_ENERGY_GAIN = 2;
-export const POTION_HEAL_PERCENT = 35;
-export const SPRING_HEAL_PERCENT = 30;
-export const SPRING_ENERGY_GAIN = 2;
-export const SPRING_EVERY_N_STAGES = 3;
-export const ENEMY_RECOVER_PERCENT = 10;
-export const CAVE_HP_BONUS_NUMERATOR = 120;
-export const CAVE_HP_BONUS_DENOMINATOR = 100;
-export const CAVE_REWARD_NUMERATOR = 3;
-export const CAVE_REWARD_DENOMINATOR = 2;
-export const HP_SCALE_PERCENT_PER_STAGE = 12;
-export const ATTACK_SCALE_PERCENT_PER_STAGE = 8;
-export const DEFENSE_STAGE_INTERVAL = 4;
-export const DAMAGE_VARIANCE = 2;
-export const OFFER_COUNT = 3;
+export const ACTOR_KINDS = Object.freeze({
+  shard: Object.freeze({ role: "hazard", radius: 16, power: 12, vx: 0, amp: 46, freq: 1 }),
+  bat: Object.freeze({ role: "hazard", radius: 18, power: 18, vx: -4, amp: 28, freq: 1 }),
+  boulder: Object.freeze({ role: "hazard", radius: 28, power: 26, vx: 3, amp: 0, freq: 0 }),
+  heart: Object.freeze({ role: "heal", radius: 12, power: 18, vx: 0, amp: 16, freq: 1 }),
+  spark: Object.freeze({ role: "energy", radius: 12, power: 1, vx: -1, amp: 22, freq: 1 }),
+});
 
-export const VITALITY_HP = 15;
-export const POWER_ATTACK = 3;
-export const ARMOR_DEFENSE = 2;
-export const ENERGY_REWARD = 1;
-export const SUPPLIES_POTIONS = 1;
-export const SUPPLIES_HP = 10;
-
-/**
- * Hard stops so a very long run cannot drift into unsafe Number arithmetic.
- * Crossing one rejects the action instead of wrapping or losing precision.
- */
 export const LIMITS = Object.freeze({
-  maxCompletedStages: 5000,
+  maxDistance: 5_000_000,
   maxHp: 1_000_000,
-  maxAttack: 100_000,
-  maxDefense: 100_000,
   maxEnergy: 200,
-  maxPotions: 500,
   maxRevision: 1_000_000,
   maxRngCounter: 5_000_000,
   maxTokenCharacters: 8192,
+  maxActorPower: 80,
 });
+
+/** @param {number} distance */
+export function speedFor(distance) {
+  return Math.min(18, 8 + Math.floor(distance / 800));
+}
+
+/** @param {number} distance */
+export function actorCountFor(distance) {
+  return Math.min(8, 5 + Math.floor(distance / 1000));
+}
+
+/** @param {number} distance @param {string} role */
+export function powerBonus(distance, role) {
+  if (role !== "hazard") return 0;
+  return Math.min(20, Math.floor(distance / 1500));
+}

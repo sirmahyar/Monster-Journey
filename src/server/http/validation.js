@@ -1,8 +1,5 @@
-import { LIMITS } from "../game/balance.js";
+import { FIELD_HEIGHT, LEG_TICKS, LIMITS, PLAYER_RADIUS } from "../game/balance.js";
 import { invalidRequest } from "../errors.js";
-
-const ROUTES = new Set(["forest", "cave", "spring"]);
-const MOVES = new Set(["attack", "defend", "special", "potion"]);
 
 /** @param {unknown} data */
 export function parseStartBody(data) {
@@ -29,24 +26,21 @@ export function parseActionBody(data) {
 /** @param {unknown} action */
 function parseAction(action) {
   assertPlainObject(action);
-  if (action.type === "choose_route") {
-    assertExactKeys(action, ["type", "route"]);
-    if (!ROUTES.has(action.route)) throw invalidRequest("Unknown route");
-    return { type: "choose_route", route: action.route };
+  if (action.type !== "finish_leg") throw invalidRequest("Unsupported action");
+  assertExactKeys(action, ["type", "inputs"]);
+  if (!Array.isArray(action.inputs) || action.inputs.length !== LEG_TICKS) {
+    throw invalidRequest("Flight inputs do not match this stretch");
   }
-  if (action.type === "combat_move") {
-    assertExactKeys(action, ["type", "move"]);
-    if (!MOVES.has(action.move)) throw invalidRequest("Unknown combat move");
-    return { type: "combat_move", move: action.move };
-  }
-  if (action.type === "choose_reward") {
-    assertExactKeys(action, ["type", "offerId"]);
-    if (typeof action.offerId !== "string" || !/^[a-z0-9_-]{1,64}$/.test(action.offerId)) {
-      throw invalidRequest("Reward id is invalid");
+  const inputs = action.inputs.map((input) => {
+    assertPlainObject(input);
+    assertExactKeys(input, ["y", "dash"]);
+    if (!Number.isSafeInteger(input.y) || input.y < PLAYER_RADIUS || input.y > FIELD_HEIGHT - PLAYER_RADIUS) {
+      throw invalidRequest("A lane position is invalid");
     }
-    return { type: "choose_reward", offerId: action.offerId };
-  }
-  throw invalidRequest("Unsupported action");
+    if (input.dash !== 0 && input.dash !== 1) throw invalidRequest("Dash is invalid");
+    return { y: input.y, dash: input.dash };
+  });
+  return { type: "finish_leg", inputs };
 }
 
 /** @param {unknown} token */

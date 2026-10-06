@@ -19,43 +19,33 @@ function gameplay(state) {
 }
 
 describe("game HTTP API", () => {
-  it("starts, fights, rewards, and resumes without changing a verified save", async () => {
+  it("starts a flight, accepts a stretch, and resumes the same save", async () => {
     const started = await post(API_PATHS.start, {});
     expect(started.response.status).toBe(200);
     expect(started.response.headers.get("cache-control")).toBe("no-store");
-    expect(started.payload.view).toMatchObject({ phase: "route", revision: 0, stage: 1, completedStages: 0 });
-    expect(started.payload.events).toEqual([{ type: "game_started" }]);
+    expect(started.payload.view).toMatchObject({ phase: "run", revision: 0, distance: 0 });
+    expect(started.payload.view.actors.length).toBeGreaterThanOrEqual(5);
+    expect(started.payload.view.actors[0].points.length).toBeGreaterThan(10);
+    expect(started.payload.events).toEqual([{ type: "run_started", distance: 0 }]);
 
-    let token = started.payload.token;
-    const forest = await post(API_PATHS.action, { token, action: { type: "choose_route", route: "forest" } });
-    expect(forest.payload.view.phase).toBe("combat");
-    expect(forest.payload.view.enemy.archetype === "forest_slime" || forest.payload.view.enemy.archetype === "cave_bat").toBe(true);
-    token = forest.payload.token;
+    const inputs = started.payload.view.actors[0].points.map(() => ({ y: started.payload.view.player.y, dash: 0 }));
+    const flown = await post(API_PATHS.action, { token: started.payload.token, action: { type: "finish_leg", inputs } });
+    expect(flown.response.status).toBe(200);
+    expect(flown.payload.view.revision).toBe(1);
+    expect(flown.payload.view.distance).toBeGreaterThan(0);
+    expect(["run", "game_over"]).toContain(flown.payload.view.phase);
 
-    let view = forest.payload.view;
-    for (let turn = 0; turn < 12 && view.phase === "combat"; turn += 1) {
-      const fought = await post(API_PATHS.action, { token, action: { type: "combat_move", move: "attack" } });
-      view = fought.payload.view;
-      token = fought.payload.token;
-    }
-    expect(view.phase).toBe("reward");
-    expect(view.rewardOffers).toHaveLength(3);
-
-    const offerId = view.rewardOffers[0].id;
-    const rewarded = await post(API_PATHS.action, { token, action: { type: "choose_reward", offerId } });
-    expect(rewarded.payload.view).toMatchObject({ phase: "route", completedStages: 1, stage: 2 });
-    token = rewarded.payload.token;
-
-    const resumed = await post(API_PATHS.resume, { token });
-    expect(resumed.payload.token).toBe(token);
+    const resumed = await post(API_PATHS.resume, { token: flown.payload.token });
+    expect(resumed.payload.token).toBe(flown.payload.token);
     expect(resumed.payload.events).toEqual([]);
-    expect(resumed.payload.view).toEqual(rewarded.payload.view);
+    expect(resumed.payload.view).toEqual(flown.payload.view);
   });
 
   it("replays the same action into the same gameplay result when the clock changes", async () => {
     const config = apiConfig();
     const started = await post(API_PATHS.start, {}, config);
-    const action = { type: "choose_route", route: "cave" };
+    const inputs = started.payload.view.actors[0].points.map(() => ({ y: started.payload.view.player.y, dash: 0 }));
+    const action = { type: "finish_leg", inputs };
     const first = await post(API_PATHS.action, { token: started.payload.token, action }, config);
     const second = await post(API_PATHS.action, { token: started.payload.token, action }, config);
     expect(first.payload.events).toEqual(second.payload.events);
@@ -99,10 +89,10 @@ describe("game HTTP API", () => {
     const token = started.payload.token;
     const cases = [
       jsonRequest(API_PATHS.start, { hp: 9999 }),
-      jsonRequest(API_PATHS.action, { token, action: { type: "combat_move", move: "attack", damage: 9999 } }),
+      jsonRequest(API_PATHS.action, { token, action: { type: "finish_leg", inputs: [], hp: 9999 } }),
       jsonRequest(API_PATHS.action, { token, action: { type: "choose_route", route: "forest", player: { hp: 1 } } }),
       jsonRequest(API_PATHS.resume, { token, view: { phase: "game_over" } }),
-      jsonRequest(API_PATHS.action, { token, action: { type: "combat_move", move: "attack" } }),
+      jsonRequest(API_PATHS.action, { token, action: { type: "finish_leg", inputs: [{ y: 1, dash: 0 }] } }),
     ];
     for (const request of cases) {
       const response = await handleRequest(request, apiConfig());

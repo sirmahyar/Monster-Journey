@@ -1,8 +1,15 @@
 import { SCHEMA_VERSION, RULES_VERSION, TOKEN_TTL_MS } from "../../shared/protocol.js";
-import { LIMITS } from "../game/balance.js";
-import { INTENTIONS, ROUTE_POOLS, scaleEnemy } from "../game/enemies.js";
-import { REWARD_CATEGORIES, effectsFor } from "../game/upgrades.js";
-import { GameError, invalidToken, unsupportedVersion } from "../errors.js";
+import {
+  ACTOR_KINDS,
+  FIELD_HEIGHT,
+  LEG_TICKS,
+  LIMITS,
+  PLAYER_RADIUS,
+  actorCountFor,
+  powerBonus,
+  speedFor,
+} from "../game/balance.js";
+import { invalidToken, unsupportedVersion } from "../errors.js";
 
 const STATE_KEYS = [
   "schemaVersion",
@@ -13,19 +20,18 @@ const STATE_KEYS = [
   "issuedAt",
   "expiresAt",
   "phase",
-  "completedStages",
+  "distance",
   "player",
-  "encounter",
-  "rewardOffers",
+  "leg",
 ];
 
-const PLAYER_KEYS = ["maxHp", "hp", "attack", "defense", "maxEnergy", "energy", "potions"];
-const ENCOUNTER_KEYS = ["archetype", "route", "maxHp", "hp", "attack", "defense", "intention"];
-const OFFER_KEYS = ["id", "category", "effects"];
+const PLAYER_KEYS = ["maxHp", "hp", "maxEnergy", "energy", "y"];
+const LEG_KEYS = ["speed", "tickCount", "actors"];
+const ACTOR_KEYS = ["id", "kind", "role", "x", "y", "vx", "vy", "amp", "freq", "phase", "radius", "power"];
 
 /**
- * Structural and balance checks for a parsed token payload.
- * Expiry is checked separately so resume and action share one clock policy.
+ * Structural checks for a parsed token payload.
+ * Expiry is checked by the caller so resume and action share one clock policy.
  * @param {unknown} state
  */
 export function assertValidState(state) {
@@ -45,35 +51,17 @@ export function assertValidState(state) {
   assertInt(state.issuedAt, 0, Number.MAX_SAFE_INTEGER);
   assertInt(state.expiresAt, 0, Number.MAX_SAFE_INTEGER);
   if (state.expiresAt !== state.issuedAt + TOKEN_TTL_MS) throw invalidToken();
-  if (!["route", "combat", "reward", "game_over"].includes(state.phase)) throw invalidToken();
-  assertInt(state.completedStages, 0, LIMITS.maxCompletedStages);
+  if (state.phase !== "run" && state.phase !== "game_over") throw invalidToken();
+  assertInt(state.distance, 0, LIMITS.maxDistance);
   assertPlayer(state.player);
 
-  if (state.phase === "route") {
-    if (state.encounter !== null || !Array.isArray(state.rewardOffers) || state.rewardOffers.length !== 0) {
-      throw invalidToken();
-    }
+  if (state.phase === "run") {
     if (state.player.hp <= 0) throw invalidToken();
+    assertLeg(state.leg, state.distance);
     return;
   }
 
-  if (state.phase === "combat") {
-    assertEncounter(state.encounter, state.completedStages, "positive");
-    if (!Array.isArray(state.rewardOffers) || state.rewardOffers.length !== 0) throw invalidToken();
-    if (state.player.hp <= 0) throw invalidToken();
-    return;
-  }
-
-  if (state.phase === "reward") {
-    assertEncounter(state.encounter, state.completedStages, "zero");
-    assertOffers(state.rewardOffers, state.encounter.route);
-    if (state.player.hp <= 0) throw invalidToken();
-    return;
-  }
-
-  if (state.player.hp !== 0) throw invalidToken();
-  assertEncounter(state.encounter, state.completedStages, "positive");
-  if (!Array.isArray(state.rewardOffers) || state.rewardOffers.length !== 0) throw invalidToken();
+  if (state.player.hp !== 0 || state.leg !== null) throw invalidToken();
 }
 
 /** @param {object} player */
@@ -82,68 +70,38 @@ function assertPlayer(player) {
   assertExactKeys(player, PLAYER_KEYS);
   assertInt(player.maxHp, 1, LIMITS.maxHp);
   assertInt(player.hp, 0, player.maxHp);
-  assertInt(player.attack, 1, LIMITS.maxAttack);
-  assertInt(player.defense, 0, LIMITS.maxDefense);
   assertInt(player.maxEnergy, 1, LIMITS.maxEnergy);
   assertInt(player.energy, 0, player.maxEnergy);
-  assertInt(player.potions, 0, LIMITS.maxPotions);
+  assertInt(player.y, PLAYER_RADIUS, FIELD_HEIGHT - PLAYER_RADIUS);
 }
 
 /**
- * @param {unknown} encounter
- * @param {number} completedStages
- * @param {"positive" | "zero"} hpRule
+ * @param {unknown} leg
+ * @param {number} distance
  */
-function assertEncounter(encounter, completedStages, hpRule) {
-  if (!isPlainObject(encounter)) throw invalidToken();
-  assertExactKeys(encounter, ENCOUNTER_KEYS);
-  if (encounter.route !== "forest" && encounter.route !== "cave") throw invalidToken();
-  const pool = ROUTE_POOLS[encounter.route];
-  if (!pool.includes(encounter.archetype)) throw invalidToken();
-  if (!INTENTIONS.includes(encounter.intention)) throw invalidToken();
-  let expected;
-  try {
-    expected = scaleEnemy(encounter.archetype, completedStages + 1, encounter.route);
-  } catch (error) {
-    if (error instanceof GameError) throw invalidToken();
-    throw error;
-  }
-  if (
-    encounter.maxHp !== expected.maxHp ||
-    encounter.attack !== expected.attack ||
-    encounter.defense !== expected.defense
-  ) {
-    throw invalidToken();
-  }
-  assertInt(encounter.hp, 0, encounter.maxHp);
-  if (hpRule === "zero" && encounter.hp !== 0) throw invalidToken();
-  if (hpRule === "positive" && encounter.hp <= 0) throw invalidToken();
-}
-
-/**
- * @param {unknown} offers
- * @param {"forest" | "cave"} route
- */
-function assertOffers(offers, route) {
-  if (!Array.isArray(offers) || offers.length !== 3) throw invalidToken();
+function assertLeg(leg, distance) {
+  if (!isPlainObject(leg)) throw invalidToken();
+  assertExactKeys(leg, LEG_KEYS);
+  if (leg.speed !== speedFor(distance)) throw invalidToken();
+  if (leg.tickCount !== LEG_TICKS) throw invalidToken();
+  if (!Array.isArray(leg.actors) || leg.actors.length !== actorCountFor(distance)) throw invalidToken();
   const seen = new Set();
-  for (const offer of offers) {
-    if (!isPlainObject(offer)) throw invalidToken();
-    assertExactKeys(offer, OFFER_KEYS);
-    if (!REWARD_CATEGORIES.includes(offer.category) || offer.id !== offer.category) throw invalidToken();
-    if (seen.has(offer.category)) throw invalidToken();
-    seen.add(offer.category);
-    if (!isPlainObject(offer.effects)) throw invalidToken();
-    const expected = effectsFor(offer.category, route === "cave");
-    const actualKeys = Object.keys(offer.effects).sort();
-    const expectedKeys = Object.keys(expected).sort();
-    if (actualKeys.length !== expectedKeys.length || actualKeys.some((key, index) => key !== expectedKeys[index])) {
-      throw invalidToken();
-    }
-    for (const key of expectedKeys) {
-      if (offer.effects[key] !== expected[key]) throw invalidToken();
-    }
-  }
+  leg.actors.forEach((actor, index) => {
+    if (!isPlainObject(actor)) throw invalidToken();
+    assertExactKeys(actor, ACTOR_KEYS);
+    if (actor.id !== `a${index}` || seen.has(actor.id)) throw invalidToken();
+    seen.add(actor.id);
+    const spec = ACTOR_KINDS[actor.kind];
+    if (!spec || actor.role !== spec.role || actor.radius !== spec.radius) throw invalidToken();
+    if (actor.vx !== spec.vx || actor.amp !== spec.amp || actor.freq !== spec.freq) throw invalidToken();
+    const bonus = powerBonus(distance, actor.role);
+    if (actor.power !== spec.power + bonus) throw invalidToken();
+    assertInt(actor.x, 0, 8_000);
+    assertInt(actor.y, spec.radius, FIELD_HEIGHT - spec.radius);
+    assertInt(actor.vy, -1, 1);
+    if (actor.kind !== "bat" && actor.vy !== 0) throw invalidToken();
+    assertInt(actor.phase, 0, 15);
+  });
 }
 
 /**

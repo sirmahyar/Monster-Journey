@@ -1,6 +1,6 @@
 # Endless Monster Journey
 
-سفر بی‌پایان هیولا is a single-player, turn-based game. The browser draws the journey. The game API, intended to run on ArvanCloud Edge Compute, creates encounters, resolves combat, offers rewards, and signs the next state.
+Endless Monster Journey is a single-player endless flight. The browser draws Lumen and the moving vectors. The game API, intended to run on ArvanCloud Edge Compute, builds each stretch, resolves hits, healing, and distance, and signs the next state.
 
 There is no database, KV store, filesystem save, or shared memory between requests. The signed token carried by the browser is the whole save.
 
@@ -8,9 +8,9 @@ There is no database, KV store, filesystem save, or shared memory between reques
 
 ```text
 browser (React, Vite)
-  renders routes, combat, rewards, and animations
+  draws the lane, steers the creature, and plays the stretch
   stores the latest signed token
-  sends a decision plus that token
+  sends the recorded flight inputs plus that token
 
 handleRequest(request, config)  →  Response
   validates the body and token
@@ -22,25 +22,21 @@ src/server/game/engine.js
   no HTTP, clock, secrets, or React
 ```
 
-The client never imports `src/server`. Shared protocol constants live in `src/shared/protocol.js`. Enemy tables, reward amounts, and signing keys do not.
+The client never imports `src/server`. Shared protocol constants live in `src/shared/protocol.js`. Actor paths, damage, and signing keys do not.
 
 Authoritative work on the edge:
 
-- route availability, including the spring
-- enemy selection, scaling, and the next intention
-- damage, defense, healing, and potions
-- the three reward offers and the selected offer
+- which vectors appear, and how each one moves
+- hull damage, healing, dash energy, and distance
 - the next signed state
 
-The browser may disable a button early, but a forged action or a forged token is rejected. Disconnecting the API stops progression; local animation cannot mint a new accepted state.
+The picture can flash a hit immediately from the tracks the edge already sent. The hull and distance that persist are the ones the edge returns. A forged token or a forged distance is rejected. Disconnecting the API stops the run.
 
 ## State machine
 
-`route` → combat route → `combat` → victory → `reward` → `route`
+`run` → finish the stretch → `run`, until hull reaches zero → `game_over`
 
-The spring, only when `stage % 3 === 0`, heals and returns to `route` without a combat reward.
-
-`stage = completedStages + 1`. A battle stage is complete only after its reward is chosen. At zero health the phase is `game_over`. That phase accepts no gameplay action. A new run uses `POST /api/game/start`.
+`game_over` accepts no gameplay action. A new run uses `POST /api/game/start`. Each stretch is a fixed number of ticks. The browser records one lane position and one dash flag per tick. The edge replays those inputs against the signed vectors.
 
 ## Signed saves
 
@@ -50,7 +46,7 @@ The payload is canonical JSON signed with HMAC-SHA-256. Verification checks thos
 
 Lifetime is seven days from the last accepted action, including start. Resume checks the token and does not refresh the expiry or the revision. Rotating `GAME_SIGNING_KEY` invalidates existing saves; this version has no key-migration path.
 
-The signature stops a player from editing health, rewards, or enemy stats into a new accepted state. It does not stop them from replaying an old token or trying several actions from the same saved state. There is no replay protection, exactly-once processing, or server-side attempt limit. This is a casual game, not a prize leaderboard, and it cannot certify a winning score.
+The signature stops a player from editing hull, distance, or vector paths into a new accepted state. It does not stop them from replaying an old token or trying several flight paths from the same saved stretch. There is no replay protection, exactly-once processing, or server-side attempt limit. This is a casual game, not a prize leaderboard, and it cannot certify a winning score.
 
 ## Local setup
 
@@ -88,7 +84,7 @@ Deploy `dist/edge/game-api.js` again after each build:
 arvan ec deploy -f dist/edge/game-api.js monster-journey
 ```
 
-Use the project name already created in the panel. Opening the edge URL, for example `https://monster.example.arvanedge.ir/`, returns the game page. `POST /api/game/start`, `/action`, and `/resume` on that same origin run the rules. The React code runs in the browser. It does not decide damage, enemies, or rewards.
+Use the project name already created in the panel. Opening the edge URL returns the game page. `POST /api/game/start`, `/action`, and `/resume` on that same origin run the rules. The React code runs in the browser. It does not decide hits, healing, or distance.
 
 `dist/client` remains a separate static build if you later put the page on a CDN and route only `/api` to the edge. `FRONTEND_ORIGIN` is only the browser origin allowed to read cross-origin API responses. Same-origin play does not need it. It is not authentication and it is not replay protection.
 
@@ -100,11 +96,9 @@ The local Node adapter (`src/server/adapters/local.js`) exists for development. 
 
 `POST /api/game/action` with `{ "token", "action" }`
 
-Actions:
+Action:
 
-- `{ "type": "choose_route", "route": "forest" | "cave" | "spring" }`
-- `{ "type": "combat_move", "move": "attack" | "defend" | "special" | "potion" }`
-- `{ "type": "choose_reward", "offerId": "..." }`
+- `{ "type": "finish_leg", "inputs": [{ "y": 180, "dash": 0 }, ...] }`
 
 `POST /api/game/resume` with `{ "token" }`
 
@@ -132,14 +126,12 @@ The API bundle was deployed by hand to `monster.mahyarrrba3r.arvanedge.ir`. CPU,
 
 ## Rules, briefly
 
-The starting creature has 100/100 health, 14 attack, 4 defense, 3/5 energy, and 2 potions. Forest and cave are always available. The cave adds 20% enemy max health after stage scaling and multiplies positive reward numbers by 1.5, rounded upward. The spring restores 30% of max health and 2 energy.
+Lumen starts with 100 hull and 3 dash charges. The creature stays on the left of the lane. Shards weave, bats cut across, and boulders drift on their own vectors. Hearts restore hull. Sparks restore a dash charge. A dash spends one charge and ignores hazards for that tick. The edge applies each hazard once per stretch. Speed rises with distance. A killing hit ends the run.
 
-Combat is `attack`, `defend`, `special` (3 energy, double attack), and `potion` (35% of max health). Damage is at least 1 after defense and a roll from -2 to 2. A killing blow does not receive a retaliation. The enemy's resolved action is the intention already shown.
-
-Random draws are HMAC-SHA-256 over `gameId`, an incrementing counter, and a purpose string (`enemy_selection`, `damage_roll`, `enemy_intent`, `reward_selection`), using unbiased bounded integers. The same token and action produce the same gameplay result. Issuance timestamps may differ. `Math.random` is not used for rules.
+Random draws are HMAC-SHA-256 over `gameId`, an incrementing counter, and a purpose string (`actor_kind`, `actor_y`, `actor_x`, `actor_phase`, `actor_vy`), using unbiased bounded integers. The same token and the same inputs produce the same gameplay result. Issuance timestamps may differ. `Math.random` is not used for rules.
 
 Very long runs that would leave safe integer limits are rejected instead of being allowed to corrupt stats.
 
 ## UI
 
-The interface is Persian and right-to-left. Strings are centralized in `src/client/strings.js`. The latest token is stored in `localStorage` when that storage works. On reload the client calls resume and renders the returned view. It does not treat a local display cache as authority. Only one gameplay request is in flight. Health and rewards update from the response, after the new token is saved, and the screen ends on the exact public view. A failed request keeps the previous token and can be retried. The edge panel shows the last action, revision, browser round-trip time, and returned events. Round-trip time is not server CPU time.
+The interface is English and left-to-right. Strings are centralized in `src/client/strings.js`. The latest token is stored in `localStorage` when that storage works. On reload the client calls resume and renders the returned view. It does not treat a local display cache as authority. Only one gameplay request is in flight. The token is saved before the next stretch is shown. A failed request keeps the previous token and can be retried with the same inputs. The edge panel shows the last action, revision, browser round-trip time, and returned events. Round-trip time is not server CPU time. Old turn-based saves are rejected because the rules version changed.
