@@ -1,0 +1,30 @@
+{
+  "name": "endless-monster-journey",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:api": "node src/server/adapters/local.js",
+    "dev:web": "vite",
+    "build": "vite build && node scripts/build-edge.js",
+    "build:client": "vite build",
+    "build:edge": "node scripts/build-edge.js",
+    "keys": "node scripts/print-keys.js",
+    "test": "vitest run",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.5.2",
+    "esbuild": "^0.25.5",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4"
+  }
+}
