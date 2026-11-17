@@ -14,6 +14,9 @@ const TEXT_TYPES = {
   ".ico": "image/x-icon",
   ".png": "image/png",
   ".webp": "image/webp",
+  ".woff2": "font/woff2",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
 };
 
 const clientDir = "dist/client";
@@ -31,32 +34,28 @@ await esbuild.build({
   plugins: [siteAssetPlugin(assets)],
   banner: {
     js: [
-      "/* Endless Monster Journey — ArvanCloud edge bundle.",
-      " * GET / serves the built browser page. POST /api/game/* runs the rules.",
+      "/* یورش مرغی — ArvanCloud edge bundle.",
+      " * GET / serves the built game. /api/scores is the scoreboard route.",
       " * Confirmed entry: addEventListener('fetch', event => event.respondWith(...)).",
-      " * This bundle does not fall back to an insecure signature.",
       " */",
     ].join("\n"),
   },
 });
 
 const bundled = readFileSync("dist/edge/game-api.js", "utf8");
-const forbidden = ["node:http", "node:fs", "from \"vite\"", "process.env"];
+const forbidden = ["node:http", "node:fs", "node:net", "from \"vite\"", "process.env", "MYSQL_PASSWORD"];
 for (const needle of forbidden) {
   if (bundled.includes(needle)) {
     throw new Error(`Edge bundle contains forbidden marker: ${needle}`);
   }
 }
-if (!bundled.includes("Endless Monster Journey")) {
+if (!bundled.includes("یورش مرغی")) {
   throw new Error("Edge bundle is missing the built game page");
 }
 if (!bundled.includes("addEventListener")) {
   throw new Error("Edge bundle is missing the confirmed fetch listener");
 }
-if (!bundled.includes("subtle")) {
-  throw new Error("Edge bundle is missing Web Crypto HMAC usage");
-}
-console.log("Wrote dist/edge/game-api.js");
+console.log(`Wrote dist/edge/game-api.js (${bundled.length} bytes)`);
 
 /** @param {string} root */
 function loadClientAssets(root) {

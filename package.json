@@ -12,7 +12,7 @@
     "dev:web": "vite",
     "build": "vite build",
     "build:client": "vite build",
-    "build:edge": "node scripts/build-edge.js",
+    "build:edge": "vite build && node scripts/build-edge.js",
     "keys": "node scripts/print-keys.js",
     "test": "vitest run",
     "preview": "vite preview --host 127.0.0.1 --port 4173"

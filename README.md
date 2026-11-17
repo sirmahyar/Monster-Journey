@@ -29,7 +29,13 @@ npm test
 npm run build
 ```
 
-`npm run build` writes the static client to `dist/client`. Gameplay does not need the old edge bundle.
+`npm run build` writes the static client to `dist/client`. `npm run build:edge` also writes `dist/edge/game-api.js`, one file that serves that client on ArvanCloud Edge Computing.
+
+```bash
+arvan ec deploy -f dist/edge/game-api.js monster
+```
+
+The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The edge runtime can serve the page. It cannot open the MySQL connection, so the scoreboard on that URL stays disconnected until the API runs somewhere that can reach the database.
 
 ## Sound
 
