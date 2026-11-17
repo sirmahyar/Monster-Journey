@@ -1,226 +1,266 @@
-import { useEffect, useRef } from "react";
-import { CHAPTERS, WORLD_H, WORLD_W, createRun, step } from "../../game/sim.js";
-import { playTone } from "../audio.js";
-import { formatNumber, strings } from "../strings.js";
+import { useEffect, useRef, useState } from "react";
+import { H, PLAYER, STEP, W } from "../../game/config.js";
+import { createGame, drainEvents, gameSummary, stepGame } from "../../game/sim.js";
+import { WEAPON_ORDER } from "../../game/weapons.js";
+import { suspendAudio, unlockAudio } from "../audio/engine.js";
+import { playMusic, stopMusic } from "../audio/music.js";
+import { playEvent, playSting } from "../audio/sfx.js";
+import { autopilot } from "../autopilot.js";
+import { createRenderer, drawGame, handleEvents, resetRenderer, resizeRenderer, timeScale } from "../render/draw.js";
+import { strings } from "../strings.js";
+
+const MOVE_KEYS = {
+  arrowleft: [-1, 0],
+  a: [-1, 0],
+  arrowright: [1, 0],
+  d: [1, 0],
+  arrowup: [0, -1],
+  w: [0, -1],
+  arrowdown: [0, 1],
+  s: [0, 1],
+};
+const FIRE_KEYS = [" ", "j", "z"];
+const BOMB_KEYS = ["b", "k", "x", "shift"];
+const TOUCH_GAIN = 1.15;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+
+function makeDemo() {
+  const game = createGame({ chapter: randInt(1, 4), wave: randInt(1, 7) });
+  const p = game.player;
+  p.weapon = WEAPON_ORDER[randInt(0, WEAPON_ORDER.length - 1)];
+  p.level = randInt(3, 5);
+  p.lives = 9;
+  p.bombs = 2;
+  return game;
+}
+
+function typing(event) {
+  return event.target instanceof HTMLElement && Boolean(event.target.closest("input, textarea, select"));
+}
 
 /**
- * @param {{ muted: boolean, onFinish: (result: { score: number, chapter: number, wave: number, victory: boolean }) => void }} props
+ * The playfield. In "demo" mode an autopilot flies behind the menu; in "play" mode the player does.
+ * @param {{ mode: "demo"|"play", runId: number, paused: boolean, onFinish: (summary: object) => void, onPause: (force?: boolean) => void }} props
  */
-export function GameCanvas({ muted, onFinish }) {
+export function GameCanvas({ mode, runId, paused, onFinish, onPause }) {
   const canvasRef = useRef(null);
-  const finishRef = useRef(onFinish);
-  const mutedRef = useRef(muted);
-  finishRef.current = onFinish;
-  mutedRef.current = muted;
+  const props = useRef({ mode, paused, onFinish, onPause });
+  props.current = { mode, paused, onFinish, onPause };
+  const control = useRef({ reset: null, bomb: null, mode: null });
+  const [touch, setTouch] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    const r = createRenderer(canvas);
     const keys = new Set();
-    const pointer = { on: false, x: 160, y: WORLD_H / 2, fire: false };
-    let bombEdge = false;
-    let paused = false;
+    const pointer = { active: false, x: W / 2, y: H - 150, fire: false, touchId: null, ox: 0, oy: 0, sx: 0, sy: 0 };
+    const memory = { x: W / 2, y: H - 150 };
+    let game = null;
     let finished = false;
-    const run = createRun();
+    let bombPulse = 0;
+    let acc = 0;
+    let demoClock = 0;
     let last = performance.now();
     let raf = 0;
 
-    const keyName = (event) => event.key.toLowerCase();
-    const down = (event) => {
-      const key = keyName(event);
-      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) event.preventDefault();
-      if (key === "escape") paused = !paused;
-      if ((key === "b" || key === "shift") && !event.repeat) bombEdge = true;
+    const reset = () => {
+      const play = props.current.mode === "play";
+      game = play ? createGame() : makeDemo();
+      control.current.mode = props.current.mode;
+      finished = false;
+      resetRenderer(r, game.chapter);
+      keys.clear();
+      Object.assign(pointer, { fire: false, touchId: null });
+      acc = 0;
+      demoClock = 0;
+      playMusic(play ? "stage" : "menu", 1);
+    };
+    control.current.reset = reset;
+    control.current.bomb = () => {
+      bombPulse = 0.2;
+    };
+    reset();
+
+    const toWorld = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      return [((event.clientX - rect.left) / rect.width) * W, ((event.clientY - rect.top) / rect.height) * H];
+    };
+    const playing = () => props.current.mode === "play" && !props.current.paused && !game.over;
+
+    const keyDown = (event) => {
+      unlockAudio();
+      if (typing(event)) return;
+      const key = event.key.toLowerCase();
+      if (key === "p" || key === "escape") {
+        if (props.current.mode === "play" && !game.over && !event.repeat) props.current.onPause();
+        return;
+      }
+      if (!playing()) return;
+      if (MOVE_KEYS[key] || FIRE_KEYS.includes(key)) event.preventDefault();
+      if (MOVE_KEYS[key]) pointer.active = false;
       keys.add(key);
     };
-    const up = (event) => keys.delete(keyName(event));
-    const point = (event) => {
-      const rect = canvas.getBoundingClientRect();
-      pointer.x = ((event.clientX - rect.left) / rect.width) * WORLD_W;
-      pointer.y = ((event.clientY - rect.top) / rect.height) * WORLD_H;
-    };
+    const keyUp = (event) => keys.delete(event.key.toLowerCase());
     const pointerDown = (event) => {
-      pointer.on = true;
-      pointer.fire = true;
-      point(event);
+      unlockAudio();
+      if (!playing()) return;
+      const [x, y] = toWorld(event);
+      if (event.pointerType === "touch") {
+        setTouch(true);
+        if (pointer.touchId == null) {
+          const p = game.player;
+          Object.assign(pointer, { touchId: event.pointerId, active: true, fire: true, sx: x, sy: y, ox: p.x, oy: p.y, x: p.x, y: p.y });
+        }
+        return;
+      }
+      if (event.button === 1 || event.button === 2) bombPulse = 0.2;
+      else Object.assign(pointer, { active: true, fire: true, x, y });
+      canvas.setPointerCapture?.(event.pointerId);
     };
-    const pointerUp = () => {
-      pointer.on = false;
-      pointer.fire = false;
-    };
-
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
     const pointerMove = (event) => {
-      if (pointer.on) point(event);
+      if (!playing()) return;
+      const [x, y] = toWorld(event);
+      if (event.pointerType !== "touch") {
+        Object.assign(pointer, { active: true, x, y });
+        return;
+      }
+      if (event.pointerId !== pointer.touchId) return;
+      const tx = pointer.ox + (x - pointer.sx) * TOUCH_GAIN;
+      const ty = pointer.oy + (y - pointer.sy) * TOUCH_GAIN;
+      pointer.x = clamp(tx, 24, W - 24);
+      pointer.y = clamp(ty, PLAYER.minY, PLAYER.maxY);
+      pointer.sx += (tx - pointer.x) / TOUCH_GAIN;
+      pointer.sy += (ty - pointer.y) / TOUCH_GAIN;
     };
-    canvas.addEventListener("pointerdown", pointerDown);
-    canvas.addEventListener("pointermove", pointerMove);
-    window.addEventListener("pointerup", pointerUp);
+    const pointerUp = (event) => {
+      if (event.pointerType === "touch") {
+        if (event.pointerId === pointer.touchId) Object.assign(pointer, { touchId: null, fire: false });
+      } else if (event.button === 0) pointer.fire = false;
+    };
+    const blockMenu = (event) => event.preventDefault();
+    const leave = (event) => {
+      keys.clear();
+      pointer.fire = false;
+      if (playing() && (document.hidden || event.type === "blur")) props.current.onPause(true);
+    };
 
-    const loop = (now) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      if (!paused && !finished) {
-        const ax = (keys.has("arrowright") || keys.has("d") ? 1 : 0) - (keys.has("arrowleft") || keys.has("a") ? 1 : 0);
-        const ay = (keys.has("arrowdown") || keys.has("s") ? 1 : 0) - (keys.has("arrowup") || keys.has("w") ? 1 : 0);
-        step(run, {
-          ax,
-          ay,
-          targetX: pointer.on ? pointer.x : null,
-          targetY: pointer.on ? pointer.y : null,
-          fire: pointer.fire || keys.has(" "),
-          bomb: bombEdge,
-        }, dt || 0);
-        bombEdge = false;
-        for (const sound of run.sounds) playTone(sound, mutedRef.current);
-        if (run.phase !== "play") {
-          finished = true;
-          finishRef.current({
-            score: run.score,
-            chapter: run.chapter + 1,
-            wave: Math.min(5, run.wave + 1),
-            victory: run.phase === "victory",
-          });
+    const readInput = () => {
+      let mx = 0;
+      let my = 0;
+      for (const key of keys) {
+        const m = MOVE_KEYS[key];
+        if (m) {
+          mx += m[0];
+          my += m[1];
         }
       }
-      draw(ctx, run, paused);
+      const aim = pointer.active && !(mx || my);
+      return {
+        moveX: Math.sign(mx),
+        moveY: Math.sign(my),
+        targetX: aim ? pointer.x : null,
+        targetY: aim ? pointer.y : null,
+        fire: pointer.fire || FIRE_KEYS.some((k) => keys.has(k)),
+        bomb: bombPulse > 0 || BOMB_KEYS.some((k) => keys.has(k)),
+      };
+    };
+
+    const react = (events) => {
+      handleEvents(r, events);
+      if (control.current.mode !== "play") return;
+      for (const ev of events) {
+        playEvent(ev, { food: game.player.food });
+        if (ev.type === "wave") playMusic(ev.boss ? "boss" : "stage", ev.chapter);
+        else if (ev.type === "boss_dead") playMusic("stage", game.chapter);
+        else if (ev.type === "gameover" || ev.type === "victory") {
+          stopMusic();
+          playSting(ev.type);
+        }
+      }
+    };
+
+    const loop = (now) => {
+      const real = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const frozen = props.current.paused;
+      const scale = timeScale(r);
+      const demo = control.current.mode !== "play";
+      if (!frozen) {
+        acc += real * scale;
+        let steps = 0;
+        while (acc >= STEP && steps < 6) {
+          stepGame(game, demo ? autopilot(game, memory) : readInput(), STEP);
+          bombPulse = Math.max(0, bombPulse - STEP);
+          acc -= STEP;
+          steps += 1;
+        }
+        if (steps === 6) acc = 0;
+        react(drainEvents(game));
+        if (demo) {
+          demoClock += real;
+          if (game.over || demoClock > 70) reset();
+        } else if (game.over && !finished) {
+          finished = true;
+          props.current.onFinish(gameSummary(game));
+        }
+      }
+      drawGame(r, game, frozen ? 0 : real * scale, { hud: !demo });
       raf = requestAnimationFrame(loop);
     };
+
+    const fit = () => resizeRenderer(r, canvas.getBoundingClientRect().width || W, window.devicePixelRatio);
+    const observer = new ResizeObserver(fit);
+    observer.observe(canvas);
+    fit();
+    const listeners = [
+      [window, "keydown", keyDown],
+      [window, "keyup", keyUp],
+      [window, "pointerup", pointerUp],
+      [window, "pointercancel", pointerUp],
+      [window, "blur", leave],
+      [document, "visibilitychange", leave],
+      [canvas, "pointerdown", pointerDown],
+      [canvas, "pointermove", pointerMove],
+      [canvas, "contextmenu", blockMenu],
+    ];
+    for (const [target, type, fn] of listeners) target.addEventListener(type, fn);
     raf = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-      canvas.removeEventListener("pointerdown", pointerDown);
-      canvas.removeEventListener("pointermove", pointerMove);
-      window.removeEventListener("pointerup", pointerUp);
+      observer.disconnect();
+      stopMusic();
+      for (const [target, type, fn] of listeners) target.removeEventListener(type, fn);
     };
   }, []);
 
+  useEffect(() => {
+    const c = control.current;
+    if (c.reset && (c.mode !== mode || mode === "play")) c.reset();
+  }, [mode, runId]);
+
+  useEffect(() => {
+    suspendAudio(paused);
+  }, [paused]);
+
+  const bomb = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    control.current.bomb?.();
+  };
+
   return (
-    <canvas
-      ref={canvasRef}
-      width={WORLD_W}
-      height={WORLD_H}
-      className="playfield"
-      aria-label={strings.how}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className={`playfield${mode === "play" && !paused ? " is-playing" : ""}`}
+        aria-label={mode === "play" ? strings.controlsShort : strings.title}
+      />
+      {mode === "play" && touch && !paused && (
+        <button type="button" className="touch-nova" onPointerDown={bomb} aria-label={strings.nova}>
+          {strings.nova}
+        </button>
+      )}
+    </>
   );
-}
-
-function draw(ctx, run, paused) {
-  ctx.clearRect(0, 0, WORLD_W, WORLD_H);
-  const sky = ctx.createLinearGradient(0, 0, WORLD_W, WORLD_H);
-  sky.addColorStop(0, "#10243f");
-  sky.addColorStop(1, "#071018");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-  ctx.fillStyle = "#ffffff22";
-  for (let index = 0; index < 40; index += 1) {
-    const x = (index * 137 + run.time * 40) % WORLD_W;
-    const y = (index * 89) % WORLD_H;
-    ctx.fillRect(x, y, 2, 2);
-  }
-
-  for (const gift of run.gifts) drawGift(ctx, gift);
-  for (const egg of run.eggs) {
-    ctx.fillStyle = "#f2e2b0";
-    ctx.beginPath();
-    ctx.ellipse(egg.x, egg.y, 7, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  for (const foe of run.enemies) drawFoe(ctx, foe);
-  for (const shot of run.shots) {
-    ctx.fillStyle = shot.missile ? "#ffb020" : "#9ee7ff";
-    ctx.beginPath();
-    ctx.arc(shot.x, shot.y, shot.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  drawShip(ctx, run);
-
-  ctx.fillStyle = "#f4f7fb";
-  ctx.font = "700 18px Segoe UI, sans-serif";
-  ctx.fillText(formatNumber(run.score), 20, 32);
-  ctx.font = "14px Segoe UI, sans-serif";
-  ctx.fillStyle = "#d5deea";
-  const chapter = CHAPTERS[run.chapter];
-  ctx.fillText(`${chapter.name} · ${run.wave === 4 ? "Boss" : `Wave ${run.wave + 1}`}`, 20, 54);
-  ctx.fillText(`Lives ${run.lives}   Weapon ${run.weapon}   Bombs ${run.bombs}${run.shield ? "   Shield" : ""}`, 20, 76);
-  if (run.bannerTime > 0) {
-    ctx.fillStyle = "#ffe08a";
-    ctx.font = "700 28px Segoe UI, sans-serif";
-    ctx.fillText(run.banner, 20, 120);
-  }
-  const boss = run.enemies.find((foe) => foe.kind === "boss");
-  if (boss) {
-    ctx.fillStyle = "#ffffff33";
-    ctx.fillRect(WORLD_W / 2 - 160, 18, 320, 10);
-    ctx.fillStyle = "#e25b4a";
-    ctx.fillRect(WORLD_W / 2 - 160, 18, 320 * Math.max(0, boss.hp / boss.maxHp), 10);
-  }
-  if (paused) {
-    ctx.fillStyle = "#000a";
-    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-    ctx.fillStyle = "#fff";
-    ctx.font = "700 36px Segoe UI, sans-serif";
-    ctx.fillText(strings.pause, WORLD_W / 2 - 48, WORLD_H / 2);
-  }
-}
-
-function drawShip(ctx, run) {
-  ctx.save();
-  ctx.translate(run.x, run.y);
-  ctx.globalAlpha = run.invuln > 0 && Math.floor(run.time * 12) % 2 === 0 ? 0.45 : 1;
-  ctx.fillStyle = run.shield ? "#8fd0ff" : "#f2f6fb";
-  ctx.beginPath();
-  ctx.moveTo(22, 0);
-  ctx.lineTo(-16, -14);
-  ctx.lineTo(-8, 0);
-  ctx.lineTo(-16, 14);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#49c2d4";
-  ctx.fillRect(-4, -4, 10, 8);
-  ctx.restore();
-}
-
-function drawFoe(ctx, foe) {
-  ctx.save();
-  ctx.translate(foe.x, foe.y);
-  if (foe.kind === "boss") {
-    ctx.fillStyle = "#f0c14a";
-    ctx.beginPath();
-    ctx.ellipse(0, 0, foe.r, foe.r * 0.72, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#c4493a";
-    ctx.fillRect(-8, -foe.r * 0.7, 16, 14);
-    ctx.restore();
-    return;
-  }
-  const color = foe.kind === "chick" ? "#ffe27a" : foe.kind === "rooster" ? "#e07a32" : "#f4f4f4";
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, foe.r, foe.r * 0.8, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#d94b3a";
-  ctx.beginPath();
-  ctx.arc(-2, -foe.r * 0.7, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#f2a01e";
-  ctx.beginPath();
-  ctx.moveTo(foe.r - 2, 0);
-  ctx.lineTo(foe.r + 8, 3);
-  ctx.lineTo(foe.r - 2, 6);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawGift(ctx, gift) {
-  const colors = { weapon: "#7ec8ff", shield: "#9ee7c2", bomb: "#ff8d6b", life: "#ff6b8a", score: "#ffe08a" };
-  ctx.fillStyle = colors[gift.gift] || "#fff";
-  ctx.fillRect(gift.x - 10, gift.y - 10, 20, 20);
-  ctx.fillStyle = "#102018";
-  ctx.font = "700 12px Segoe UI, sans-serif";
-  ctx.fillText(gift.gift.slice(0, 1).toUpperCase(), gift.x - 4, gift.y + 4);
 }
