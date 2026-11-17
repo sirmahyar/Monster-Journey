@@ -4,19 +4,27 @@
  */
 import { createServer } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
-import { handleRequest } from "../http/handler.js";
+import { handleRequest } from "../http/scores.js";
+import { createMysqlScores } from "../scores/store.js";
 
 loadEnvFile(".env");
 
 const config = {
-  signingKey: process.env.GAME_SIGNING_KEY,
-  rngKey: process.env.GAME_RNG_KEY,
   allowedOrigin: process.env.FRONTEND_ORIGIN || "http://127.0.0.1:5173",
-  now: () => Date.now(),
+  store: null,
 };
 
-if (!config.signingKey || !config.rngKey) {
-  console.error("GAME_SIGNING_KEY or GAME_RNG_KEY is missing. Run npm run keys and write the values to .env.");
+let storePromise = null;
+
+function openStore() {
+  if (!storePromise) {
+    storePromise = createMysqlScores().catch((error) => {
+      storePromise = null;
+      console.error("score-db-unavailable");
+      throw error;
+    });
+  }
+  return storePromise;
 }
 
 const port = Number(process.env.PORT || 8787);
@@ -25,7 +33,8 @@ const host = process.env.HOST || "127.0.0.1";
 const server = createServer(async (nodeReq, nodeRes) => {
   try {
     const request = await toWebRequest(nodeReq, host, port);
-    const response = await handleRequest(request, config);
+    const store = await openStore();
+    const response = await handleRequest(request, { ...config, store });
     await writeResponse(nodeRes, response);
   } catch {
     nodeRes.writeHead(500, {
