@@ -1,8 +1,9 @@
 import { CHAPTER_COUNT, WAVES_PER_CHAPTER } from "../../game/config.js";
+import { MAX_NAME, isValidName, normalizeName } from "../../shared/pilot-name.js";
 import { invalidRequest } from "../errors.js";
 
 export const MAX_SCORE = 9_999_999;
-export const MAX_NAME = 16;
+export { MAX_NAME };
 
 /** @param {unknown} data */
 export function parseScoreBody(data) {
@@ -26,9 +27,9 @@ export function parseScoreBody(data) {
 /** @param {unknown} value */
 export function parseName(value) {
   if (typeof value !== "string") throw invalidRequest("Name is invalid");
-  const name = value.trim();
+  const name = normalizeName(value);
   if (name.length < 1 || name.length > MAX_NAME) throw invalidRequest("Name must be 1 to 16 characters");
-  if (!/^[A-Za-z0-9 ]+$/.test(name)) throw invalidRequest("Name may use letters, numbers, and spaces");
+  if (!isValidName(name)) throw invalidRequest("Name may use Persian or English letters, numbers, and spaces");
   return name;
 }
 

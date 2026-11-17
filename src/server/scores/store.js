@@ -56,6 +56,7 @@ export async function createMysqlScores(env = process.env) {
     port,
     user,
     password,
+    charset: "utf8mb4",
     connectTimeout: 8000,
   });
   try {
@@ -67,6 +68,7 @@ export async function createMysqlScores(env = process.env) {
       user,
       password,
       database,
+      charset: "utf8mb4",
       waitForConnections: true,
       connectionLimit: 4,
       connectTimeout: 8000,
@@ -79,7 +81,8 @@ export async function createMysqlScores(env = process.env) {
       wave TINYINT UNSIGNED NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       INDEX scores_rank (score, id)
-    )`);
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    await ensureUnicodeNames(pool, database);
     return {
       async top(limit = 50) {
         const [rows] = await pool.query(
@@ -109,6 +112,24 @@ export async function createMysqlScores(env = process.env) {
     };
   } finally {
     await admin.end();
+  }
+}
+
+/**
+ * Tables made before Persian names were allowed may use a narrower charset.
+ * @param {import("mysql2/promise").Pool} pool
+ * @param {string} database
+ */
+async function ensureUnicodeNames(pool, database) {
+  const [rows] = await pool.query(
+    `SELECT CHARACTER_SET_NAME AS charset FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'scores' AND COLUMN_NAME = 'player_name'`,
+    [database],
+  );
+  if (rows[0] && rows[0].charset !== "utf8mb4") {
+    await pool.query(
+      "ALTER TABLE scores MODIFY player_name VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+    );
   }
 }
 

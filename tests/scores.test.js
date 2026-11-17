@@ -26,6 +26,16 @@ describe("scoreboard", () => {
     });
   });
 
+  it("accepts Persian names and rejects markup and direction overrides", () => {
+    const entry = (name) => ({ name, score: 10, chapter: 1, wave: 1 });
+    expect(parseScoreBody(entry("  مهیار ۱۴۰۳ ")).name).toBe("مهیار ۱۴۰۳");
+    expect(parseScoreBody(entry("\u200Cمحمد\u200Cرضا\u200C")).name).toBe("محمد\u200Cرضا");
+    expect(parseScoreBody(entry("گیگ  پژواک")).name).toBe("گیگ پژواک");
+    expect(() => parseScoreBody(entry("<b>علی</b>"))).toThrow(/Name/);
+    expect(() => parseScoreBody(entry("علی\u202E"))).toThrow(/Name/);
+    expect(() => parseScoreBody(entry("\u200C \u200C"))).toThrow(/Name/);
+  });
+
   it("stores a score and lists it ahead of a lower one", async () => {
     const store = createMemoryScores();
     const saved = await post({ name: "Ace", score: 1500, chapter: 2, wave: 3 }, store);
