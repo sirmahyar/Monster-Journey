@@ -4,10 +4,14 @@ const state = {
   ctx: null,
   sfx: null,
   music: null,
+  verb: null,
+  echo: null,
   noise: null,
   paused: false,
   settings: loadSettings(),
 };
+
+const readyHooks = [];
 
 function loadSettings() {
   try {
@@ -26,37 +30,74 @@ function saveSettings() {
   }
 }
 
+/** A soft stereo room: decaying noise with a darker tail, slightly different per ear. */
+function roomImpulse(ctx, seconds = 2.2) {
+  const length = Math.floor(ctx.sampleRate * seconds);
+  const ir = ctx.createBuffer(2, length, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch += 1) {
+    const data = ir.getChannelData(ch);
+    let smooth = 0;
+    for (let i = 0; i < length; i += 1) {
+      const t = i / ctx.sampleRate;
+      const white = Math.random() * 2 - 1;
+      const k = Math.min(0.9, 0.25 + t * 0.4);
+      smooth = smooth * k + white * (1 - k);
+      const early = t < 0.012 ? 0 : 1;
+      data[i] = smooth * early * Math.exp(-t * 3.1) * 1.6;
+    }
+  }
+  return ir;
+}
+
 function build(ctx) {
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -16;
-  comp.knee.value = 16;
-  comp.ratio.value = 4;
-  comp.attack.value = 0.003;
-  comp.release.value = 0.22;
+  comp.threshold.value = -18;
+  comp.knee.value = 18;
+  comp.ratio.value = 3.5;
+  comp.attack.value = 0.004;
+  comp.release.value = 0.25;
   const master = ctx.createGain();
-  master.gain.value = 0.9;
+  master.gain.value = 0.92;
   comp.connect(master);
   master.connect(ctx.destination);
 
+  const convolver = ctx.createConvolver();
+  convolver.buffer = roomImpulse(ctx);
+  const wet = ctx.createGain();
+  wet.gain.value = 0.5;
+  state.verb = ctx.createGain();
+  state.verb.connect(convolver);
+  convolver.connect(wet);
+  wet.connect(comp);
+
   state.sfx = ctx.createGain();
   state.sfx.connect(comp);
+  const sfxSend = ctx.createGain();
+  sfxSend.gain.value = 0.12;
+  state.sfx.connect(sfxSend);
+  sfxSend.connect(state.verb);
 
   state.music = ctx.createGain();
-  const dry = ctx.createGain();
-  const delay = ctx.createDelay(1);
+  state.music.connect(comp);
+  const musicSend = ctx.createGain();
+  musicSend.gain.value = 0.38;
+  state.music.connect(musicSend);
+  musicSend.connect(state.verb);
+
+  state.echo = ctx.createDelay(2);
+  state.echo.delayTime.value = 0.34;
   const feedback = ctx.createGain();
-  const tone = ctx.createBiquadFilter();
-  delay.delayTime.value = 0.34;
-  feedback.gain.value = 0.28;
-  tone.type = "lowpass";
-  tone.frequency.value = 2400;
-  state.music.connect(dry);
-  dry.connect(comp);
-  state.music.connect(delay);
-  delay.connect(tone);
-  tone.connect(feedback);
-  feedback.connect(delay);
-  tone.connect(comp);
+  feedback.gain.value = 0.32;
+  const darken = ctx.createBiquadFilter();
+  darken.type = "lowpass";
+  darken.frequency.value = 2600;
+  const echoOut = ctx.createGain();
+  echoOut.gain.value = 0.55;
+  state.echo.connect(darken);
+  darken.connect(feedback);
+  feedback.connect(state.echo);
+  darken.connect(echoOut);
+  echoOut.connect(state.music);
 
   const length = ctx.sampleRate;
   state.noise = ctx.createBuffer(1, length, ctx.sampleRate);
@@ -69,7 +110,13 @@ function applySettings() {
   if (!state.ctx) return;
   const now = state.ctx.currentTime;
   state.sfx.gain.setTargetAtTime(state.settings.sfx ? 0.85 : 0, now, 0.03);
-  state.music.gain.setTargetAtTime(state.settings.music ? 0.34 : 0, now, 0.08);
+  state.music.gain.setTargetAtTime(state.settings.music ? 0.42 : 0, now, 0.08);
+}
+
+/** Runs `fn(ctx)` once the audio context exists (right away if it already does). */
+export function onAudioReady(fn) {
+  if (state.ctx) fn(state.ctx);
+  else readyHooks.push(fn);
 }
 
 /** Creates or resumes the audio context; call from a user gesture. */
@@ -79,6 +126,7 @@ export function unlockAudio() {
     if (!AudioCtor) return null;
     state.ctx = new AudioCtor();
     build(state.ctx);
+    for (const fn of readyHooks.splice(0)) fn(state.ctx);
   }
   if (state.ctx.state === "suspended" && !state.paused) state.ctx.resume().catch(() => {});
   return state.ctx;
@@ -86,6 +134,15 @@ export function unlockAudio() {
 
 export function audio() {
   return state.ctx && state.ctx.state === "running" ? state : null;
+}
+
+/** Destination for one sound: the bus itself, or a panner in front of it. */
+export function output(a, bus, pan, t) {
+  if (!pan) return bus;
+  const p = a.ctx.createStereoPanner();
+  p.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), t);
+  p.connect(bus);
+  return p;
 }
 
 export function audioSettings() {

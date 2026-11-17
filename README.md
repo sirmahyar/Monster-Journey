@@ -31,6 +31,18 @@ npm run build
 
 `npm run build` writes the static client to `dist/client`. Gameplay does not need the old edge bundle.
 
+## Sound
+
+Chicken voices are real recordings cut into `src/client/audio/chickens.mp3`. Everything else (shots, explosions, eggshell cracks, chimes) is synthesized with Web Audio.
+
+| Recording | Author | License |
+| --- | --- | --- |
+| [Hen announcing she's lain an egg](https://commons.wikimedia.org/wiki/File:Hen_announcing_shes_lain_an_egg.ogg) | alys (pdsounds.org) | Public domain |
+| [Hens leaving coop](https://commons.wikimedia.org/wiki/File:Hens_leaving_coop.ogg) | alys (pdsounds.org) | Public domain |
+| [Small rooster crowing](https://commons.wikimedia.org/wiki/File:Small_rooster_crowing.ogg) | alys (pdsounds.org) | Public domain |
+| [Medium rooster crowing](https://commons.wikimedia.org/wiki/File:Medium_rooster_crowing.ogg) | alys (pdsounds.org) | Public domain |
+| [Chicks calling (মুরগির বাচ্চার ডাক)](https://commons.wikimedia.org/wiki/File:%E0%A6%AE%E0%A7%81%E0%A6%B0%E0%A6%97%E0%A6%BF%E0%A6%B0_%E0%A6%AC%E0%A6%BE%E0%A6%9A%E0%A7%8D%E0%A6%9A%E0%A6%BE%E0%A6%B0_%E0%A6%A1%E0%A6%BE%E0%A6%95.oga) | Md. Tahmid Hossain | CC0 |
+
 ## Controls
 
 Arrows or WASD move. Hold the mouse or a finger on the playfield to steer and fire. Space, J, or Z also fires. B, K, X, or Shift uses a bomb; on touch screens there is a bomb button. P or Esc pauses.

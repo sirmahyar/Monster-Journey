@@ -170,7 +170,7 @@ export function GameCanvas({ mode, runId, paused, onFinish, onPause }) {
       handleEvents(r, events);
       if (control.current.mode !== "play") return;
       for (const ev of events) {
-        playEvent(ev, { food: game.player.food });
+        playEvent(ev, { food: game.player.food, boss: game.boss?.kind });
         if (ev.type === "wave") playMusic(ev.boss ? "boss" : "stage", ev.chapter);
         else if (ev.type === "boss_dead") playMusic("stage", game.chapter);
         else if (ev.type === "gameover" || ev.type === "victory") {
