@@ -280,6 +280,7 @@ function killPlayer(state) {
   if (!p.alive) return;
   p.alive = false;
   p.lives -= 1;
+  const lost = p.level > 1;
   p.level = Math.max(1, p.level - 1);
   p.heat = 0;
   p.overheated = false;
@@ -290,7 +291,7 @@ function killPlayer(state) {
   state.combo = 0;
   state.comboTimer = 0;
   state.multiplier = 1;
-  emit(state, "death", { x: p.x, y: p.y, lives: p.lives });
+  emit(state, "death", { x: p.x, y: p.y, lives: p.lives, level: p.level, lost });
   if (p.lives <= 0) setStage(state, "dead");
   else p.respawn = PLAYER.respawnDelay;
 }
@@ -677,10 +678,9 @@ function collect(state, k) {
 
 function updatePickups(state, dt) {
   const p = state.player;
-  const magnetAll = state.stage === "clear" || state.stage === "warp" || state.stage === "victory";
   let w = 0;
   for (const k of state.pickups) {
-    updatePickup(k, dt, p, magnetAll);
+    updatePickup(k, dt, p);
     if (p.alive && overlap(k.x, k.y, k.r + 10, p.x, p.y, PLAYER.radius)) {
       collect(state, k);
       continue;
@@ -719,7 +719,14 @@ function clearWave(state) {
   const bonus = (1000 + 250 * state.wave) * state.chapter * (flawless ? 2 : 1);
   state.score += bonus;
   state.timers = [];
-  emit(state, "clear", { bonus, flawless, boss: state.info.boss, chapter: state.chapter, wave: state.wave });
+  emit(state, "clear", {
+    bonus,
+    flawless,
+    boss: state.info.boss,
+    chapter: state.chapter,
+    wave: state.wave,
+    score: Math.floor(state.score),
+  });
 }
 
 function checkClear(state) {

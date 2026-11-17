@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHAPTER_COUNT, H, HEAT, PLAYER, STEP, W, WAVES_PER_CHAPTER } from "../src/game/config.js";
 import { bossCircles, hitBoss, makeBoss } from "../src/game/bosses.js";
+import { makePickup } from "../src/game/loot.js";
 import { createGame, drainEvents, gameSummary, stepGame } from "../src/game/sim.js";
 import { CHAPTERS, waveInfo } from "../src/game/waves.js";
 import { MAX_LEVEL, WEAPON_ORDER, focusedDps, volley } from "../src/game/weapons.js";
@@ -104,6 +105,20 @@ describe("simulation", () => {
     expect(events.some((e) => e.type === "splat")).toBe(true);
   });
 
+  it("leaves gifts where they are when a wave ends", () => {
+    const state = createGame({ random: seeded(11) });
+    state.stage = "clear";
+    state.player.x = 80;
+    const gift = makePickup("power", 640, 180, state.rng);
+    gift.vx = 0;
+    gift.vy = 0;
+    state.pickups.push(gift);
+    run(state, 1.2, { fire: false });
+    const left = state.pickups.find((k) => k.kind === "power");
+    expect(left).toBeTruthy();
+    expect(Math.hypot(left.x - state.player.x, left.y - state.player.y)).toBeGreaterThan(250);
+  });
+
   it("clears the first wave and moves on", () => {
     const state = createGame({ random: seeded(3) });
     const events = run(state, 90, hunter, godMode);
@@ -120,7 +135,7 @@ describe("simulation", () => {
     state.player.level = 3;
     state.eggs.push({ kind: "egg", x: state.player.x, y: state.player.y, vx: 0, vy: 0, r: 7, t: 0, gravity: 1 });
     let events = run(state, STEP);
-    expect(events.some((e) => e.type === "death")).toBe(true);
+    expect(events.find((e) => e.type === "death")).toMatchObject({ lost: true, level: 2 });
     expect(state.player.lives).toBe(PLAYER.lives - 1);
     expect(state.player.level).toBe(2);
     events = run(state, PLAYER.respawnDelay + 0.1);

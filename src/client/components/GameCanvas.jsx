@@ -41,12 +41,12 @@ function typing(event) {
 
 /**
  * The playfield. In "demo" mode an autopilot flies behind the menu; in "play" mode the player does.
- * @param {{ mode: "demo"|"play", runId: number, paused: boolean, onFinish: (summary: object) => void, onPause: (force?: boolean) => void }} props
+ * @param {{ mode: "demo"|"play", runId: number, paused: boolean, onFinish: (summary: object) => void, onCheckpoint: (entry: { score: number, chapter: number, wave: number }) => void, onPause: (force?: boolean) => void }} props
  */
-export function GameCanvas({ mode, runId, paused, onFinish, onPause }) {
+export function GameCanvas({ mode, runId, paused, onFinish, onCheckpoint, onPause }) {
   const canvasRef = useRef(null);
-  const props = useRef({ mode, paused, onFinish, onPause });
-  props.current = { mode, paused, onFinish, onPause };
+  const props = useRef({ mode, paused, onFinish, onCheckpoint, onPause });
+  props.current = { mode, paused, onFinish, onCheckpoint, onPause };
   const control = useRef({ reset: null, bomb: null, mode: null });
   const [touch, setTouch] = useState(false);
 
@@ -171,6 +171,7 @@ export function GameCanvas({ mode, runId, paused, onFinish, onPause }) {
       if (control.current.mode !== "play") return;
       for (const ev of events) {
         playEvent(ev, { food: game.player.food, boss: game.boss?.kind });
+        if (ev.type === "clear") props.current.onCheckpoint?.({ score: ev.score, chapter: ev.chapter, wave: ev.wave });
         if (ev.type === "wave") playMusic(ev.boss ? "boss" : "stage", ev.chapter);
         else if (ev.type === "boss_dead") playMusic("stage", game.chapter);
         else if (ev.type === "gameover" || ev.type === "victory") {

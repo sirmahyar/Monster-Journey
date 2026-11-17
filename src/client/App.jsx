@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isValidName, normalizeName } from "../shared/pilot-name.js";
 import { fetchScores, submitScore } from "./api.js";
 import { audioSettings, setAudioSetting, unlockAudio } from "./audio/engine.js";
 import { playUi } from "./audio/sfx.js";
 import { GameCanvas } from "./components/GameCanvas.jsx";
-import { Board, GameOver, Help, Menu, Pause } from "./components/Screens.jsx";
+import { Board, GameOver, Help, Menu, NameGate, Pause } from "./components/Screens.jsx";
 import { strings } from "./strings.js";
 
 const BEST_KEY = "cluck-raid-best";
@@ -38,9 +38,14 @@ export function App() {
   const [scores, setScores] = useState([]);
   const [loading, setLoading] = useState(false);
   const [boardError, setBoardError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [pending, setPending] = useState(0);
   const [saveError, setSaveError] = useState("");
   const [savedId, setSavedId] = useState(null);
+  const nameRef = useRef(name);
+  const posted = useRef(new Set());
+  const inflight = useRef(new Set());
+  const failed = useRef(new Map());
+  nameRef.current = name;
 
   const mode = screen === "play" || screen === "over" ? "play" : "demo";
 
@@ -59,7 +64,7 @@ export function App() {
   }, [screen]);
 
   useEffect(() => {
-    if (screen !== "board" && screen !== "help") return undefined;
+    if (screen !== "board" && screen !== "help" && screen !== "name") return undefined;
     const back = (event) => {
       if (event.key === "Escape") setScreen("menu");
     };
@@ -74,7 +79,25 @@ export function App() {
     setScreen(next);
   };
 
-  const play = () => {
+  const askName = () => {
+    unlockAudio();
+    playUi();
+    setSaveError("");
+    setPaused(false);
+    setScreen("name");
+  };
+
+  const begin = () => {
+    const clean = normalizeName(name);
+    if (!isValidName(clean)) {
+      setSaveError(strings.nameInvalid);
+      return;
+    }
+    store(NAME_KEY, clean);
+    setName(clean);
+    posted.current = new Set();
+    inflight.current = new Set();
+    failed.current = new Map();
     unlockAudio();
     playUi("start");
     setResult(null);
@@ -85,14 +108,50 @@ export function App() {
     setScreen("play");
   };
 
+  const record = (entry) => {
+    const score = Math.min(MAX_SCORE, Math.floor(Number(entry.score) || 0));
+    const { chapter, wave } = entry;
+    if (score <= 0 || chapter == null || wave == null) return;
+    const clean = normalizeName(nameRef.current);
+    if (!isValidName(clean)) return;
+    const key = `${score}:${chapter}:${wave}`;
+    const book = posted.current;
+    const flying = inflight.current;
+    const misses = failed.current;
+    if (book.has(key) || flying.has(key)) return;
+    flying.add(key);
+    setPending((n) => n + 1);
+    submitScore({ name: clean, score, chapter, wave })
+      .then(async (row) => {
+        book.add(key);
+        misses.delete(key);
+        setSavedId(row?.id ?? -1);
+        if (misses.size === 0) setSaveError("");
+        const rows = await fetchScores().catch(() => null);
+        if (rows) {
+          setScores(rows);
+          setBoardError("");
+        }
+      })
+      .catch(() => {
+        misses.set(key, { score, chapter, wave });
+        setSaveError(strings.saveFailed);
+      })
+      .finally(() => {
+        flying.delete(key);
+        setPending((n) => n - 1);
+      });
+  };
+
   const finish = (summary) => {
     const score = Math.min(MAX_SCORE, summary.score);
-    setResult({ ...summary, score, newBest: score > 0 && score > best });
+    const next = { ...summary, score, newBest: score > 0 && score > best };
+    setResult(next);
     if (score > best) {
       setBest(score);
       store(BEST_KEY, score);
     }
-    setSavedId(null);
+    record(next);
     setScreen("over");
   };
 
@@ -110,34 +169,11 @@ export function App() {
     playUi();
   };
 
-  async function save(event) {
-    event.preventDefault();
-    const clean = normalizeName(name);
-    if (!result || saving || savedId != null || !clean) return;
-    if (!isValidName(clean)) {
-      setSaveError(strings.nameInvalid);
-      return;
-    }
-    setSaving(true);
-    setSaveError("");
-    try {
-      const row = await submitScore({ name: clean, score: result.score, chapter: result.chapter, wave: result.wave });
-      store(NAME_KEY, clean);
-      setSavedId(row?.id ?? -1);
-      setScores(await fetchScores());
-      setBoardError("");
-    } catch {
-      setSaveError(strings.saveFailed);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <main className="app">
       <div className="backdrop" aria-hidden="true" />
       <div className={`stage screen-${screen}`}>
-        <GameCanvas mode={mode} runId={runId} paused={paused} onFinish={finish} onPause={requestPause} />
+        <GameCanvas mode={mode} runId={runId} paused={paused} onFinish={finish} onCheckpoint={record} onPause={requestPause} />
         {screen === "play" && !paused && (
           <button type="button" className="pause-btn" onClick={() => requestPause(true)} aria-label={strings.pause}>
             <span />
@@ -149,7 +185,7 @@ export function App() {
             best={best}
             prefs={prefs}
             onToggle={toggle}
-            onPlay={play}
+            onPlay={askName}
             onBoard={() => go("board")}
             onHelp={() => go("help")}
           />
@@ -159,24 +195,37 @@ export function App() {
             prefs={prefs}
             onToggle={toggle}
             onResume={() => requestPause()}
-            onRestart={play}
+            onRestart={askName}
             onQuit={() => go("menu")}
+          />
+        )}
+        {screen === "name" && (
+          <NameGate
+            name={name}
+            setName={setName}
+            error={saveError}
+            onStart={begin}
+            onBack={() => go("menu")}
           />
         )}
         {screen === "over" && result && (
           <GameOver
             result={result}
             name={name}
-            setName={setName}
-            onSave={save}
-            saving={saving}
-            saved={savedId != null}
+            saving={pending > 0}
+            saved={savedId != null && !saveError}
             savedId={savedId}
             saveError={saveError}
+            onRetry={() => {
+              const missed = [...failed.current.values()];
+              failed.current.clear();
+              for (const entry of missed) record(entry);
+              record(result);
+            }}
             scores={scores}
             error={boardError}
             loading={loading}
-            onAgain={play}
+            onAgain={askName}
             onMenu={() => go("menu")}
           />
         )}

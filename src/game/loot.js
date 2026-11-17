@@ -64,14 +64,14 @@ export function bossLoot(rng, player) {
 }
 
 /** Pickups pop up, drift down and get pulled in when the ship is close. */
-export function updatePickup(k, dt, player, magnetAll) {
+export function updatePickup(k, dt, player) {
   k.t += dt;
   k.angle += k.spin * dt;
   const dx = player.x - k.x;
   const dy = player.y - k.y;
   const dist = Math.hypot(dx, dy) || 1;
-  if (player.alive && (magnetAll || dist < 120)) {
-    const speed = magnetAll ? 680 : 440;
+  if (player.alive && dist < 120) {
+    const speed = 440;
     const blend = Math.min(1, dt * 7);
     k.vx = lerp(k.vx, (dx / dist) * speed, blend);
     k.vy = lerp(k.vy, (dy / dist) * speed, blend);

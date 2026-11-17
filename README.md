@@ -53,7 +53,7 @@ Four chapters each have eight waves, and the last wave of each chapter is a boss
 
 `GET /api/scores` returns the top 50 scores.
 
-`POST /api/scores` accepts `{ "name", "score", "chapter", "wave" }`. The name is 1 to 16 Persian or English letters, digits, spaces, or zero-width non-joiners. The score is an integer from 0 to 9999999. Chapter is 1 to 4. Wave is 1 to 8.
+The game asks for a pilot name before the first wave and posts the current score at the end of every wave, and again when the run ends. `POST /api/scores` accepts `{ "name", "score", "chapter", "wave" }`. The name is 1 to 16 Persian or English letters, digits, spaces, or zero-width non-joiners. The score is an integer from 0 to 9999999. Chapter is 1 to 4. Wave is 1 to 8.
 
 The `scores` table uses `utf8mb4`. A table created by an older version is converted on startup so Persian names can be stored.
 

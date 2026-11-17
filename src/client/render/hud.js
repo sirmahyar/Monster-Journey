@@ -37,6 +37,7 @@ export function hudEvent(hud, ev) {
       break;
     case "death":
       if (ev.lives <= 0) hud.banner = { kind: "over", title: T.gameOver, sub: T.gameOverSub, t: 0, dur: 2.4 };
+      else if (ev.lost) toast(hud, T.powerDown(ev.level), "#ff8a8a");
       break;
     case "golden":
       toast(hud, T.golden, "#ffd95a");

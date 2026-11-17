@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CHAPTER_COUNT } from "../../game/config.js";
-import { MAX_NAME, NAME_BLOCKED } from "../../shared/pilot-name.js";
+import { MAX_NAME, NAME_BLOCKED, normalizeName } from "../../shared/pilot-name.js";
 import { fa, formatNumber, formatTime, strings } from "../strings.js";
 import { Icon } from "./Icon.jsx";
 
@@ -126,7 +126,46 @@ export function Pause({ prefs, onToggle, onResume, onRestart, onQuit }) {
   );
 }
 
-export function GameOver({ result, name, setName, onSave, saving, saved, savedId, saveError, scores, error, loading, onAgain, onMenu }) {
+export function NameGate({ name, setName, error, onStart, onBack }) {
+  const clean = normalizeName(name);
+  return (
+    <section className="overlay">
+      <div className="card card-narrow">
+        <h2>{strings.nameTitle}</h2>
+        <p className="note">{strings.nameLead}</p>
+        <form
+          className="save"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onStart();
+          }}
+        >
+          <label htmlFor="pilot-name">{strings.name}</label>
+          <input
+            id="pilot-name"
+            value={name}
+            maxLength={MAX_NAME}
+            placeholder={strings.namePlaceholder}
+            autoComplete="nickname"
+            dir="auto"
+            autoFocus
+            onChange={(event) => setName(event.target.value.replace(NAME_BLOCKED, "").slice(0, MAX_NAME))}
+            data-testid="pilot-name"
+          />
+          {error && <p className="note warn" role="alert">{error}</p>}
+          <div className="stack">
+            <button type="submit" className="btn primary" data-testid="confirm-name" disabled={!clean}>
+              {strings.nameStart}
+            </button>
+            <button type="button" className="btn ghost" onClick={onBack}>{strings.back}</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+export function GameOver({ result, name, saving, saved, savedId, saveError, onRetry, scores, error, loading, onAgain, onMenu }) {
   const stats = [
     [strings.stats.kills, formatNumber(result.kills)],
     [strings.stats.accuracy, `${fa(Math.round(result.accuracy * 100))}٪`],
@@ -154,27 +193,15 @@ export function GameOver({ result, name, setName, onSave, saving, saved, savedId
             </div>
           ))}
         </dl>
-        <form className="save" onSubmit={onSave}>
-          <label htmlFor="pilot-name">{strings.name}</label>
-          <div className="save-row">
-            <input
-              id="pilot-name"
-              value={name}
-              maxLength={MAX_NAME}
-              placeholder={strings.namePlaceholder}
-              autoComplete="nickname"
-              dir="auto"
-              onChange={(event) => setName(event.target.value.replace(NAME_BLOCKED, "").slice(0, MAX_NAME))}
-              data-testid="pilot-name"
-              disabled={saved}
-            />
-            <button type="submit" className="btn primary" data-testid="save-score" disabled={saving || saved || !name.trim()}>
-              {saving ? strings.saving : strings.save}
-            </button>
+        <p className="note">{strings.pilotLabel} <bdi>{name}</bdi></p>
+        {saving && <p className="note" role="status">{strings.saving}</p>}
+        {!saving && saved && <p className="note ok" role="status">{strings.savedRun}</p>}
+        {!saving && saveError && (
+          <div className="stack">
+            <p className="note warn" role="alert">{saveError}</p>
+            <button type="button" className="btn" onClick={onRetry}>{strings.save}</button>
           </div>
-          {saved && <p className="note ok" role="status">{strings.saved}</p>}
-          {saveError && <p className="note warn" role="alert">{saveError}</p>}
-        </form>
+        )}
         <ScoreList scores={scores.slice(0, 10)} highlight={savedId} error={error} loading={loading} compact />
         <div className="row">
           <button type="button" className="btn primary" onClick={onAgain}>{strings.again}</button>
