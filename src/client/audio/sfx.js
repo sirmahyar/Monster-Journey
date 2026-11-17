@@ -181,6 +181,12 @@ export function playEvent(ev, extra = {}) {
     case "shot":
       if ((a = ready("shot", 0.05))) SHOT[ev.weapon](a, pan * 0.5);
       break;
+    case "rocket":
+      if ((a = ready("rocket", 0.25))) {
+        noise(a, { dur: 0.2, gain: 0.05, filter: "bandpass", freq: 380, to: 1600, q: 0.8, pan, attack: 0.02 });
+        tone(a, { freq: 240, to: 90, dur: 0.18, gain: 0.045, pan });
+      }
+      break;
     case "hit":
       if (!(a = ready("hit", 0.035))) break;
       if (BIRDS.has(ev.kind)) {

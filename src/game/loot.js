@@ -29,35 +29,43 @@ export function makePickup(kind, x, y, rng, extra = {}) {
   };
 }
 
-function crateWeapon(rng, current) {
-  return rng() < 0.3 ? current : pick(rng, WEAPON_ORDER.filter((w) => w !== current));
+function crateWeapon(rng, player) {
+  const choices = (player.weapons || WEAPON_ORDER).filter((w) => w !== player.weapon);
+  if (choices.length === 0) return null;
+  return pick(rng, choices);
 }
 
 /** What a destroyed enemy leaves behind. */
 export function rollDrops(e, rng, player) {
   const out = [];
   if (e.kind === "golden") {
-    out.push({ kind: "power" }, { kind: "power" }, { kind: "crate", weapon: crateWeapon(rng, player.weapon) });
+    out.push({ kind: "power" });
+    const weapon = crateWeapon(rng, player);
+    if (weapon) out.push({ kind: "crate", weapon });
     out.push({ kind: "cob" }, { kind: "cob" });
     for (let i = 0; i < 6; i += 1) out.push({ kind: "kernel" });
     if (rng() < 0.3) out.push({ kind: "life" });
     return out;
   }
-  if (e.carrier === "crate") out.push({ kind: "crate", weapon: crateWeapon(rng, player.weapon) });
+  if (e.carrier === "crate") {
+    const weapon = crateWeapon(rng, player);
+    if (weapon) out.push({ kind: "crate", weapon });
+  }
   if (e.carrier === "power") out.push({ kind: "power" });
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: e.r >= 24 && rng() < 0.22 ? "cob" : "kernel" });
   const roll = rng();
-  if (roll < 0.016) out.push({ kind: "power" });
-  else if (roll < 0.024) out.push({ kind: "coolant" });
-  else if (roll < 0.029) out.push({ kind: "shield" });
-  else if (roll < 0.033) out.push({ kind: "nova" });
-  else if (roll < 0.0345) out.push({ kind: "life" });
+  if (roll < 0.004) out.push({ kind: "power" });
+  else if (roll < 0.012) out.push({ kind: "coolant" });
+  else if (roll < 0.017) out.push({ kind: "shield" });
+  else if (roll < 0.021) out.push({ kind: "nova" });
+  else if (roll < 0.0225) out.push({ kind: "life" });
   return out;
 }
 
 export function bossLoot(rng, player) {
-  const out = [{ kind: "power" }, { kind: "power" }, { kind: "power" }, { kind: "life" }, { kind: "nova" }];
-  out.push({ kind: "crate", weapon: crateWeapon(rng, player.weapon) });
+  const out = [{ kind: "power" }, { kind: "life" }, { kind: "nova" }];
+  const weapon = crateWeapon(rng, player);
+  if (weapon) out.push({ kind: "crate", weapon });
   for (let i = 0; i < 4; i += 1) out.push({ kind: "cob" });
   for (let i = 0; i < 12; i += 1) out.push({ kind: "kernel" });
   return out;

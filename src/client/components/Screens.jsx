@@ -80,7 +80,7 @@ export function Logo({ small = false }) {
         <span className="bob bob-3"><Icon kind="hen" size={small ? 38 : 54} /></span>
       </div>
       <h1>
-        <span>یورش</span> <span className="logo-raid">مرغ‌ها</span>
+        <span>یورش</span> <span className="logo-raid">مرغی</span>
       </h1>
     </div>
   );
@@ -267,6 +267,12 @@ export function Help({ onBack }) {
         />
         <Guide title={strings.lootTitle} rows={strings.loot} type="pickup" />
         <Guide title={strings.weaponsTitle} rows={strings.weapons} type="ship" />
+        <section className="guide">
+          <h3>{strings.progressionTitle}</h3>
+          <ul className="tips">
+            {strings.progression.map((line) => <li key={line}>{line}</li>)}
+          </ul>
+        </section>
         <section className="guide">
           <h3>{strings.tipsTitle}</h3>
           <ul className="tips">

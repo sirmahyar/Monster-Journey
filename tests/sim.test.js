@@ -163,12 +163,16 @@ describe("simulation", () => {
   });
 
   it("applies power, weapon crates, food and nova pickups", () => {
-    const state = createGame({ random: seeded(6) });
+    const state = createGame({ random: seeded(6), chapter: 2 });
     const p = state.player;
     const drop = (kind, extra = {}) => state.pickups.push({ kind, x: p.x, y: p.y, vx: 0, vy: 0, r: 12, t: 0, spin: 0, angle: 0, ...extra });
     for (let i = 0; i < MAX_LEVEL + 2; i += 1) drop("power");
     run(state, STEP);
     expect(p.level).toBe(MAX_LEVEL);
+    drop("crate", { weapon: "pulse" });
+    run(state, STEP);
+    expect(p.level).toBe(MAX_LEVEL);
+    expect(p.weapon).toBe("pulse");
     drop("crate", { weapon: "laser" });
     run(state, STEP);
     expect(p.weapon).toBe("laser");
@@ -182,6 +186,23 @@ describe("simulation", () => {
     expect(events.some((e) => e.type === "nova")).toBe(true);
     expect(state.enemies.length).toBeLessThan(before);
     expect(p.bombs).toBe(PLAYER.bombs);
+  });
+
+  it("locks later weapons until their chapter and fires wing rockets in chapter 4", () => {
+    const early = createGame({ random: seeded(8) });
+    expect(early.player.weapons).toEqual(["pulse"]);
+    expect(early.player.rockets).toBe(false);
+    expect(early.enemies.some((e) => e.carrier === "crate" || e.carrier === "power")).toBe(false);
+    early.pickups.push({ kind: "crate", x: early.player.x, y: early.player.y, vx: 0, vy: 0, r: 12, t: 0, spin: 0, angle: 0, weapon: "ion" });
+    run(early, STEP);
+    expect(early.player.weapon).toBe("pulse");
+    const mid = createGame({ random: seeded(8), chapter: 1, wave: 4 });
+    expect(mid.enemies.filter((e) => e.carrier === "power")).toHaveLength(1);
+    const late = createGame({ random: seeded(9), chapter: 4, wave: 1 });
+    expect(late.player.weapons).toEqual(["pulse", "laser", "ion"]);
+    expect(late.player.rockets).toBe(true);
+    const events = run(late, 1, { fire: true }, godMode);
+    expect(events.some((e) => e.type === "rocket")).toBe(true);
   });
 
   it("is deterministic for the same seed", () => {

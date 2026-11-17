@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { H, PLAYER, STEP, W } from "../../game/config.js";
 import { createGame, drainEvents, gameSummary, stepGame } from "../../game/sim.js";
-import { WEAPON_ORDER } from "../../game/weapons.js";
 import { suspendAudio, unlockAudio } from "../audio/engine.js";
 import { playMusic, stopMusic } from "../audio/music.js";
 import { playEvent, playSting } from "../audio/sfx.js";
@@ -28,7 +27,7 @@ const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
 function makeDemo() {
   const game = createGame({ chapter: randInt(1, 4), wave: randInt(1, 7) });
   const p = game.player;
-  p.weapon = WEAPON_ORDER[randInt(0, WEAPON_ORDER.length - 1)];
+  p.weapon = p.weapons[randInt(0, p.weapons.length - 1)];
   p.level = randInt(3, 5);
   p.lives = 9;
   p.bombs = 2;

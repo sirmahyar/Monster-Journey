@@ -10,6 +10,26 @@ export const WEAPONS = Object.freeze({
 
 export const WEAPON_ORDER = Object.freeze(["pulse", "laser", "ion"]);
 
+/** Primary weapons available when a chapter begins. Later guns stay locked until then. */
+export function arsenal(chapter) {
+  const weapons = ["pulse"];
+  if (chapter >= 2) weapons.push("laser");
+  if (chapter >= 3) weapons.push("ion");
+  return weapons;
+}
+
+/** The new toy granted on arrival in this chapter. Chapter 1 is the starting loadout. */
+export function chapterGift(chapter) {
+  if (chapter === 2) return "laser";
+  if (chapter === 3) return "ion";
+  if (chapter === 4) return "rocket";
+  return "";
+}
+
+export function rocketsUnlocked(chapter) {
+  return chapter >= 4;
+}
+
 const DEG = Math.PI / 180;
 
 const PULSE_FAN = [

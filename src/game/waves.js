@@ -1,4 +1,5 @@
 import { W, WAVES_PER_CHAPTER } from "./config.js";
+import { arsenal } from "./weapons.js";
 import { TAU, rand, randInt, weighted } from "./math.js";
 
 export const CHAPTERS = Object.freeze([
@@ -290,8 +291,9 @@ export function buildWave(api, info) {
   api.setFormation(SWAY[info.template] || { ax: 60, ay: 12, fx: 0.5, fy: 1.2 });
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "rock" && e.kind !== "golden");
-  const crates = info.chapter >= 3 ? 2 : 1;
-  for (let i = 0; i < crates + 1 && pool.length > 0; i += 1) {
+  const crates = arsenal(info.chapter).length > 1 ? (info.chapter >= 3 ? 2 : 1) : 0;
+  const powers = info.wave === 4 ? 1 : 0;
+  for (let i = 0; i < crates + powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = i < crates ? "crate" : "power";
     pool.splice(index, 1);

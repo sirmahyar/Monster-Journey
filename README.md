@@ -1,4 +1,4 @@
-# یورش مرغ‌ها (Cluck Raid)
+# یورش مرغی (Cluck Raid)
 
 Cluck Raid is a single-player vertical space shooter. Flocks of chickens hold the top of the screen and drop eggs, and your ship at the bottom fires upward. The browser runs the whole battle: movement, shots, eggs, gifts, chapters, and bosses.
 
@@ -6,7 +6,7 @@ Every text in the game is Persian. The UI is right-to-left, numbers use Persian 
 
 Scores are the only thing stored on a server. A small Node API writes them to MySQL. The browser never opens the database itself.
 
-This is an original game in the chicken-shooter style. It does not use the name, art, music, or text of any commercial game.
+The ship, chickens, and effects are original art. Background music is the soundtrack included with the game.
 
 ## Play
 
@@ -33,7 +33,7 @@ npm run build
 
 ## Sound
 
-Chicken voices are real recordings cut into `src/client/audio/chickens.mp3`. Everything else (shots, explosions, eggshell cracks, chimes) is synthesized with Web Audio.
+Background music plays from `src/client/audio/tracks`. Chicken voices are real recordings cut into `src/client/audio/chickens.mp3`. Shots, explosions, eggshell cracks, and chimes are synthesized with Web Audio.
 
 | Recording | Author | License |
 | --- | --- | --- |
@@ -47,7 +47,7 @@ Chicken voices are real recordings cut into `src/client/audio/chickens.mp3`. Eve
 
 Arrows or WASD move. Hold the mouse or a finger on the playfield to steer and fire. Space, J, or Z also fires. B, K, X, or Shift uses a bomb; on touch screens there is a bomb button. P or Esc pauses.
 
-Four chapters each have eight waves, and the last wave of each chapter is a boss. Gifts raise or swap the weapon, add a shield, a bomb, coolant, or a life. Chained kills raise a score multiplier. Clearing a wave without being hit doubles its bonus.
+Four chapters each have eight waves, and the last wave of each chapter is a boss. Finishing a chapter unlocks the next weapon: the photon lance, then the ion seeker, then wing missiles that home while you fire. Weapon levels come only from rare power cores, and a destroyed ship drops one level. Other gifts add a shield, a bomb, coolant, or a life. Chained kills raise a score multiplier. Clearing a wave without being hit doubles its bonus.
 
 ## Scoreboard
 

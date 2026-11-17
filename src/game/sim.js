@@ -18,7 +18,7 @@ import { ENEMY_TYPES, fireFrom, makeEnemy, moveEnemy, startDive } from "./enemie
 import { PICKUPS, bossLoot, makePickup, rollDrops, updatePickup } from "./loot.js";
 import { TAU, clamp, easeInOutSine, lerp, overlap, rand, steer } from "./math.js";
 import { CHAPTERS, buildWave, waveInfo, wavePacing } from "./waves.js";
-import { MAX_LEVEL, WEAPONS, volley } from "./weapons.js";
+import { MAX_LEVEL, WEAPONS, arsenal, chapterGift, rocketsUnlocked, volley } from "./weapons.js";
 
 const INTRO_TIME = 1.9;
 const CLEAR_TIME = 2.2;
@@ -63,6 +63,10 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {})
       bombs: PLAYER.bombs,
       food: 0,
       weapon: "pulse",
+      weapons: arsenal(chapter),
+      rockets: rocketsUnlocked(chapter),
+      rocketCd: 0,
+      rocketSide: 1,
       level: 1,
       heat: 0,
       overheated: false,
@@ -174,8 +178,12 @@ function advance(state) {
   if (state.chapter < CHAPTER_COUNT) {
     setStage(state, "warp");
     const p = state.player;
+    const next = state.chapter + 1;
     if (p.lives < PLAYER.maxLives) p.lives += 1;
-    emit(state, "warp", { chapter: state.chapter + 1, name: CHAPTERS[state.chapter].name });
+    p.weapons = arsenal(next);
+    p.rockets = rocketsUnlocked(next);
+    if (!p.weapons.includes(p.weapon)) p.weapon = "pulse";
+    emit(state, "warp", { chapter: next, name: CHAPTERS[state.chapter].name, gift: chapterGift(next) });
     return;
   }
   setStage(state, "victory");
@@ -256,6 +264,7 @@ function updatePlayer(state, input, dt) {
 
   const weapon = WEAPONS[p.weapon];
   p.fireCd = Math.max(0, p.fireCd - dt);
+  p.rocketCd = Math.max(0, p.rocketCd - dt);
   p.firing = Boolean(input.fire) && !p.overheated && state.stage !== "warp" && state.stage !== "victory";
   if (p.firing && p.fireCd <= 0) {
     const shots = volley(p.weapon, p.level, p.x, p.y);
@@ -264,6 +273,26 @@ function updatePlayer(state, input, dt) {
     p.fireCd = weapon.rate;
     if (p.frost <= 0) p.heat += weapon.heat;
     emit(state, "shot", { weapon: p.weapon, level: p.level, x: p.x, y: p.y });
+    if (p.rockets && p.rocketCd <= 0) {
+      p.rocketCd = 0.85;
+      const side = p.rocketSide;
+      p.rocketSide = -side;
+      state.shots.push({
+        kind: "rocket",
+        x: p.x + side * 18,
+        y: p.y - 8,
+        vx: side * 70,
+        vy: -540,
+        dmg: 2.6,
+        r: 7,
+        pierce: 0,
+        homing: 2.6,
+        life: 2.3,
+        level: 1,
+      });
+      state.stats.fired += 1;
+      emit(state, "rocket", { x: p.x + side * 18, y: p.y });
+    }
     if (p.heat >= HEAT.max) {
       p.heat = HEAT.max;
       p.overheated = true;
@@ -650,12 +679,12 @@ function collect(state, k) {
       else state.score += 5000;
       emit(state, "bomb_gain", { x: p.x, y: p.y });
     }
-  } else if (k.kind === "power" || (k.kind === "crate" && k.weapon === p.weapon)) {
+  } else if (k.kind === "power") {
     if (p.level < MAX_LEVEL) {
       p.level += 1;
       emit(state, "levelup", { level: p.level, x: p.x, y: p.y });
     } else state.score += 2000;
-  } else if (k.kind === "crate") {
+  } else if (k.kind === "crate" && p.weapons.includes(k.weapon) && k.weapon !== p.weapon) {
     p.weapon = k.weapon;
     emit(state, "weapon", { weapon: k.weapon, x: p.x, y: p.y });
   } else if (k.kind === "shield") {

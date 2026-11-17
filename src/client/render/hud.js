@@ -30,7 +30,15 @@ export function hudEvent(hud, ev) {
       hud.banner = { kind: "clear", title: ev.boss ? T.bossDown : T.waveClear, bonus: ev.bonus, extra: ev.flawless ? T.flawless : "", t: 0, dur: 2.1 };
       break;
     case "warp":
-      hud.banner = { kind: "warp", title: T.warp, sub: `${T.chapter(ev.chapter)} · ${names.chapters[ev.chapter - 1]}`, extra: T.extraShip, t: 0, dur: 3.1 };
+      hud.banner = {
+        kind: "warp",
+        over: ev.gift ? T.gift(ev.gift) : "",
+        title: T.warp,
+        sub: `${T.chapter(ev.chapter)} · ${names.chapters[ev.chapter - 1]}`,
+        extra: T.extraShip,
+        t: 0,
+        dur: 3.6,
+      };
       break;
     case "victory_start":
       hud.banner = { kind: "victory", title: T.victory, sub: T.victorySub, t: 0, dur: 4 };
@@ -127,7 +135,7 @@ function topRight(ctx, p, time) {
 function bottom(ctx, state, time) {
   const p = state.player;
   const color = ACCENT[p.weapon];
-  text(ctx, names.weapons[p.weapon], 22, H - 40, 16, color);
+  text(ctx, p.rockets ? `${names.weapons[p.weapon]} + ${T.rocket}` : names.weapons[p.weapon], 22, H - 40, 16, color);
   for (let i = 0; i < MAX_LEVEL; i += 1) {
     ctx.fillStyle = i < p.level ? color : "rgba(255,255,255,0.16)";
     ctx.beginPath();

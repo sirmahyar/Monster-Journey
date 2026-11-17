@@ -139,6 +139,34 @@ function shotSprite(kind, level) {
         g.fillRect(-w * 0.35, -18, w * 0.7, 34);
       });
     }
+    if (kind === "rocket") {
+      return sprite(36, 56, (g) => {
+        g.fillStyle = linear(g, 0, 16, 0, 26, [[0, "rgba(255,170,40,0.95)"], [1, "rgba(255,60,20,0)"]]);
+        g.beginPath();
+        g.moveTo(-3, 12);
+        g.lineTo(0, 26);
+        g.lineTo(3, 12);
+        g.fill();
+        g.fillStyle = "#f7fbff";
+        g.beginPath();
+        g.moveTo(0, -20);
+        g.lineTo(6, -4);
+        g.lineTo(6, 12);
+        g.lineTo(-6, 12);
+        g.lineTo(-6, -4);
+        g.closePath();
+        g.fill();
+        g.fillStyle = "#ff4d3a";
+        g.beginPath();
+        g.moveTo(-7, 4);
+        g.lineTo(0, 14);
+        g.lineTo(7, 4);
+        g.closePath();
+        g.fill();
+        g.fillStyle = "#26324a";
+        g.fillRect(-2.2, -6, 4.4, 5);
+      });
+    }
     if (kind === "ion") {
       const r = 7 + level * 0.5;
       return sprite(r * 4, r * 4, (g) => {
