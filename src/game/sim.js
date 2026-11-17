@@ -27,6 +27,8 @@ const DEAD_TIME = 2.2;
 const VICTORY_TIME = 4;
 const FROST_TIME = 6;
 const SHIELD_TIME = 8;
+/** Hazards are drawn at full radius but only the inner part of them hurts. */
+const HAZARD_HIT = 0.58;
 
 function emit(state, type, data = {}) {
   state.events.push({ type, ...data });
@@ -504,7 +506,7 @@ function updateEnemies(state, dt) {
       if (e.kind === "golden") emit(state, "golden_escape", {});
       continue;
     }
-    if (e.hidden || !p.alive || !overlap(e.x, e.y, e.r * 0.78, p.x, p.y, PLAYER.radius)) continue;
+    if (e.hidden || !p.alive || !overlap(e.x, e.y, e.r * (e.kind === "rock" ? 0.68 : 0.78), p.x, p.y, PLAYER.radius)) continue;
     if (p.shield > 0) {
       damageEnemy(state, e, 999, null);
       emit(state, "shield_block", { x: p.x, y: p.y });
@@ -562,7 +564,7 @@ function updateEggs(state, dt) {
       if (g.y >= g.splitY) {
         for (let i = 0; i < 8; i += 1) {
           const angle = (i / 8) * TAU + g.t;
-          spawned.push({ kind: "pellet", x: g.x, y: g.y, vx: Math.cos(angle) * 170, vy: Math.sin(angle) * 170, r: 6, t: 0, gravity: 1 });
+          spawned.push({ kind: "pellet", x: g.x, y: g.y, vx: Math.cos(angle) * 170, vy: Math.sin(angle) * 170, r: 8, t: 0, gravity: 1 });
         }
         emit(state, "yolk_split", { x: g.x, y: g.y });
         continue;
@@ -584,11 +586,11 @@ function updateEggs(state, dt) {
     g.x += g.vx * dt;
     g.y += g.vy * dt;
     if ((g.kind === "egg" || g.kind === "yolk") && g.y >= FLOOR_Y) {
-      emit(state, "splat", { x: g.x, y: FLOOR_Y, big: g.r > 7, yolk: g.kind === "yolk" });
+      emit(state, "splat", { x: g.x, y: FLOOR_Y, big: g.r > 11, yolk: g.kind === "yolk" });
       continue;
     }
     if (g.y > H + 30 || g.y < -60 || g.x < -60 || g.x > W + 60) continue;
-    if (p.alive && overlap(g.x, g.y, g.r * 0.85, p.x, p.y, PLAYER.radius * 0.75)) {
+    if (p.alive && overlap(g.x, g.y, g.r * HAZARD_HIT, p.x, p.y, PLAYER.radius * 0.75)) {
       if (p.shield > 0) {
         emit(state, "shield_block", { x: g.x, y: g.y });
         continue;

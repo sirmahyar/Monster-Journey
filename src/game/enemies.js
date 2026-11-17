@@ -13,9 +13,9 @@ export const ENEMY_TYPES = Object.freeze({
 });
 
 export const ROCK_SIZES = Object.freeze({
-  1: Object.freeze({ r: 15, hp: 3, score: 50 }),
-  2: Object.freeze({ r: 25, hp: 8, score: 100 }),
-  3: Object.freeze({ r: 38, hp: 16, score: 150 }),
+  1: Object.freeze({ r: 21, hp: 3, score: 50 }),
+  2: Object.freeze({ r: 33, hp: 8, score: 100 }),
+  3: Object.freeze({ r: 48, hp: 16, score: 150 }),
 });
 
 export function hpScale(chapter) {
@@ -240,21 +240,21 @@ export function fireFrom(e, target, rng, chapter) {
   const y = e.y + e.r * 0.55;
   switch (ENEMY_TYPES[e.kind].egg) {
     case "egg":
-      return [{ kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90), r: e.kind === "chick" ? 5 : 7 }];
+      return [{ kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90), r: e.kind === "chick" ? 10 : 13 }];
     case "yolk":
       if (chapter >= 3 && rng() < 0.5) {
-        return [{ kind: "bigyolk", x, y, vx: rand(rng, -20, 20), vy: 95, r: 12, splitY: rand(rng, 420, 640) }];
+        return [{ kind: "bigyolk", x, y, vx: rand(rng, -20, 20), vy: 95, r: 17, splitY: rand(rng, 420, 640) }];
       }
-      return [{ kind: "yolk", x, y, vx: rand(rng, -30, 30), vy: 120, r: 10 }];
+      return [{ kind: "yolk", x, y, vx: rand(rng, -30, 30), vy: 120, r: 13 }];
     case "quill": {
       const speed = 290 + 25 * chapter;
       const offsets = chapter >= 3 ? [-14, 0, 14] : [0];
-      return offsets.map((off) => ({ kind: "quill", x, y, ...aimed(x, y, target, speed, off), r: 5 }));
+      return offsets.map((off) => ({ kind: "quill", x, y, ...aimed(x, y, target, speed, off), r: 7 }));
     }
     case "spark": {
       const speed = 330 + 30 * chapter;
-      const shots = [{ kind: "spark", x, y, ...aimed(x, y, target, speed), r: 5 }];
-      if (chapter >= 2) shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed * 0.82, 0), r: 5 });
+      const shots = [{ kind: "spark", x, y, ...aimed(x, y, target, speed), r: 8 }];
+      if (chapter >= 2) shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed * 0.82, 0), r: 8 });
       return shots;
     }
     default:

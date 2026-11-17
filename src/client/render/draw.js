@@ -56,7 +56,7 @@ function drawEnemies(ctx, enemies, time) {
   for (const e of enemies) {
     if (e.hidden) continue;
     if (e.kind === "rock") {
-      drawRock(ctx, e);
+      drawRock(ctx, e, time);
       continue;
     }
     const bob = Math.sin(time * 4 + e.phase) * 2;
@@ -160,8 +160,8 @@ export function drawGame(r, state, dt, { hud = true } = {}) {
   drawShots(ctx, state.shots, r.time);
   drawShip(ctx, state.player, r.time);
   if (state.nova) drawNova(ctx, state.nova, r.time);
-  drawEggs(ctx, state.eggs, r.time);
   drawParticles(ctx, fx);
+  drawEggs(ctx, state.eggs, r.time);
   drawPopups(ctx, fx);
   ctx.restore();
   if (fx.flash > 0) {

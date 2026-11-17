@@ -85,13 +85,13 @@ function hover(b, dt) {
 function radial(api, x, y, count, speed, offset, kind = "pellet") {
   for (let i = 0; i < count; i += 1) {
     const angle = offset + (i / count) * TAU;
-    api.egg({ kind, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: 6 });
+    api.egg({ kind, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: 8 });
   }
 }
 
 function aimAt(api, x, y, speed, kind, extra = {}) {
   const angle = Math.atan2(api.player.y - y, api.player.x - x);
-  api.egg({ kind, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: 5, ...extra });
+  api.egg({ kind, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: 7, ...extra });
 }
 
 /** Runs one frame of the current attack and returns true when it has finished. */
@@ -105,7 +105,7 @@ function runAttack(b, a, dt, api) {
         const base = Math.atan2(api.player.y - b.y, api.player.x - b.x);
         for (let i = 0; i < count; i += 1) {
           const angle = base + (i - (count - 1) / 2) * 0.16 + (a.n % 2 ? 0.08 : 0);
-          api.egg({ kind: "egg", x: b.x, y: b.y + 50, vx: Math.cos(angle) * 210, vy: Math.sin(angle) * 210, r: 8, gravity: 0.25 });
+          api.egg({ kind: "egg", x: b.x, y: b.y + 50, vx: Math.cos(angle) * 210, vy: Math.sin(angle) * 210, r: 13, gravity: 0.25 });
         }
         b.mouth = 1;
         a.n += 1;
@@ -117,7 +117,7 @@ function runAttack(b, a, dt, api) {
       a.acc += dt * (6 + b.phase * 3);
       while (a.acc >= 1) {
         a.acc -= 1;
-        api.egg({ kind: "egg", x: rand(rng, 24, W - 24), y: -16, vx: rand(rng, -15, 15), vy: rand(rng, 40, 110), r: 7 });
+        api.egg({ kind: "egg", x: rand(rng, 24, W - 24), y: -16, vx: rand(rng, -15, 15), vy: rand(rng, 40, 110), r: 12 });
       }
       b.mouth = 0.6;
       return a.t >= 2.8;
@@ -166,7 +166,7 @@ function runAttack(b, a, dt, api) {
         a.acc -= 0.11;
         for (let i = 0; i < arms; i += 1) {
           const angle = b.spin + (i / arms) * TAU;
-          api.egg({ kind: "pellet", x: b.x + Math.cos(angle) * 40, y: b.y + Math.sin(angle) * 40, vx: Math.cos(angle) * 165, vy: Math.sin(angle) * 165, r: 6 });
+          api.egg({ kind: "pellet", x: b.x + Math.cos(angle) * 40, y: b.y + Math.sin(angle) * 40, vx: Math.cos(angle) * 165, vy: Math.sin(angle) * 165, r: 8 });
         }
       }
       return a.t >= 3.2;
@@ -183,7 +183,7 @@ function runAttack(b, a, dt, api) {
     case "bombs": {
       const count = 3 + b.phase;
       while (a.n < count && a.t >= 0.25 + a.n * 0.35) {
-        api.egg({ kind: "bigyolk", x: b.x + rand(rng, -40, 40), y: b.y + 50, vx: rand(rng, -140, 140), vy: rand(rng, 60, 120), r: 13, splitY: rand(rng, 380, 640) });
+        api.egg({ kind: "bigyolk", x: b.x + rand(rng, -40, 40), y: b.y + 50, vx: rand(rng, -140, 140), vy: rand(rng, 60, 120), r: 17, splitY: rand(rng, 380, 640) });
         a.n += 1;
       }
       return a.t >= 0.65 + count * 0.35;
@@ -206,7 +206,7 @@ function runAttack(b, a, dt, api) {
       const count = 4 + b.phase;
       while (a.n < count && a.t >= 0.2 + a.n * 0.2) {
         const side = a.n % 2 ? 1 : -1;
-        api.egg({ kind: "missile", x: b.x + side * 60, y: b.y + 10, vx: side * 160, vy: -40, r: 7, homing: 1.7, speed: 235, life: 3.6 });
+        api.egg({ kind: "missile", x: b.x + side * 60, y: b.y + 10, vx: side * 160, vy: -40, r: 9, homing: 1.7, speed: 235, life: 3.6 });
         a.n += 1;
         api.event("missile", {});
       }
@@ -264,7 +264,7 @@ function runAttack(b, a, dt, api) {
       a.acc += dt;
       while (a.acc >= 0.1) {
         a.acc -= 0.1;
-        api.egg({ kind: "egg", x: b.x, y: b.y + 60, vx: 0, vy: 140, r: 8 });
+        api.egg({ kind: "egg", x: b.x, y: b.y + 60, vx: 0, vy: 140, r: 13 });
       }
       return a.t >= 2.4;
     }

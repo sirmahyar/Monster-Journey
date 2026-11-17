@@ -148,14 +148,20 @@ function shotSprite(kind, level) {
         g.fill();
       });
     }
-    const big = level >= 4 ? 1.25 : 1;
-    return sprite(22 * big, 40 * big, (g) => {
+    const big = level >= 4 ? 1.2 : 1;
+    return sprite(20 * big, 48 * big, (g) => {
       g.scale(big, big);
-      g.fillStyle = radial(g, 0, 0, 18, [[0, "rgba(255,170,90,0.9)"], [1, "rgba(255,90,40,0)"]]);
-      ellipse(g, 0, 0, 9, 18);
+      g.fillStyle = linear(g, 0, -21, 0, 23, [[0, "rgba(255,120,40,0)"], [0.22, "rgba(255,104,36,0.8)"], [1, "rgba(255,50,20,0)"]]);
+      g.beginPath();
+      g.moveTo(0, -21);
+      g.quadraticCurveTo(7.5, -5, 0, 23);
+      g.quadraticCurveTo(-7.5, -5, 0, -21);
       g.fill();
-      g.fillStyle = linear(g, 0, -12, 0, 12, [[0, "#ffffff"], [1, "#ffd27a"]]);
-      ellipse(g, 0, -2, 3.5, 10);
+      g.fillStyle = linear(g, 0, -17, 0, 9, [[0, "#fffbe6"], [0.45, "#ffd23f"], [1, "rgba(255,140,40,0)"]]);
+      g.beginPath();
+      g.moveTo(0, -18);
+      g.quadraticCurveTo(3.4, -8, 0, 9);
+      g.quadraticCurveTo(-3.4, -8, 0, -18);
       g.fill();
     });
   });
@@ -177,32 +183,59 @@ export function drawShots(ctx, shots, time) {
   ctx.restore();
 }
 
+function eggShape(g, r) {
+  g.beginPath();
+  g.moveTo(0, -r * 1.25);
+  g.bezierCurveTo(r * 0.95, -r * 1.2, r * 1.0, r * 0.95, 0, r * 1.05);
+  g.bezierCurveTo(-r * 1.0, r * 0.95, -r * 0.95, -r * 1.2, 0, -r * 1.25);
+  g.closePath();
+}
+
 function eggSprite(kind, r) {
   return cached(`egg:${kind}:${r}`, () => {
-    if (kind === "pellet") return glowDot("pellet", r * 2.4, "#ff3d7f", "#fff0f6");
+    if (kind === "pellet") {
+      return sprite(r * 5, r * 5, (g) => {
+        g.fillStyle = radial(g, 0, 0, r * 2.5, [[0, "rgba(255,80,150,0.75)"], [1, "rgba(255,61,127,0)"]]);
+        g.fillRect(-r * 2.5, -r * 2.5, r * 5, r * 5);
+        g.beginPath();
+        g.arc(0, 0, r, 0, TAU);
+        g.fillStyle = radial(g, 0, 0, r, [[0, "#ffffff"], [0.55, "#ffc2dc"], [1, "#ff3d7f"]], -r * 0.3, -r * 0.3);
+        g.fill();
+        g.strokeStyle = "rgba(90,0,40,0.8)";
+        g.lineWidth = Math.max(1.2, r * 0.18);
+        g.stroke();
+      });
+    }
     if (kind === "spark") {
       return sprite(r * 5, r * 5, (g) => {
         g.fillStyle = radial(g, 0, 0, r * 2.5, [[0, "rgba(140,255,200,0.9)"], [1, "rgba(40,255,160,0)"]]);
         g.fillRect(-r * 2.5, -r * 2.5, r * 5, r * 5);
-        g.fillStyle = "#eafff4";
         g.beginPath();
         g.moveTo(0, -r * 1.6);
-        g.lineTo(r * 0.7, 0);
+        g.lineTo(r * 0.75, 0);
         g.lineTo(0, r * 1.6);
-        g.lineTo(-r * 0.7, 0);
+        g.lineTo(-r * 0.75, 0);
         g.closePath();
+        g.fillStyle = "#eafff4";
         g.fill();
+        g.strokeStyle = "rgba(0,90,50,0.85)";
+        g.lineWidth = Math.max(1.2, r * 0.16);
+        g.stroke();
       });
     }
     if (kind === "quill") {
-      return sprite(r * 3, r * 7, (g) => {
-        g.fillStyle = linear(g, 0, -r * 3, 0, r * 3, [[0, "#ffe9a8"], [1, "#d9472b"]]);
+      return sprite(r * 4, r * 8, (g) => {
+        g.fillStyle = radial(g, 0, 0, r * 3.6, [[0, "rgba(255,140,70,0.45)"], [1, "rgba(255,90,40,0)"]]);
+        g.fillRect(-r * 2, -r * 4, r * 4, r * 8);
         g.beginPath();
         g.moveTo(0, r * 3.2);
-        g.quadraticCurveTo(r * 1.3, 0, 0, -r * 3.2);
-        g.quadraticCurveTo(-r * 1.3, 0, 0, r * 3.2);
+        g.quadraticCurveTo(r * 1.4, 0, 0, -r * 3.2);
+        g.quadraticCurveTo(-r * 1.4, 0, 0, r * 3.2);
+        g.fillStyle = linear(g, 0, -r * 3, 0, r * 3, [[0, "#fff1c2"], [0.5, "#ff9a4a"], [1, "#d9332b"]]);
         g.fill();
-        g.strokeStyle = "#7a2414";
+        g.strokeStyle = "#5a160c";
+        g.lineWidth = Math.max(1.2, r * 0.2);
+        g.stroke();
         g.lineWidth = 1;
         g.beginPath();
         g.moveTo(0, -r * 3.2);
@@ -223,44 +256,67 @@ function eggSprite(kind, r) {
         ellipse(g, 0, 0, r * 0.75, r * 1.5);
         g.fillStyle = linear(g, -r, 0, r, 0, [[0, "#c9ced8"], [0.5, "#ffffff"], [1, "#9aa1b1"]]);
         g.fill();
+        g.strokeStyle = "rgba(20,20,40,0.8)";
+        g.lineWidth = 1.2;
+        g.stroke();
         g.fillStyle = "#ff3b3b";
         ellipse(g, 0, -r * 0.8, r * 0.5, r * 0.6);
         g.fill();
       });
     }
-    const yolk = kind === "yolk" || kind === "bigyolk";
-    return sprite(r * 3.4, r * 3.6, (g) => {
-      g.fillStyle = radial(g, 0, 0, r * 1.7, [[0, yolk ? "rgba(255,200,60,0.5)" : "rgba(255,255,255,0.3)"], [1, "rgba(255,255,255,0)"]]);
-      g.fillRect(-r * 1.7, -r * 1.8, r * 3.4, r * 3.6);
-      if (yolk) {
-        ellipse(g, 0, 0, r * 1.1, r * 1.05);
-        g.fillStyle = radial(g, 0, 0, r * 1.1, [[0, "#fff4b0"], [0.45, "#ffc21a"], [1, "#e07a00"]], -r * 0.3, -r * 0.35);
-        g.fill();
-        if (kind === "bigyolk") {
-          g.strokeStyle = "#ff3b1f";
-          g.lineWidth = 2;
-          g.stroke();
+    if (kind === "yolk" || kind === "bigyolk") {
+      return sprite(r * 3.6, r * 3.6, (g) => {
+        g.fillStyle = radial(g, 0, 0, r * 1.8, [[0, "rgba(255,210,80,0.55)"], [1, "rgba(255,200,60,0)"]]);
+        g.fillRect(-r * 1.8, -r * 1.8, r * 3.6, r * 3.6);
+        g.beginPath();
+        for (let i = 0; i <= 10; i += 1) {
+          const a = (i / 10) * TAU;
+          const rr = r * (1.22 + 0.12 * Math.sin(i * 2.7));
+          if (i === 0) g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+          else g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
         }
-        return;
-      }
-      g.beginPath();
-      g.moveTo(0, -r * 1.25);
-      g.bezierCurveTo(r * 0.95, -r * 1.2, r * 1.0, r * 0.95, 0, r * 1.05);
-      g.bezierCurveTo(-r * 1.0, r * 0.95, -r * 0.95, -r * 1.2, 0, -r * 1.25);
-      g.closePath();
+        g.closePath();
+        g.fillStyle = "rgba(255,252,240,0.92)";
+        g.fill();
+        g.strokeStyle = "rgba(120,90,40,0.55)";
+        g.lineWidth = 1.2;
+        g.stroke();
+        ellipse(g, r * 0.05, r * 0.05, r * 0.82, r * 0.8);
+        g.fillStyle = radial(g, 0, 0, r * 0.85, [[0, "#fff4b0"], [0.45, "#ffc21a"], [1, "#e07a00"]], -r * 0.25, -r * 0.3);
+        g.fill();
+        g.strokeStyle = kind === "bigyolk" ? "#ff3b1f" : "#a34d00";
+        g.lineWidth = kind === "bigyolk" ? 2.5 : 1.4;
+        g.stroke();
+        ellipse(g, -r * 0.28, -r * 0.3, r * 0.2, r * 0.13, -0.6);
+        g.fillStyle = "rgba(255,255,255,0.85)";
+        g.fill();
+      });
+    }
+    return sprite(r * 3.6, r * 3.8, (g) => {
+      g.fillStyle = radial(g, 0, 0, r * 1.8, [[0, "rgba(255,248,225,0.6)"], [0.6, "rgba(255,240,210,0.22)"], [1, "rgba(255,240,210,0)"]]);
+      g.fillRect(-r * 1.8, -r * 1.9, r * 3.6, r * 3.8);
+      eggShape(g, r);
       g.fillStyle = radial(g, 0, 0, r * 1.3, [[0, "#ffffff"], [0.6, "#fbf3e4"], [1, "#d8c6a6"]], -r * 0.35, -r * 0.5);
       g.fill();
-      g.strokeStyle = "rgba(120,90,50,0.55)";
-      g.lineWidth = 1;
+      g.strokeStyle = "rgba(70,45,20,0.9)";
+      g.lineWidth = Math.max(1.4, r * 0.14);
       g.stroke();
+      if (r >= 10) {
+        g.fillStyle = "rgba(170,120,70,0.45)";
+        for (const [sx, sy, sr] of [[0.35, 0.2, 0.09], [-0.3, 0.45, 0.07], [0.15, -0.55, 0.06], [-0.5, -0.05, 0.05]]) {
+          ellipse(g, sx * r, sy * r, sr * r, sr * r * 0.8);
+          g.fill();
+        }
+      }
+      ellipse(g, -r * 0.36, -r * 0.52, r * 0.18, r * 0.34, -0.4);
+      g.fillStyle = "rgba(255,255,255,0.95)";
+      g.fill();
     });
   });
 }
 
 export function drawEggs(ctx, eggs, time) {
   for (const e of eggs) {
-    const additive = e.kind === "pellet" || e.kind === "spark";
-    if (additive) ctx.globalCompositeOperation = "lighter";
     const spr = eggSprite(e.kind, e.r);
     if (e.kind === "quill" || e.kind === "missile") blit(ctx, spr, e.x, e.y, Math.atan2(e.vy, e.vx) + Math.PI / 2);
     else if (e.kind === "yolk" || e.kind === "bigyolk") {
@@ -395,6 +451,8 @@ export function drawPickups(ctx, pickups, time) {
   }
 }
 
+const ROCK_TINTS = ["#b39c86", "#a391bf", "#8fb3ad", "#c48f6e"];
+
 function rockSprite(size, variant, r) {
   return cached(`rock:${size}:${variant}:${r}`, () =>
     sprite(r * 2.6, r * 2.6, (g) => {
@@ -404,19 +462,18 @@ function rockSprite(size, variant, r) {
         return seed / 2147483647;
       };
       const n = 10 + Math.floor(rnd() * 4);
-      g.beginPath();
+      const outline = new Path2D();
       for (let i = 0; i < n; i += 1) {
         const a = (i / n) * TAU;
-        const rr = r * (0.82 + rnd() * 0.3);
-        g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        const rr = r * (0.84 + rnd() * 0.28);
+        outline.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
       }
-      g.closePath();
-      const tint = ["#8a7a6a", "#7d6f8f", "#6f8a86", "#9a6e55"][variant % 4];
-      g.fillStyle = radial(g, 0, 0, r * 1.2, [[0, shade(tint, 0.35)], [0.6, tint], [1, shade(tint, -0.55)]], -r * 0.35, -r * 0.4);
-      g.fill();
-      g.strokeStyle = rgba("#1a1010", 0.6);
-      g.lineWidth = Math.max(1.2, r * 0.06);
-      g.stroke();
+      outline.closePath();
+      const tint = ROCK_TINTS[variant % 4];
+      g.fillStyle = radial(g, 0, 0, r * 1.2, [[0, shade(tint, 0.45)], [0.55, tint], [1, shade(tint, -0.5)]], -r * 0.35, -r * 0.4);
+      g.fill(outline);
+      g.save();
+      g.clip(outline);
       for (let i = 0; i < 3 + size; i += 1) {
         const a = rnd() * TAU;
         const d = rnd() * r * 0.55;
@@ -424,18 +481,58 @@ function rockSprite(size, variant, r) {
         ellipse(g, Math.cos(a) * d, Math.sin(a) * d, cr, cr * 0.8);
         g.fillStyle = rgba(shade(tint, -0.5), 0.55);
         g.fill();
-        g.strokeStyle = rgba(shade(tint, 0.5), 0.5);
-        g.lineWidth = 1;
+        g.strokeStyle = rgba(shade(tint, 0.6), 0.6);
+        g.lineWidth = 1.2;
         g.beginPath();
         g.arc(Math.cos(a) * d, Math.sin(a) * d, cr, 0.2, 1.6);
         g.stroke();
       }
+      if (variant % 2 === 1) {
+        g.strokeStyle = "rgba(255,150,60,0.85)";
+        g.lineWidth = Math.max(1.4, r * 0.05);
+        g.lineCap = "round";
+        g.beginPath();
+        let x = -r * 0.6;
+        let y = -r * 0.1;
+        g.moveTo(x, y);
+        for (let i = 0; i < 4; i += 1) {
+          x += r * (0.25 + rnd() * 0.15);
+          y += r * (rnd() - 0.45) * 0.5;
+          g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+      g.fillStyle = linear(g, -r, -r, r * 0.4, r * 0.4, [[0, "rgba(255,244,225,0.5)"], [0.45, "rgba(255,244,225,0)"]]);
+      g.fillRect(-r * 1.3, -r * 1.3, r * 2.6, r * 2.6);
+      g.restore();
+      g.strokeStyle = "rgba(255,236,210,0.55)";
+      g.lineWidth = Math.max(2.5, r * 0.12);
+      g.save();
+      g.translate(-1, -1);
+      g.stroke(outline);
+      g.restore();
+      g.strokeStyle = "rgba(18,8,12,0.9)";
+      g.lineWidth = Math.max(1.6, r * 0.07);
+      g.stroke(outline);
     }),
   );
 }
 
-export function drawRock(ctx, e) {
+export function drawRock(ctx, e, time) {
   const spr = rockSprite(e.size, e.variant, e.r);
+  const speed = Math.hypot(e.vx || 0, e.vy || 0);
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  if (speed > 20) {
+    const angle = Math.atan2(e.vy, e.vx) - Math.PI / 2;
+    const tail = glowDot("meteor", e.r, "#ff8a3d", "#ffe2a8");
+    for (let i = 1; i <= 3; i += 1) {
+      const k = i * 0.045;
+      blit(ctx, tail, e.x - e.vx * k, e.y - e.vy * k, angle, 1.25 - i * 0.22, 1.9 - i * 0.3, 0.32 / i);
+    }
+  }
+  blit(ctx, glowDot("rockrim", e.r * 1.5, "#ffb070", "#ffd8b0"), e.x, e.y, 0, 1, 1, 0.22 + 0.06 * Math.sin((time || 0) * 5 + e.id));
+  ctx.restore();
   blit(ctx, spr, e.x, e.y, e.angle);
   if (e.flash > 0) blit(ctx, silhouette(`rock:${e.size}:${e.variant}:${e.r}`, spr), e.x, e.y, e.angle, 1, 1, e.flash / 0.09);
 }
