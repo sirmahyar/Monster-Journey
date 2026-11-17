@@ -1,7 +1,15 @@
-import { useEffect, useState } from "react";
-import { CHAPTERS } from "../../game/waves.js";
-import { formatNumber, formatTime, strings } from "../strings.js";
+import { useEffect, useRef, useState } from "react";
+import { CHAPTER_COUNT } from "../../game/config.js";
+import { MAX_NAME, NAME_BLOCKED } from "../../shared/pilot-name.js";
+import { fa, formatNumber, formatTime, strings } from "../strings.js";
 import { Icon } from "./Icon.jsx";
+
+/** Focuses a button at the end of a scrolling card without jumping the card to its bottom. */
+function BackButton({ onBack }) {
+  const ref = useRef(null);
+  useEffect(() => ref.current?.focus({ preventScroll: true }), []);
+  return <button ref={ref} type="button" className="btn primary" onClick={onBack}>{strings.back}</button>;
+}
 
 /** @param {{ value: number, duration?: number }} props */
 export function CountUp({ value, duration = 1.2 }) {
@@ -53,9 +61,9 @@ export function ScoreList({ scores, highlight = null, error = "", loading = fals
           className={`${row.id === highlight ? "is-you " : ""}${index < 3 ? `top-${index + 1}` : ""}`}
           style={{ "--i": index }}
         >
-          <span className="rank">{index + 1}</span>
-          <span className="pilot">{row.name}</span>
-          <span className="where">C{row.chapter} · W{row.wave}</span>
+          <span className="rank">{fa(index + 1)}</span>
+          <span className="pilot" dir="auto">{row.name}</span>
+          <span className="where">{strings.where(row.chapter, row.wave)}</span>
           <strong>{formatNumber(row.score)}</strong>
         </li>
       ))}
@@ -72,7 +80,7 @@ export function Logo({ small = false }) {
         <span className="bob bob-3"><Icon kind="hen" size={small ? 38 : 54} /></span>
       </div>
       <h1>
-        <span>Cluck</span> <span className="logo-raid">Raid</span>
+        <span>یورش</span> <span className="logo-raid">مرغ‌ها</span>
       </h1>
     </div>
   );
@@ -119,13 +127,12 @@ export function Pause({ prefs, onToggle, onResume, onRestart, onQuit }) {
 }
 
 export function GameOver({ result, name, setName, onSave, saving, saved, savedId, saveError, scores, error, loading, onAgain, onMenu }) {
-  const chapter = CHAPTERS[result.chapter - 1];
   const stats = [
     [strings.stats.kills, formatNumber(result.kills)],
-    [strings.stats.accuracy, `${Math.round(result.accuracy * 100)}%`],
+    [strings.stats.accuracy, `${fa(Math.round(result.accuracy * 100))}٪`],
     [strings.stats.bestCombo, formatNumber(result.bestCombo)],
     [strings.stats.food, formatNumber(result.food)],
-    [strings.stats.bosses, `${result.bosses} / ${CHAPTERS.length}`],
+    [strings.stats.bosses, `${fa(result.bosses)} از ${fa(CHAPTER_COUNT)}`],
     [strings.stats.time, formatTime(result.time)],
   ];
   return (
@@ -137,7 +144,7 @@ export function GameOver({ result, name, setName, onSave, saving, saved, savedId
         </h2>
         {result.newBest && <p className="badge">{strings.newBest}</p>}
         <p className="note">
-          {result.victory ? strings.victoryNote : strings.overNote} {strings.reached}: {chapter?.name}, wave {result.wave}.
+          {result.victory ? strings.victoryNote : strings.overNote} {strings.reached(result.chapter, result.wave)}
         </p>
         <dl className="stats">
           {stats.map(([label, value]) => (
@@ -153,10 +160,11 @@ export function GameOver({ result, name, setName, onSave, saving, saved, savedId
             <input
               id="pilot-name"
               value={name}
-              maxLength={16}
+              maxLength={MAX_NAME}
               placeholder={strings.namePlaceholder}
               autoComplete="nickname"
-              onChange={(event) => setName(event.target.value.replace(/[^A-Za-z0-9 ]/g, ""))}
+              dir="auto"
+              onChange={(event) => setName(event.target.value.replace(NAME_BLOCKED, "").slice(0, MAX_NAME))}
               data-testid="pilot-name"
               disabled={saved}
             />
@@ -184,7 +192,7 @@ export function Board({ scores, error, loading, highlight, onBack }) {
         <h2>{strings.board}</h2>
         <p className="note">{strings.boardNote}</p>
         <ScoreList scores={scores} highlight={highlight} error={error} loading={loading} />
-        <button type="button" className="btn primary" onClick={onBack} autoFocus>{strings.back}</button>
+        <BackButton onBack={onBack} />
       </div>
     </section>
   );
@@ -195,9 +203,9 @@ function Guide({ title, rows, type }) {
     <section className="guide">
       <h3>{title}</h3>
       <ul>
-        {rows.map(([kind, name, text]) => (
+        {rows.map(([kind, name, text, rowType]) => (
           <li key={kind}>
-            <Icon type={type} kind={kind} size={44} />
+            <Icon type={rowType || type} kind={kind} size={44} />
             <div>
               <strong>{name}</strong>
               <span>{text}</span>
@@ -225,7 +233,11 @@ export function Help({ onBack }) {
             ))}
           </dl>
         </section>
-        <Guide title={strings.enemiesTitle} rows={strings.enemies} type="creature" />
+        <Guide
+          title={strings.enemiesTitle}
+          rows={[...strings.enemies, ["rock", strings.rockName, strings.rockText, "rock"]]}
+          type="creature"
+        />
         <Guide title={strings.lootTitle} rows={strings.loot} type="pickup" />
         <Guide title={strings.weaponsTitle} rows={strings.weapons} type="ship" />
         <section className="guide">
@@ -234,7 +246,7 @@ export function Help({ onBack }) {
             {strings.tips.map((tip) => <li key={tip}>{tip}</li>)}
           </ul>
         </section>
-        <button type="button" className="btn primary" onClick={onBack} autoFocus>{strings.back}</button>
+        <BackButton onBack={onBack} />
       </div>
     </section>
   );

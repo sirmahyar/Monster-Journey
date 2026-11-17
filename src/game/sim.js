@@ -133,7 +133,15 @@ function startWave(state) {
   state.timers = [];
   state.beams = [];
   state.formation.t = 0;
-  emit(state, "wave", { chapter: info.chapter, wave: info.wave, name: info.name, chapterName: info.chapterName, boss: info.boss });
+  emit(state, "wave", {
+    chapter: info.chapter,
+    wave: info.wave,
+    name: info.name,
+    chapterName: info.chapterName,
+    boss: info.boss,
+    template: info.template,
+    bossKind: info.bossKind,
+  });
   if (info.boss) {
     state.boss = makeBoss(info.bossKind);
     emit(state, "boss_intro", { name: state.boss.name, kind: info.bossKind });

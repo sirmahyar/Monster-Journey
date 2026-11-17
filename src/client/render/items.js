@@ -541,4 +541,4 @@ export function weaponColor(weapon) {
   return ACCENT[weapon] || WEAPONS.pulse.color;
 }
 
-export { ACCENT, PICKUP_COLOR, pickupSprite, shipSprite };
+export { ACCENT, PICKUP_COLOR, pickupSprite, rockSprite, shipSprite };

@@ -1,9 +1,8 @@
 import { COMBO_WINDOW, FOOD_PER_BOMB, H, HEAT, W, WAVES_PER_CHAPTER } from "../../game/config.js";
-import { MAX_LEVEL, WEAPONS } from "../../game/weapons.js";
+import { MAX_LEVEL } from "../../game/weapons.js";
+import { hudText as T, formatNumber as fmt, names } from "../strings.js";
 import { ACCENT, pickupSprite, shipSprite } from "./items.js";
-import { FONT, blit, linear, rgba } from "./paint.js";
-
-const fmt = (n) => Math.round(n).toLocaleString("en-US");
+import { FONT, blit, linear, rgba, textDirection } from "./paint.js";
 
 export function createHud() {
   return { shown: 0, lastScore: 0, bump: 0, banner: null, toast: null };
@@ -17,45 +16,45 @@ export function hudEvent(hud, ev) {
   switch (ev.type) {
     case "wave":
       hud.banner = ev.boss
-        ? { kind: "boss", title: "WARNING", sub: ev.name.toUpperCase(), t: 0, dur: 3.2 }
+        ? { kind: "boss", title: T.warning, sub: names.bosses[ev.bossKind] || "", t: 0, dur: 3.2 }
         : {
             kind: "wave",
-            over: ev.wave === 1 ? `CHAPTER ${ev.chapter} · ${ev.chapterName.toUpperCase()}` : `CHAPTER ${ev.chapter}`,
-            title: `WAVE ${ev.wave}`,
-            sub: ev.name.toUpperCase(),
+            over: ev.wave === 1 ? `${T.chapter(ev.chapter)} · ${names.chapters[ev.chapter - 1]}` : T.chapter(ev.chapter),
+            title: T.wave(ev.wave),
+            sub: names.waves[ev.template] || "",
             t: 0,
             dur: 2.4,
           };
       break;
     case "clear":
-      hud.banner = { kind: "clear", title: ev.boss ? "BOSS DEFEATED" : "WAVE CLEAR", bonus: ev.bonus, extra: ev.flawless ? "FLAWLESS  x2" : "", t: 0, dur: 2.1 };
+      hud.banner = { kind: "clear", title: ev.boss ? T.bossDown : T.waveClear, bonus: ev.bonus, extra: ev.flawless ? T.flawless : "", t: 0, dur: 2.1 };
       break;
     case "warp":
-      hud.banner = { kind: "warp", title: "HYPERSPACE JUMP", sub: `CHAPTER ${ev.chapter} · ${ev.name.toUpperCase()}`, extra: "+1 SHIP", t: 0, dur: 3.1 };
+      hud.banner = { kind: "warp", title: T.warp, sub: `${T.chapter(ev.chapter)} · ${names.chapters[ev.chapter - 1]}`, extra: T.extraShip, t: 0, dur: 3.1 };
       break;
     case "victory_start":
-      hud.banner = { kind: "victory", title: "MISSION COMPLETE", sub: "THE FLOCK HAS BEEN SENT HOME", t: 0, dur: 4 };
+      hud.banner = { kind: "victory", title: T.victory, sub: T.victorySub, t: 0, dur: 4 };
       break;
     case "death":
-      if (ev.lives <= 0) hud.banner = { kind: "over", title: "GAME OVER", sub: "YOUR LAST SHIP IS DOWN", t: 0, dur: 2.4 };
+      if (ev.lives <= 0) hud.banner = { kind: "over", title: T.gameOver, sub: T.gameOverSub, t: 0, dur: 2.4 };
       break;
     case "golden":
-      toast(hud, "GOLDEN HEN SPOTTED!", "#ffd95a");
+      toast(hud, T.golden, "#ffd95a");
       break;
     case "golden_escape":
-      toast(hud, "THE GOLDEN HEN GOT AWAY", "#c9b8ff");
+      toast(hud, T.goldenEscape, "#c9b8ff");
       break;
     case "boss_phase":
-      toast(hud, ev.phase >= 2 ? "THE BOSS IS FURIOUS!" : "THE BOSS GETS ANGRY!", "#ff6b6b");
+      toast(hud, ev.phase >= 2 ? T.furious : T.angry, "#ff6b6b");
       break;
     case "part_down":
-      toast(hud, "TURRET DESTROYED", "#9ff0ff");
+      toast(hud, T.turret, "#9ff0ff");
       break;
     case "levelup":
-      toast(hud, ev.level >= MAX_LEVEL ? "MAXIMUM POWER!" : `POWER LEVEL ${ev.level}`, "#ffe08a");
+      toast(hud, ev.level >= MAX_LEVEL ? T.maxPower : T.power(ev.level), "#ffe08a");
       break;
     case "life":
-      toast(hud, "EXTRA SHIP!", "#ff8fa8");
+      toast(hud, T.life, "#ff8fa8");
       break;
     default:
       break;
@@ -64,6 +63,7 @@ export function hudEvent(hud, ev) {
 
 function text(ctx, str, x, y, size, color, align = "left", weight = 900) {
   ctx.font = `${weight} ${Math.round(size)}px ${FONT}`;
+  ctx.direction = textDirection(str);
   ctx.textAlign = align;
   ctx.lineJoin = "round";
   ctx.lineWidth = Math.max(3, size * 0.16);
@@ -89,7 +89,7 @@ function bossBar(ctx, b, time) {
   const w = 420;
   const x = (W - w) / 2;
   const y = 38;
-  text(ctx, b.name.toUpperCase(), W / 2, y - 8, 15, b.armored ? "#9ff0ff" : "#ffd6d6", "center");
+  text(ctx, names.bosses[b.kind], W / 2, y - 8, 16, b.armored ? "#9ff0ff" : "#ffd6d6", "center");
   const k = b.hp / b.maxHp;
   const fill = linear(ctx, x, 0, x + w, 0, [[0, "#ff3b5c"], [1, b.phase >= 2 ? "#ff1f1f" : "#ff9a3d"]]);
   bar(ctx, x, y, w, 14, k, fill, "rgba(40,10,30,0.75)");
@@ -106,28 +106,27 @@ function bossBar(ctx, b, time) {
     const px = W / 2 + (i === 0 ? -1 : 1) * 60 - 40;
     bar(ctx, px, y + 20, 80, 6, part.alive ? part.hp / part.maxHp : 0, "#5dffb1", "rgba(40,10,30,0.7)");
   });
-  if (b.intro > 0) text(ctx, "INVULNERABLE", W / 2, y + 36, 12, rgba("#ffffff", 0.5 + 0.5 * Math.sin(time * 10)), "center");
+  if (b.intro > 0) text(ctx, T.invulnerable, W / 2, y + 38, 13, rgba("#ffffff", 0.5 + 0.5 * Math.sin(time * 10)), "center");
 }
 
 function topRight(ctx, p, time) {
   const ship = shipSprite(p.weapon);
   const shown = Math.min(p.lives, 5);
   for (let i = 0; i < shown; i += 1) blit(ctx, ship, W - 28 - i * 30, 34, 0, 0.36, 0.36);
-  if (p.lives > 5) text(ctx, `x${p.lives}`, W - 28 - 5 * 30, 42, 16, "#ffffff", "right");
+  if (p.lives > 5) text(ctx, T.times(p.lives), W - 28 - 5 * 30, 42, 16, "#ffffff", "right");
   const nova = pickupSprite("nova");
   const bombs = Math.min(p.bombs, 5);
   for (let i = 0; i < bombs; i += 1) blit(ctx, nova, W - 28 - i * 26, 70, 0, 0.75 + Math.sin(time * 4 + i) * 0.04, 0.75);
-  if (p.bombs > 5) text(ctx, `x${p.bombs}`, W - 28 - 5 * 26, 77, 15, "#ff9bf3", "right");
-  if (p.bombs === 0) text(ctx, "NO NOVA", W - 22, 76, 12, "rgba(255,255,255,0.45)", "right", 800);
+  if (p.bombs > 5) text(ctx, T.times(p.bombs), W - 28 - 5 * 26, 77, 15, "#ff9bf3", "right");
+  if (p.bombs === 0) text(ctx, T.noBomb, W - 22, 77, 13, "rgba(255,255,255,0.5)", "right", 800);
   blit(ctx, pickupSprite("kernel"), W - 156, 100, 0, 0.8, 0.8);
   bar(ctx, W - 142, 96, 120, 8, p.food / FOOD_PER_BOMB, "#ffd23f");
 }
 
 function bottom(ctx, state, time) {
   const p = state.player;
-  const weapon = WEAPONS[p.weapon];
   const color = ACCENT[p.weapon];
-  text(ctx, weapon.name.toUpperCase(), 22, H - 40, 14, color);
+  text(ctx, names.weapons[p.weapon], 22, H - 40, 16, color);
   for (let i = 0; i < MAX_LEVEL; i += 1) {
     ctx.fillStyle = i < p.level ? color : "rgba(255,255,255,0.16)";
     ctx.beginPath();
@@ -137,19 +136,19 @@ function bottom(ctx, state, time) {
   const hx = W - 222;
   const hy = H - 32;
   const heat = p.heat / HEAT.max;
-  let label = "HEAT";
+  let label = T.heat;
   let labelColor = "rgba(255,255,255,0.7)";
   if (p.overheated) {
-    label = "OVERHEAT";
+    label = T.overheat;
     labelColor = Math.floor(time * 8) % 2 ? "#ff4a2a" : "#ffffff";
   } else if (p.frost > 0) {
-    label = `FROST ${Math.ceil(p.frost)}s`;
+    label = T.frost(Math.ceil(p.frost));
     labelColor = "#9be8ff";
   }
-  text(ctx, label, W - 22, H - 40, 13, labelColor, "right", 800);
+  text(ctx, label, W - 22, H - 40, 14, labelColor, "right", 800);
   const fill = p.frost > 0 ? "#9be8ff" : linear(ctx, hx, 0, hx + 200, 0, [[0, "#5dffb1"], [0.6, "#ffd23f"], [1, "#ff3b1f"]]);
   bar(ctx, hx, hy, 200, 10, heat, fill);
-  if (p.shield > 0) text(ctx, `SHIELD ${Math.ceil(p.shield)}s`, W / 2, H - 26, 13, "#9ff0ff", "center", 800);
+  if (p.shield > 0) text(ctx, T.shield(Math.ceil(p.shield)), W / 2, H - 26, 14, "#9ff0ff", "center", 800);
 }
 
 function ease(k) {
@@ -234,15 +233,15 @@ export function drawHud(ctx, state, hud, time, dt) {
   hud.bump = Math.max(0, hud.bump - dt * 5);
   ctx.save();
   ctx.textBaseline = "alphabetic";
-  text(ctx, "SCORE", 24, 30, 13, "#c9b8ff", "left", 800);
+  text(ctx, T.score, 24, 30, 14, "#c9b8ff", "left", 800);
   text(ctx, fmt(hud.shown), 22, 62, 30 + hud.bump * 3, "#ffffff");
   if (state.combo >= 3) {
-    text(ctx, `x${state.multiplier}`, 22, 94, 22, state.multiplier > 1 ? "#ff9bf3" : "#e9ddff");
-    text(ctx, `${state.combo} CHAIN`, 66, 92, 12, "#ffd6fb", "left", 800);
+    text(ctx, T.times(state.multiplier), 22, 94, 22, state.multiplier > 1 ? "#ff9bf3" : "#e9ddff");
+    text(ctx, T.chain(state.combo), 66, 92, 13, "#ffd6fb", "left", 800);
     bar(ctx, 22, 101, 120, 5, state.comboTimer / COMBO_WINDOW, "#ff9bf3");
   }
   if (state.boss) bossBar(ctx, state.boss, time);
-  else text(ctx, `CHAPTER ${state.chapter}  ·  WAVE ${state.wave}/${WAVES_PER_CHAPTER}`, W / 2, 30, 13, "rgba(233,221,255,0.75)", "center", 800);
+  else text(ctx, T.stage(state.chapter, state.wave, WAVES_PER_CHAPTER), W / 2, 30, 14, "rgba(233,221,255,0.78)", "center", 800);
   topRight(ctx, state.player, time);
   bottom(ctx, state, time);
   drawToast(ctx, hud, dt);

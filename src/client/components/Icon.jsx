@@ -1,17 +1,18 @@
 import { useEffect, useRef } from "react";
 import { ENEMY_TYPES } from "../../game/enemies.js";
 import { creatureSprite } from "../render/creatures.js";
-import { pickupSprite, shipSprite } from "../render/items.js";
+import { pickupSprite, rockSprite, shipSprite } from "../render/items.js";
 
 function source(type, kind) {
   if (type === "creature") return creatureSprite(kind, 0, 1, false, ENEMY_TYPES[kind].r);
   if (type === "pickup") return pickupSprite(kind, kind === "crate" ? "laser" : undefined);
+  if (type === "rock") return rockSprite(3, 1, 48);
   return shipSprite(kind);
 }
 
 /**
  * Paints one in-game sprite into a small canvas so menus can reuse the game art.
- * @param {{ type?: "creature"|"pickup"|"ship", kind: string, size?: number }} props
+ * @param {{ type?: "creature"|"pickup"|"ship"|"rock", kind: string, size?: number }} props
  */
 export function Icon({ type = "creature", kind, size = 48 }) {
   const ref = useRef(null);

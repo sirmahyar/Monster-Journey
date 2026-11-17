@@ -1,6 +1,7 @@
 import { FLOOR_Y } from "../../game/config.js";
 import { FEATHER_TINTS } from "./creatures.js";
-import { FONT, blit, cached, ellipse, glowDot, linear, rgba, sprite } from "./paint.js";
+import { hudText as T, formatNumber, names } from "../strings.js";
+import { FONT, blit, cached, ellipse, glowDot, linear, rgba, sprite, textDirection } from "./paint.js";
 
 const TAU = Math.PI * 2;
 const MAX_PARTICLES = 1100;
@@ -143,8 +144,6 @@ function explode(fx, x, y, scale = 1, color = "#ffb347") {
   smoke(fx, x, y, Math.round(6 * scale), "#6f5f86", 18 * scale);
 }
 
-const PICKUP_TEXT = { power: "POWER UP", shield: "SHIELD", nova: "+1 NOVA", coolant: "FROST CORE", life: "+1 SHIP" };
-const WEAPON_TEXT = { pulse: "PULSE BLASTER", laser: "PHOTON LANCE", ion: "ION SEEKER" };
 
 /** Turns one simulation event into particles, popups, shake and flashes. */
 export function fxEvent(fx, ev) {
@@ -170,7 +169,7 @@ export function fxEvent(fx, ev) {
         }
         if (ev.kind === "saucer") debris(fx, ev.x, ev.y, 10, "#cfd8e6", 260);
       }
-      popup(fx, ev.x, ev.y - 10, String(ev.points), { color: ev.points >= 1000 ? "#ffd95a" : "#ffffff", size: ev.points >= 1000 ? 24 : 15, life: 0.75 });
+      popup(fx, ev.x, ev.y - 10, formatNumber(ev.points), { color: ev.points >= 1000 ? "#ffd95a" : "#ffffff", size: ev.points >= 1000 ? 24 : 15, life: 0.75 });
       shake(fx, ev.kind === "rock" ? 0.06 * ev.size : 0.04);
       break;
     }
@@ -198,7 +197,7 @@ export function fxEvent(fx, ev) {
     case "pickup": {
       const color = ev.kind === "kernel" || ev.kind === "cob" ? "#ffd23f" : "#ffffff";
       burst(fx, ev.x, ev.y, { count: ev.kind === "kernel" ? 4 : 12, color, speed: 160, life: 0.4, size: 2 });
-      const text = ev.kind === "crate" ? WEAPON_TEXT[ev.weapon] : PICKUP_TEXT[ev.kind];
+      const text = ev.kind === "crate" ? names.weapons[ev.weapon] : T.pickups[ev.kind];
       if (text) popup(fx, ev.x, ev.y - 20, text, { color: "#9ff0ff", size: 20, life: 1.1 });
       break;
     }
@@ -236,7 +235,7 @@ export function fxEvent(fx, ev) {
     case "part_down":
       explode(fx, ev.x, ev.y, 1.3, "#ffb347");
       shake(fx, 0.5);
-      popup(fx, ev.x, ev.y - 20, String(ev.points), { color: "#ffd95a", size: 24 });
+      popup(fx, ev.x, ev.y - 20, formatNumber(ev.points), { color: "#ffd95a", size: 24 });
       break;
     case "boss_boom":
       explode(fx, ev.x, ev.y, 0.9 + fx.rng() * 0.6, fx.rng() < 0.5 ? "#ffb347" : "#ff6b4a");
@@ -246,7 +245,7 @@ export function fxEvent(fx, ev) {
       fx.slow = 1.3;
       flash(fx, 0.7, "#ffffff");
       shake(fx, 0.9);
-      popup(fx, ev.x, ev.y, String(ev.points), { color: "#ffd95a", size: 40, life: 2 });
+      popup(fx, ev.x, ev.y, formatNumber(ev.points), { color: "#ffd95a", size: 40, life: 2 });
       break;
     case "boss_dead":
       explode(fx, ev.x, ev.y, 3, "#ffd27a");
@@ -276,18 +275,18 @@ export function fxEvent(fx, ev) {
       burst(fx, ev.x, ev.y, { count: 8, color: "#ffae3d", speed: 180, life: 0.3 });
       break;
     case "combo":
-      popup(fx, ev.x, ev.y - 30, `x${ev.mult} COMBO`, { color: "#ff9bf3", size: 22 + ev.mult * 1.5, life: 1.1 });
+      popup(fx, ev.x, ev.y - 30, T.combo(ev.mult), { color: "#ff9bf3", size: 22 + ev.mult * 1.5, life: 1.1 });
       break;
     case "overheat":
       smoke(fx, ev.x, ev.y, 10, "#dfe7f2", 12);
-      popup(fx, ev.x, ev.y - 50, "OVERHEAT", { color: "#ff6b4a", size: 22, life: 1.1 });
+      popup(fx, ev.x, ev.y - 50, T.overheat, { color: "#ff6b4a", size: 22, life: 1.1 });
       break;
     case "coolant":
     case "shield_on":
       ring(fx, ev.x, ev.y, 80, "#9ff0ff", 0.5, 3);
       break;
     case "bomb_gain":
-      popup(fx, ev.x, ev.y - 40, "+1 NOVA", { color: "#ff9bf3", size: 18 });
+      popup(fx, ev.x, ev.y - 40, T.bomb, { color: "#ff9bf3", size: 18 });
       break;
     case "shield_block":
       burst(fx, ev.x, ev.y, { count: 6, color: "#9ff0ff", speed: 200, life: 0.3, size: 2 });
@@ -419,6 +418,7 @@ export function drawPopups(ctx, fx) {
     const pop = k < 0.15 ? 0.6 + (k / 0.15) * 0.55 : 1.15 - Math.min(0.15, (k - 0.15) * 0.6);
     ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
     ctx.font = `800 ${Math.round(p.size * pop)}px ${FONT}`;
+    ctx.direction = textDirection(p.text);
     ctx.lineWidth = 4;
     ctx.strokeStyle = "rgba(20,8,40,0.85)";
     const y = p.y - k * 46;

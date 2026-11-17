@@ -1,4 +1,11 @@
-export const FONT = '"Trebuchet MS", "Segoe UI", system-ui, sans-serif';
+export const FONT = 'Vazirmatn, Tahoma, "Segoe UI", sans-serif';
+
+const PERSIAN_LETTER = /[\u0621-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06CC]/;
+
+/** Persian words read right to left; bare numbers keep their usual sign placement. */
+export function textDirection(str) {
+  return PERSIAN_LETTER.test(str) ? "rtl" : "ltr";
+}
 
 const cache = new Map();
 let spriteScale = 1;

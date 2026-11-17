@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isValidName, normalizeName } from "../shared/pilot-name.js";
 import { fetchScores, submitScore } from "./api.js";
 import { audioSettings, setAudioSetting, unlockAudio } from "./audio/engine.js";
 import { playUi } from "./audio/sfx.js";
@@ -111,8 +112,12 @@ export function App() {
 
   async function save(event) {
     event.preventDefault();
-    const clean = name.trim();
+    const clean = normalizeName(name);
     if (!result || saving || savedId != null || !clean) return;
+    if (!isValidName(clean)) {
+      setSaveError(strings.nameInvalid);
+      return;
+    }
     setSaving(true);
     setSaveError("");
     try {
@@ -121,8 +126,8 @@ export function App() {
       setSavedId(row?.id ?? -1);
       setScores(await fetchScores());
       setBoardError("");
-    } catch (error) {
-      setSaveError(error.message || strings.saveFailed);
+    } catch {
+      setSaveError(strings.saveFailed);
     } finally {
       setSaving(false);
     }
