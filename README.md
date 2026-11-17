@@ -35,7 +35,7 @@ npm run build
 arvan ec deploy -f dist/edge/game-api.js monster
 ```
 
-The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The edge runtime can serve the page. It cannot open the MySQL connection, so the scoreboard on that URL stays disconnected until the API runs somewhere that can reach the database.
+The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The edge function reads the database password from the JSON environment variable `dbpassword` and writes scores to the DBaaS MySQL database. Do not put that password in the bundle.
 
 ## Sound
 

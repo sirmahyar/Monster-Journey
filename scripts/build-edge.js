@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 import * as esbuild from "esbuild";
 import { bytesToBase64Url } from "../src/server/security/encoding.js";
@@ -31,6 +31,7 @@ await esbuild.build({
   charset: "utf8",
   outfile: "dist/edge/game-api.js",
   legalComments: "none",
+  external: ["cloudflare:sockets"],
   plugins: [siteAssetPlugin(assets)],
   banner: {
     js: [
@@ -43,11 +44,15 @@ await esbuild.build({
 });
 
 const bundled = readFileSync("dist/edge/game-api.js", "utf8");
-const forbidden = ["node:http", "node:fs", "node:net", "from \"vite\"", "process.env", "MYSQL_PASSWORD"];
+const forbidden = ["node:http", "node:fs", "node:net", "from \"vite\"", "process.env"];
 for (const needle of forbidden) {
   if (bundled.includes(needle)) {
     throw new Error(`Edge bundle contains forbidden marker: ${needle}`);
   }
+}
+const password = envPassword();
+if (password && bundled.includes(password)) {
+  throw new Error("Edge bundle contains the database password");
 }
 if (!bundled.includes("یورش مرغی")) {
   throw new Error("Edge bundle is missing the built game page");
@@ -56,6 +61,20 @@ if (!bundled.includes("addEventListener")) {
   throw new Error("Edge bundle is missing the confirmed fetch listener");
 }
 console.log(`Wrote dist/edge/game-api.js (${bundled.length} bytes)`);
+
+function envPassword() {
+  if (!existsSync(".env")) return "";
+  for (const line of readFileSync(".env", "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("MYSQL_PASSWORD=")) continue;
+    let value = trimmed.slice("MYSQL_PASSWORD=".length).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    return value;
+  }
+  return "";
+}
 
 /** @param {string} root */
 function loadClientAssets(root) {

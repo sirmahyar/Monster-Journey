@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { connectionFromEdge } from "../src/server/scores/edge-db.js";
+import { passwordFromEdgeValue } from "../src/server/scores/mysql-wire.js";
 import { createMemoryScores } from "../src/server/scores/store.js";
 import { handleSiteRequest } from "../src/server/http/site.js";
 
@@ -6,6 +8,20 @@ const assets = {
   "/index.html": { type: "text/html; charset=utf-8", cache: "no-cache", body: "<title>یورش مرغی</title>" },
   "/assets/app.js": { type: "text/javascript; charset=utf-8", cache: "public", body: "console.log(1)" },
 };
+
+describe("edge database password", () => {
+  it("reads a JSON string, a raw string, or an object", () => {
+    expect(passwordFromEdgeValue('"s3cret"')).toBe("s3cret");
+    expect(passwordFromEdgeValue("s3cret")).toBe("s3cret");
+    expect(passwordFromEdgeValue({ password: "s3cret" })).toBe("s3cret");
+    expect(passwordFromEdgeValue({ dbpassword: "s3cret" })).toBe("s3cret");
+    const config = connectionFromEdge({ dbpassword: { password: "s3cret", database: "scores" } });
+    expect(config.password).toBe("s3cret");
+    expect(config.database).toBe("scores");
+    expect(config.user).toBe("base-user");
+    expect(config.host.endsWith(".db.arvandbaas.ir")).toBe(true);
+  });
+});
 
 describe("edge site", () => {
   it("serves the game page and its files", async () => {
