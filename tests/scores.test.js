@@ -16,11 +16,13 @@ describe("scoreboard", () => {
     expect(() => parseScoreBody({ name: "Pilot!", score: 10, chapter: 1, wave: 1 })).toThrow(/Name/);
     expect(() => parseScoreBody({ name: "Pilot", score: 10, chapter: 1, wave: 1, hp: 99 })).toThrow(/Unexpected/);
     expect(() => parseScoreBody({ name: "Pilot", score: 10_000_000, chapter: 1, wave: 1 })).toThrow(/Score/);
-    expect(parseScoreBody({ name: " Ace ", score: 20, chapter: 2, wave: 5 })).toEqual({
+    expect(() => parseScoreBody({ name: "Pilot", score: 10, chapter: 5, wave: 1 })).toThrow(/Chapter/);
+    expect(() => parseScoreBody({ name: "Pilot", score: 10, chapter: 4, wave: 9 })).toThrow(/Wave/);
+    expect(parseScoreBody({ name: " Ace ", score: 20, chapter: 4, wave: 8 })).toEqual({
       name: "Ace",
       score: 20,
-      chapter: 2,
-      wave: 5,
+      chapter: 4,
+      wave: 8,
     });
   });
 

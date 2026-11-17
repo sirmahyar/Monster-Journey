@@ -1,3 +1,4 @@
+import { CHAPTER_COUNT, WAVES_PER_CHAPTER } from "../../game/config.js";
 import { invalidRequest } from "../errors.js";
 
 export const MAX_SCORE = 9_999_999;
@@ -17,8 +18,8 @@ export function parseScoreBody(data) {
   if (keys.length !== 4) throw invalidRequest("Score body is missing fields");
   const name = parseName(data.name);
   const score = parseBoundedInt(data.score, 0, MAX_SCORE, "Score");
-  const chapter = parseBoundedInt(data.chapter, 1, 4, "Chapter");
-  const wave = parseBoundedInt(data.wave, 1, 5, "Wave");
+  const chapter = parseBoundedInt(data.chapter, 1, CHAPTER_COUNT, "Chapter");
+  const wave = parseBoundedInt(data.wave, 1, WAVES_PER_CHAPTER, "Wave");
   return { name, score, chapter, wave };
 }
 

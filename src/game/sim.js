@@ -1,451 +1,774 @@
-export const WORLD_W = 960;
-export const WORLD_H = 540;
-export const MAX_WEAPON = 6;
+import {
+  CHAPTER_COUNT,
+  COMBO_WINDOW,
+  EGG_GRAVITY,
+  EGG_MAX_FALL,
+  FLOOR_Y,
+  FOOD_PER_BOMB,
+  H,
+  HEAT,
+  MAX_COMBO_MULT,
+  PLAYER,
+  STEP,
+  W,
+  WAVES_PER_CHAPTER,
+} from "./config.js";
+import { bombBoss, bossCircles, hitBoss, makeBoss, updateBoss } from "./bosses.js";
+import { ENEMY_TYPES, fireFrom, makeEnemy, moveEnemy, startDive } from "./enemies.js";
+import { PICKUPS, bossLoot, makePickup, rollDrops, updatePickup } from "./loot.js";
+import { TAU, clamp, easeInOutSine, lerp, overlap, rand, steer } from "./math.js";
+import { CHAPTERS, buildWave, waveInfo, wavePacing } from "./waves.js";
+import { MAX_LEVEL, WEAPONS, volley } from "./weapons.js";
 
-export const CHAPTERS = Object.freeze([
-  Object.freeze({ name: "Barnyard Orbit", speed: 78, eggEvery: 2.5, dive: false, roosters: false, hp: 1 }),
-  Object.freeze({ name: "Egg Storm", speed: 96, eggEvery: 1.35, dive: true, roosters: false, hp: 2 }),
-  Object.freeze({ name: "Meteor Coop", speed: 118, eggEvery: 1.05, dive: true, roosters: true, hp: 3 }),
-  Object.freeze({ name: "The Henship", speed: 132, eggEvery: 0.85, dive: true, roosters: true, hp: 4 }),
-]);
+const INTRO_TIME = 1.9;
+const CLEAR_TIME = 2.2;
+const WARP_TIME = 3.2;
+const DEAD_TIME = 2.2;
+const VICTORY_TIME = 4;
+const FROST_TIME = 6;
+const SHIELD_TIME = 8;
 
-const BOSS_NAMES = ["Giant Hen", "Egg Carrier", "Armored Rooster", "Henship"];
-
-/** @param {number} level @param {number} x @param {number} y */
-export function shotPattern(level, x, y) {
-  const tier = Math.max(1, Math.min(MAX_WEAPON, level));
-  const bolt = (oy, vy, damage = 1, missile = false) => ({
-    x: x + 22,
-    y: y + oy,
-    vx: missile ? 420 : 560,
-    vy,
-    r: missile ? 8 : 5,
-    damage,
-    missile,
-  });
-  if (tier === 1) return [bolt(0, 0)];
-  if (tier === 2) return [bolt(-8, 0), bolt(8, 0)];
-  if (tier === 3) return [bolt(0, -90), bolt(0, 0), bolt(0, 90)];
-  if (tier === 4) return [bolt(-14, 0), bolt(-5, 0), bolt(5, 0), bolt(14, 0)];
-  if (tier === 5) return [bolt(0, -150), bolt(0, -75), bolt(0, 0), bolt(0, 75), bolt(0, 150)];
-  return [bolt(0, -110), bolt(0, -40), bolt(0, 40), bolt(0, 110), bolt(-6, -36, 4, true), bolt(-6, 36, 4, true)];
+function emit(state, type, data = {}) {
+  state.events.push({ type, ...data });
 }
 
-/**
- * @param {{ x: number, y: number, r: number }} a
- * @param {{ x: number, y: number, r: number }} b
- */
-export function circlesOverlap(a, b) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  const reach = a.r + b.r;
-  return dx * dx + dy * dy <= reach * reach;
+function setStage(state, stage) {
+  state.stage = stage;
+  state.stageTime = 0;
 }
 
-/** @param {() => number} [random] */
-export function createRun(random = Math.random) {
+export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {}) {
   const state = {
-    random,
-    phase: "play",
-    chapter: 0,
-    wave: 0,
-    lives: 3,
-    bombs: 2,
-    weapon: 1,
-    shield: 0,
+    rng: random,
+    time: 0,
+    stage: "intro",
+    stageTime: 0,
+    chapter,
+    wave,
+    info: waveInfo(chapter, wave),
+    player: {
+      x: W / 2,
+      y: PLAYER.startY,
+      vx: 0,
+      vy: 0,
+      tilt: 0,
+      alive: true,
+      respawn: 0,
+      invuln: PLAYER.invuln,
+      shield: 0,
+      frost: 0,
+      lives: PLAYER.lives,
+      bombs: PLAYER.bombs,
+      food: 0,
+      weapon: "pulse",
+      level: 1,
+      heat: 0,
+      overheated: false,
+      fireCd: 0,
+      firing: false,
+    },
+    shots: [],
+    eggs: [],
+    enemies: [],
+    pickups: [],
+    beams: [],
+    timers: [],
+    boss: null,
+    nova: null,
+    formation: { t: 0, ox: 0, oy: 0, ax: 60, ay: 12, fx: 0.5, fy: 1.2 },
+    pacing: { eggRate: 0, diveRate: 0, diveLoop: 0 },
+    eggClock: 0,
+    diveClock: 0,
+    waveSize: 1,
+    waveDeaths: 0,
+    nextId: 1,
     score: 0,
     combo: 0,
-    comboTime: 0,
-    hitThisWave: false,
-    x: 120,
-    y: WORLD_H / 2,
-    fireCd: 0,
-    invuln: 0,
-    time: 0,
-    clearDelay: 0,
-    waiting: false,
-    banner: CHAPTERS[0].name,
-    bannerTime: 1.6,
-    shots: [],
-    enemies: [],
-    eggs: [],
-    gifts: [],
-    spawns: [],
-    nextId: 1,
-    sounds: [],
+    comboTimer: 0,
+    multiplier: 1,
+    stats: { kills: 0, fired: 0, hits: 0, bestCombo: 0, food: 0, bosses: 0, deaths: 0, time: 0 },
+    bombHeld: false,
+    over: false,
+    victory: false,
+    events: [],
   };
-  queueWave(state);
+  startWave(state);
   return state;
 }
 
-/**
- * @param {ReturnType<typeof createRun>} state
- * @param {{ ax?: number, ay?: number, targetX?: number | null, targetY?: number | null, fire?: boolean, bomb?: boolean }} input
- * @param {number} dt
- */
-export function step(state, input, dt) {
-  if (state.phase !== "play") return state;
-  const frame = Math.min(0.05, Math.max(0, dt));
-  state.time += frame;
-  state.sounds.length = 0;
-  if (state.bannerTime > 0) state.bannerTime -= frame;
-  if (state.comboTime > 0) {
-    state.comboTime -= frame;
-    if (state.comboTime <= 0) state.combo = 0;
+function addEnemy(state, kind, fields) {
+  const enemy = makeEnemy(state.nextId, kind, state.chapter, fields);
+  state.nextId += 1;
+  state.enemies.push(enemy);
+  return enemy;
+}
+
+function addEgg(state, spec) {
+  state.eggs.push({ t: 0, gravity: 1, ...spec });
+}
+
+function spawnGolden(state) {
+  const dir = state.rng() < 0.5 ? 1 : -1;
+  addEnemy(state, "golden", {
+    mode: "flyby",
+    dir,
+    x: dir > 0 ? -60 : W + 60,
+    y: 120,
+    baseY: rand(state.rng, 90, 170),
+    speed: 165 + 15 * state.chapter,
+  });
+  emit(state, "golden", {});
+}
+
+function startWave(state) {
+  const info = waveInfo(state.chapter, state.wave);
+  state.info = info;
+  setStage(state, "intro");
+  state.pacing = wavePacing(info);
+  state.eggClock = 0;
+  state.diveClock = 0;
+  state.waveDeaths = 0;
+  state.timers = [];
+  state.beams = [];
+  state.formation.t = 0;
+  emit(state, "wave", { chapter: info.chapter, wave: info.wave, name: info.name, chapterName: info.chapterName, boss: info.boss });
+  if (info.boss) {
+    state.boss = makeBoss(info.bossKind);
+    emit(state, "boss_intro", { name: state.boss.name, kind: info.bossKind });
+  } else {
+    buildWave(
+      {
+        rng: state.rng,
+        spawn: (kind, fields) => addEnemy(state, kind, fields),
+        later: (at, fn) => state.timers.push({ at, fn, optional: false }),
+        setFormation: (sway) => Object.assign(state.formation, sway),
+        spawnGolden: () => spawnGolden(state),
+      },
+      info,
+    );
+    if (info.template !== "rocks" && state.rng() < 0.15) {
+      state.timers.push({ at: rand(state.rng, 6, 14), optional: true, fn: () => spawnGolden(state) });
+    }
   }
-  movePlayer(state, input, frame);
-  if (input.bomb) useBomb(state);
-  if (input.fire) fire(state, frame);
-  else state.fireCd = Math.max(0, state.fireCd - frame);
-  if (state.invuln > 0) state.invuln -= frame;
-  moveActors(state, frame);
-  collide(state);
-  if (state.phase !== "play") return state;
-  watchWave(state, frame);
-  return state;
+  state.waveSize = Math.max(1, state.enemies.filter((e) => ENEMY_TYPES[e.kind].egg).length);
 }
 
-/** @param {ReturnType<typeof createRun>} state */
-function queueWave(state) {
-  const chapter = CHAPTERS[state.chapter];
-  state.banner = state.wave === 4 ? `${chapter.name} · ${BOSS_NAMES[state.chapter]}` : `${chapter.name} · Wave ${state.wave + 1}`;
-  state.bannerTime = 1.6;
-  state.spawns = [];
-  state.waiting = false;
-  if (state.wave === 4) {
-    state.enemies.push(makeBoss(state));
+function advance(state) {
+  state.enemies = [];
+  state.timers = [];
+  if (state.wave < WAVES_PER_CHAPTER) {
+    state.wave += 1;
+    startWave(state);
     return;
   }
-  const count = 8 + state.chapter * 2 + state.wave * 2;
-  for (let index = 0; index < count; index += 1) {
-    const col = index % 4;
-    const row = Math.floor(index / 4) % 5;
-    let kind = "hen";
-    if (chapter.roosters && index % 5 === 4) kind = "rooster";
-    else if (index % 3 === 2) kind = "chick";
-    state.spawns.push({
-      delay: 0.45 + index * Math.max(0.18, 0.38 - state.chapter * 0.04),
-      kind,
-      x: WORLD_W + 30 + col * 48,
-      y: 78 + row * 78,
-    });
+  if (state.chapter < CHAPTER_COUNT) {
+    setStage(state, "warp");
+    const p = state.player;
+    if (p.lives < PLAYER.maxLives) p.lives += 1;
+    emit(state, "warp", { chapter: state.chapter + 1, name: CHAPTERS[state.chapter].name });
+    return;
+  }
+  setStage(state, "victory");
+  emit(state, "victory_start", {});
+}
+
+function updateStage(state) {
+  const t = state.stageTime;
+  if (state.stage === "intro" && t >= INTRO_TIME) setStage(state, "active");
+  else if (state.stage === "clear" && t >= CLEAR_TIME) advance(state);
+  else if (state.stage === "warp" && t >= WARP_TIME) {
+    state.chapter += 1;
+    state.wave = 1;
+    startWave(state);
+  } else if (state.stage === "dead" && t >= DEAD_TIME) {
+    state.over = true;
+    emit(state, "gameover", { score: state.score });
+  } else if (state.stage === "victory" && t >= VICTORY_TIME) {
+    state.over = true;
+    state.victory = true;
+    emit(state, "victory", { score: state.score });
   }
 }
 
-/** @param {ReturnType<typeof createRun>} state */
-function makeBoss(state) {
-  const names = ["giant", "carrier", "charger", "henship"];
-  const hp = 40 + state.chapter * 28;
-  return enemy(state, {
-    kind: "boss",
-    boss: names[state.chapter],
-    x: WORLD_W - 120,
-    y: WORLD_H / 2,
-    hp,
-    maxHp: hp,
-    r: state.chapter === 3 ? 78 : 58,
-    score: 2500 + state.chapter * 500,
+function cool(state, p, dt) {
+  const rate = p.overheated ? HEAT.coolLocked : p.firing ? HEAT.coolFiring : HEAT.coolIdle;
+  p.heat = Math.max(0, p.heat - rate * dt);
+  if (p.overheated && p.heat <= HEAT.unlockAt) {
+    p.overheated = false;
+    emit(state, "cooled", {});
+  }
+}
+
+function updatePlayer(state, input, dt) {
+  const p = state.player;
+  p.invuln = Math.max(0, p.invuln - dt);
+  p.shield = Math.max(0, p.shield - dt);
+  p.frost = Math.max(0, p.frost - dt);
+  if (!p.alive) {
+    p.firing = false;
+    cool(state, p, dt);
+    if (state.stage !== "dead") {
+      p.respawn -= dt;
+      if (p.respawn <= 0) respawn(state);
+    }
+    return;
+  }
+  const px = p.x;
+  const py = p.y;
+  if (input.targetX != null && input.targetY != null) {
+    const dx = input.targetX - p.x;
+    const dy = input.targetY - p.y;
+    const dist = Math.hypot(dx, dy);
+    const reach = PLAYER.pointerSpeed * dt;
+    if (dist > reach) {
+      p.x += (dx / dist) * reach;
+      p.y += (dy / dist) * reach;
+    } else {
+      p.x = input.targetX;
+      p.y = input.targetY;
+    }
+  } else {
+    let mx = input.moveX || 0;
+    let my = input.moveY || 0;
+    const len = Math.hypot(mx, my);
+    if (len > 1) {
+      mx /= len;
+      my /= len;
+    }
+    p.x += mx * PLAYER.keySpeed * dt;
+    p.y += my * PLAYER.keySpeed * dt;
+  }
+  p.x = clamp(p.x, 24, W - 24);
+  p.y = clamp(p.y, PLAYER.minY, PLAYER.maxY);
+  p.vx = (p.x - px) / dt;
+  p.vy = (p.y - py) / dt;
+  p.tilt += (clamp(p.vx / 600, -1, 1) - p.tilt) * Math.min(1, dt * 10);
+
+  const weapon = WEAPONS[p.weapon];
+  p.fireCd = Math.max(0, p.fireCd - dt);
+  p.firing = Boolean(input.fire) && !p.overheated && state.stage !== "warp" && state.stage !== "victory";
+  if (p.firing && p.fireCd <= 0) {
+    const shots = volley(p.weapon, p.level, p.x, p.y);
+    for (const s of shots) state.shots.push(s);
+    state.stats.fired += shots.length;
+    p.fireCd = weapon.rate;
+    if (p.frost <= 0) p.heat += weapon.heat;
+    emit(state, "shot", { weapon: p.weapon, level: p.level, x: p.x, y: p.y });
+    if (p.heat >= HEAT.max) {
+      p.heat = HEAT.max;
+      p.overheated = true;
+      emit(state, "overheat", { x: p.x, y: p.y });
+    }
+  }
+  cool(state, p, dt);
+  if (input.bomb && !state.bombHeld && p.bombs > 0 && !state.nova) launchNova(state);
+  state.bombHeld = Boolean(input.bomb);
+}
+
+function killPlayer(state) {
+  const p = state.player;
+  if (!p.alive) return;
+  p.alive = false;
+  p.lives -= 1;
+  p.level = Math.max(1, p.level - 1);
+  p.heat = 0;
+  p.overheated = false;
+  p.shield = 0;
+  p.frost = 0;
+  state.waveDeaths += 1;
+  state.stats.deaths += 1;
+  state.combo = 0;
+  state.comboTimer = 0;
+  state.multiplier = 1;
+  emit(state, "death", { x: p.x, y: p.y, lives: p.lives });
+  if (p.lives <= 0) setStage(state, "dead");
+  else p.respawn = PLAYER.respawnDelay;
+}
+
+function respawn(state) {
+  const p = state.player;
+  p.alive = true;
+  p.x = W / 2;
+  p.y = PLAYER.startY;
+  p.invuln = PLAYER.invuln;
+  p.fireCd = 0.3;
+  state.eggs = state.eggs.filter((g) => Math.hypot(g.x - p.x, g.y - p.y) > 180);
+  emit(state, "respawn", { x: p.x, y: p.y });
+}
+
+function launchNova(state) {
+  const p = state.player;
+  p.bombs -= 1;
+  state.nova = { x: p.x, y: p.y - 24, sx: p.x, sy: p.y - 24, t: 0 };
+  emit(state, "nova_launch", { x: p.x, y: p.y });
+}
+
+function updateNova(state, dt) {
+  const n = state.nova;
+  if (!n) return;
+  n.t += dt;
+  const k = Math.min(1, n.t / 0.5);
+  n.x = lerp(n.sx, W / 2, easeInOutSine(k));
+  n.y = lerp(n.sy, H * 0.36, 1 - (1 - k) * (1 - k));
+  if (k < 1) return;
+  state.nova = null;
+  emit(state, "nova", { x: n.x, y: n.y, eggs: state.eggs.map((g) => [g.x, g.y]) });
+  state.eggs.length = 0;
+  state.beams.length = 0;
+  const dmg = 30 + 12 * state.chapter;
+  for (const e of state.enemies) if (!e.dead && !e.hidden && e.y > -30 && e.y < H) damageEnemy(state, e, dmg, null);
+  if (state.boss) bossResult(state, bombBoss(state.boss), state.boss.x, state.boss.y);
+  state.player.invuln = Math.max(state.player.invuln, 0.8);
+  state.enemies = state.enemies.filter((e) => !e.dead);
+}
+
+function damageEnemy(state, e, dmg, shot) {
+  if (e.dead) return;
+  const x = shot ? shot.x : e.x;
+  const y = shot ? shot.y : e.y;
+  let rest = dmg;
+  if (e.shield > 0) {
+    const absorbed = Math.min(e.shield, rest);
+    e.shield -= absorbed;
+    rest -= absorbed;
+    emit(state, e.shield > 0 ? "shield_hit" : "shield_break", { x, y, ex: e.x, ey: e.y });
+    if (rest <= 0) return;
+  }
+  e.hp -= rest;
+  e.flash = 0.09;
+  if (e.hp > 0) emit(state, "hit", { x, y, kind: e.kind });
+  else killEnemy(state, e);
+}
+
+function killEnemy(state, e) {
+  e.dead = true;
+  state.combo += 1;
+  state.comboTimer = COMBO_WINDOW;
+  const mult = Math.min(MAX_COMBO_MULT, 1 + Math.floor(state.combo / 8));
+  if (mult > state.multiplier) emit(state, "combo", { mult, x: e.x, y: e.y });
+  state.multiplier = mult;
+  state.stats.bestCombo = Math.max(state.stats.bestCombo, state.combo);
+  state.stats.kills += 1;
+  const points = e.score * mult;
+  state.score += points;
+  emit(state, "kill", { x: e.x, y: e.y, kind: e.kind, points, variant: e.variant, size: e.size || 0, r: e.r, vx: e.vx, vy: e.vy });
+  if (e.kind === "rock" && e.size > 1) {
+    for (const side of [-1, 1]) {
+      addEnemy(state, "rock", {
+        size: e.size - 1,
+        mode: "drift",
+        x: e.x + side * 8,
+        y: e.y,
+        dx: (e.dx || 0) * 0.6 + side * rand(state.rng, 60, 120),
+        dy: Math.max(90, (e.dy || 150) * rand(state.rng, 0.8, 1.05)),
+        spin: rand(state.rng, -3, 3),
+        angle: rand(state.rng, 0, TAU),
+        variant: e.variant,
+        t: 1.1,
+      });
+    }
+    emit(state, "rock_split", { x: e.x, y: e.y, size: e.size });
+  }
+  for (const drop of rollDrops(e, state.rng, state.player)) state.pickups.push(makePickup(drop.kind, e.x, e.y, state.rng, drop));
+}
+
+function bossResult(state, result, x, y) {
+  const b = state.boss;
+  if (!result || !b) return;
+  if (result === "immune") emit(state, "boss_immune", { x, y });
+  else if (result === "part_down") {
+    state.score += 3000;
+    emit(state, "part_down", { x, y, points: 3000 });
+  } else if (result === "killed") {
+    const points = 20000 * state.chapter;
+    state.score += points;
+    emit(state, "boss_killed", { x: b.x, y: b.y, kind: b.kind, points });
+    for (const e of state.enemies) if (!e.dead) killEnemy(state, e);
+    emit(state, "nova", { x: b.x, y: b.y, eggs: state.eggs.map((g) => [g.x, g.y]), quiet: true });
+    state.eggs.length = 0;
+    state.beams.length = 0;
+  } else {
+    state.score += 10;
+    emit(state, "boss_hit", { x, y, armored: result === "armored", part: result === "part" });
+  }
+}
+
+function countHit(state, s) {
+  if (s.counted) return;
+  s.counted = true;
+  state.stats.hits += 1;
+}
+
+function homeShot(state, s, dt) {
+  let target = s.target ? state.enemies.find((e) => e.id === s.target && !e.dead && !e.hidden) : null;
+  if (!target) {
+    let best = Infinity;
+    for (const e of state.enemies) {
+      if (e.dead || e.hidden || e.y < -20 || e.y > s.y + 40) continue;
+      const d = (e.x - s.x) ** 2 + (e.y - s.y) ** 2;
+      if (d < best) {
+        best = d;
+        target = e;
+      }
+    }
+    s.target = target ? target.id : 0;
+  }
+  const b = state.boss;
+  if (target) steer(s, target.x, target.y, s.homing, dt);
+  else if (b && b.intro <= 0 && b.dying <= 0) steer(s, b.x, b.y, s.homing, dt);
+}
+
+function collideShot(state, s) {
+  for (const e of state.enemies) {
+    if (e.dead || e.hidden || (s.hit && s.hit.includes(e.id))) continue;
+    if (!overlap(s.x, s.y, s.r, e.x, e.y, e.r)) continue;
+    countHit(state, s);
+    damageEnemy(state, e, s.dmg, s);
+    if (s.pierce <= 0) return true;
+    s.pierce -= 1;
+    s.hit = s.hit || [];
+    s.hit.push(e.id);
+  }
+  if (!state.boss) return false;
+  const result = hitBoss(state.boss, s.x, s.y, s.r, s.dmg);
+  if (!result) return false;
+  if (result !== "immune") countHit(state, s);
+  bossResult(state, result, s.x, s.y);
+  return true;
+}
+
+function updateShots(state, dt) {
+  let w = 0;
+  for (const s of state.shots) {
+    s.life -= dt;
+    if (s.homing) homeShot(state, s, dt);
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    if (s.life <= 0 || s.y < -40 || s.y > H + 40 || s.x < -40 || s.x > W + 40) continue;
+    if (collideShot(state, s)) continue;
+    state.shots[w] = s;
+    w += 1;
+  }
+  state.shots.length = w;
+  state.enemies = state.enemies.filter((e) => !e.dead);
+}
+
+function pickWeighted(rng, list, weightOf) {
+  let total = 0;
+  for (const item of list) total += weightOf(item);
+  let roll = rng() * total;
+  for (const item of list) {
+    roll -= weightOf(item);
+    if (roll <= 0) return item;
+  }
+  return list[list.length - 1];
+}
+
+function eggPacer(state, dt) {
+  if (!state.player.alive) return;
+  const shooters = state.enemies.filter(
+    (e) => !e.hidden && ENEMY_TYPES[e.kind].egg && e.mode !== "dive" && e.y > 0 && e.y < H * 0.62 && e.x > 0 && e.x < W,
+  );
+  if (shooters.length === 0) return;
+  state.eggClock += dt * state.pacing.eggRate * (0.35 + 0.65 * Math.min(1, shooters.length / state.waveSize));
+  while (state.eggClock >= 1) {
+    state.eggClock -= 1;
+    const e = pickWeighted(state.rng, shooters, (s) => ENEMY_TYPES[s.kind].eggWeight);
+    for (const spec of fireFrom(e, state.player, state.rng, state.chapter)) addEgg(state, spec);
+    e.lay = 0.35;
+    emit(state, "egg", { x: e.x, y: e.y, kind: e.kind, egg: ENEMY_TYPES[e.kind].egg });
+  }
+}
+
+function divePacer(state, dt) {
+  if (!state.pacing.diveRate || !state.player.alive) return;
+  state.diveClock += dt * state.pacing.diveRate;
+  while (state.diveClock >= 1) {
+    state.diveClock -= 1;
+    const ready = state.enemies.filter((e) => !e.hidden && e.mode === "home" && e.home !== "snake" && ENEMY_TYPES[e.kind].dive > 0);
+    if (ready.length === 0) return;
+    const e = pickWeighted(state.rng, ready, (c) => ENEMY_TYPES[c.kind].dive);
+    startDive(e, state.player, state.rng, state.rng() < state.pacing.diveLoop ? "loop" : "swoop");
+    emit(state, "dive", { x: e.x, y: e.y, kind: e.kind });
+  }
+}
+
+function updateEnemies(state, dt) {
+  const world = { formation: state.formation, time: state.time, rng: state.rng };
+  const p = state.player;
+  for (const e of state.enemies) {
+    if (e.dead) continue;
+    moveEnemy(e, dt, world);
+    if (e.lay) e.lay = Math.max(0, e.lay - dt);
+    if (e.gone) {
+      if (e.kind === "golden") emit(state, "golden_escape", {});
+      continue;
+    }
+    if (e.hidden || !p.alive || !overlap(e.x, e.y, e.r * 0.78, p.x, p.y, PLAYER.radius)) continue;
+    if (p.shield > 0) {
+      damageEnemy(state, e, 999, null);
+      emit(state, "shield_block", { x: p.x, y: p.y });
+    } else if (p.invuln <= 0) {
+      killPlayer(state);
+      damageEnemy(state, e, 999, null);
+    }
+  }
+  state.enemies = state.enemies.filter((e) => !e.dead && !e.gone);
+  if (state.stage === "active") {
+    eggPacer(state, dt);
+    divePacer(state, dt);
+  }
+}
+
+function updateBossState(state, dt) {
+  const b = state.boss;
+  if (!b) return;
+  updateBoss(b, dt, {
+    rng: state.rng,
+    player: state.player,
+    egg: (spec) => addEgg(state, spec),
+    beam: (spec) => state.beams.push({ t: 0, top: b.y + 50, fired: false, ...spec }),
+    summon: (kind, x, y, style) => {
+      const e = addEnemy(state, kind, { x, y, slotX: x, slotY: y, once: true });
+      startDive(e, state.player, state.rng, style);
+      emit(state, "dive", { x, y, kind });
+    },
+    event: (type, data) => emit(state, type, data),
+  });
+  const p = state.player;
+  if (p.alive && b.intro <= 0 && b.dying <= 0 && p.invuln <= 0 && p.shield <= 0) {
+    if (bossCircles(b).some((c) => overlap(c.x, c.y, c.r * 0.85, p.x, p.y, PLAYER.radius))) killPlayer(state);
+  }
+  if (!b.dead) return;
+  state.boss = null;
+  state.stats.bosses += 1;
+  emit(state, "boss_dead", { x: b.x, y: b.y, kind: b.kind });
+  for (const drop of bossLoot(state.rng, state.player)) state.pickups.push(makePickup(drop.kind, b.x, b.y, state.rng, drop));
+  clearWave(state);
+}
+
+function updateEggs(state, dt) {
+  const p = state.player;
+  const spawned = [];
+  let w = 0;
+  for (const g of state.eggs) {
+    g.t += dt;
+    if (g.kind === "egg") g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * g.gravity * dt);
+    else if (g.kind === "yolk") {
+      g.vy = Math.min(260, g.vy + 60 * dt);
+      g.vx += Math.sin(g.t * 6) * 40 * dt;
+    } else if (g.kind === "bigyolk") {
+      g.vy = Math.min(220, g.vy + 50 * dt);
+      if (g.y >= g.splitY) {
+        for (let i = 0; i < 8; i += 1) {
+          const angle = (i / 8) * TAU + g.t;
+          spawned.push({ kind: "pellet", x: g.x, y: g.y, vx: Math.cos(angle) * 170, vy: Math.sin(angle) * 170, r: 6, t: 0, gravity: 1 });
+        }
+        emit(state, "yolk_split", { x: g.x, y: g.y });
+        continue;
+      }
+    } else if (g.kind === "missile") {
+      steer(g, p.x, p.y, g.homing, dt);
+      const speed = Math.hypot(g.vx, g.vy);
+      const next = Math.min(g.speed, speed + 220 * dt);
+      if (speed > 0) {
+        g.vx *= next / speed;
+        g.vy *= next / speed;
+      }
+      g.life -= dt;
+      if (g.life <= 0) {
+        emit(state, "pop", { x: g.x, y: g.y });
+        continue;
+      }
+    }
+    g.x += g.vx * dt;
+    g.y += g.vy * dt;
+    if ((g.kind === "egg" || g.kind === "yolk") && g.y >= FLOOR_Y) {
+      emit(state, "splat", { x: g.x, y: FLOOR_Y, big: g.r > 7, yolk: g.kind === "yolk" });
+      continue;
+    }
+    if (g.y > H + 30 || g.y < -60 || g.x < -60 || g.x > W + 60) continue;
+    if (p.alive && overlap(g.x, g.y, g.r * 0.85, p.x, p.y, PLAYER.radius * 0.75)) {
+      if (p.shield > 0) {
+        emit(state, "shield_block", { x: g.x, y: g.y });
+        continue;
+      }
+      if (p.invuln <= 0) {
+        killPlayer(state);
+        continue;
+      }
+    }
+    state.eggs[w] = g;
+    w += 1;
+  }
+  state.eggs.length = w;
+  for (const g of spawned) state.eggs.push(g);
+}
+
+export function beamPhase(b) {
+  if (b.t < b.warn) return "warn";
+  return b.t < b.warn + b.life ? "active" : "fade";
+}
+
+function updateBeams(state, dt) {
+  const p = state.player;
+  state.beams = state.beams.filter((b) => {
+    b.t += dt;
+    if (b.fromX != null) b.x = lerp(b.fromX, b.toX, easeInOutSine(clamp((b.t - b.warn) / b.life, 0, 1)));
+    const active = beamPhase(b) === "active";
+    if (active && !b.fired) {
+      b.fired = true;
+      emit(state, "beam_fire", { x: b.x });
+    }
+    if (active && p.alive && p.invuln <= 0 && p.shield <= 0 && p.y > b.top && Math.abs(p.x - b.x) < b.w / 2 + PLAYER.radius * 0.6) {
+      killPlayer(state);
+    }
+    return b.t < b.warn + b.life + 0.3;
   });
 }
 
-/**
- * @param {ReturnType<typeof createRun>} state
- * @param {object} fields
- */
-function enemy(state, fields) {
-  const id = state.nextId;
-  state.nextId += 1;
-  return {
-    id,
-    kind: "hen",
-    boss: "",
-    x: 0,
-    y: 0,
-    vx: 0,
-    vy: 0,
-    hp: 1,
-    maxHp: 1,
-    r: 18,
-    score: 100,
-    age: 0,
-    eggCd: 1.2,
-    dived: false,
-    ...fields,
-  };
-}
-
-function movePlayer(state, input, frame) {
-  const speed = 320;
-  let vx = clamp(Number(input.ax) || 0, -1, 1) * speed;
-  let vy = clamp(Number(input.ay) || 0, -1, 1) * speed;
-  if (typeof input.targetX === "number" && typeof input.targetY === "number") {
-    const dx = input.targetX - state.x;
-    const dy = input.targetY - state.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 6) {
-      vx += (dx / dist) * speed;
-      vy += (dy / dist) * speed;
+function collect(state, k) {
+  const p = state.player;
+  state.score += PICKUPS[k.kind].score;
+  if (k.kind === "kernel" || k.kind === "cob") {
+    p.food += PICKUPS[k.kind].food;
+    state.stats.food += PICKUPS[k.kind].food;
+    while (p.food >= FOOD_PER_BOMB) {
+      p.food -= FOOD_PER_BOMB;
+      if (p.bombs < PLAYER.maxBombs) p.bombs += 1;
+      else state.score += 5000;
+      emit(state, "bomb_gain", { x: p.x, y: p.y });
     }
+  } else if (k.kind === "power" || (k.kind === "crate" && k.weapon === p.weapon)) {
+    if (p.level < MAX_LEVEL) {
+      p.level += 1;
+      emit(state, "levelup", { level: p.level, x: p.x, y: p.y });
+    } else state.score += 2000;
+  } else if (k.kind === "crate") {
+    p.weapon = k.weapon;
+    emit(state, "weapon", { weapon: k.weapon, x: p.x, y: p.y });
+  } else if (k.kind === "shield") {
+    p.shield = SHIELD_TIME;
+    emit(state, "shield_on", { x: p.x, y: p.y });
+  } else if (k.kind === "nova") {
+    p.bombs = Math.min(PLAYER.maxBombs, p.bombs + 1);
+    emit(state, "bomb_gain", { x: p.x, y: p.y });
+  } else if (k.kind === "coolant") {
+    p.heat = 0;
+    p.overheated = false;
+    p.frost = FROST_TIME;
+    emit(state, "coolant", { x: p.x, y: p.y });
+  } else if (k.kind === "life") {
+    p.lives = Math.min(PLAYER.maxLives, p.lives + 1);
+    emit(state, "life", { x: p.x, y: p.y });
   }
-  state.x = clamp(state.x + vx * frame, 36, WORLD_W - 36);
-  state.y = clamp(state.y + vy * frame, 36, WORLD_H - 36);
+  emit(state, "pickup", { kind: k.kind, weapon: k.weapon, x: k.x, y: k.y, points: PICKUPS[k.kind].score });
 }
 
-function fire(state, frame) {
-  state.fireCd -= frame;
-  const interval = state.weapon >= MAX_WEAPON ? 0.2 : 0.14;
-  if (state.fireCd > 0) return;
-  state.fireCd = interval;
-  const pattern = shotPattern(state.weapon, state.x, state.y);
-  for (const shot of pattern) {
-    state.shots.push({ ...shot, id: state.nextId });
-    state.nextId += 1;
+function updatePickups(state, dt) {
+  const p = state.player;
+  const magnetAll = state.stage === "clear" || state.stage === "warp" || state.stage === "victory";
+  let w = 0;
+  for (const k of state.pickups) {
+    updatePickup(k, dt, p, magnetAll);
+    if (p.alive && overlap(k.x, k.y, k.r + 10, p.x, p.y, PLAYER.radius)) {
+      collect(state, k);
+      continue;
+    }
+    if (k.y > H + 30) continue;
+    state.pickups[w] = k;
+    w += 1;
   }
-  state.sounds.push("shoot");
+  state.pickups.length = w;
 }
 
-function useBomb(state) {
-  if (state.bombs <= 0) return;
-  state.bombs -= 1;
-  state.eggs.length = 0;
-  for (const foe of state.enemies) foe.hp -= 8;
-  state.sounds.push("bomb");
-  reapEnemies(state);
-}
-
-function moveActors(state, frame) {
-  const chapter = CHAPTERS[state.chapter];
+function updateTimers(state, dt) {
+  if ((state.stage !== "intro" && state.stage !== "active") || state.timers.length === 0) return;
   const due = [];
-  const waiting = [];
-  for (const spawn of state.spawns) {
-    const nextDelay = spawn.delay - frame;
-    if (nextDelay <= 0) due.push(spawn);
-    else waiting.push({ ...spawn, delay: nextDelay });
-  }
-  state.spawns = waiting;
-  for (const spawn of due) {
-    const spec = kindSpec(spawn.kind, chapter);
-    state.enemies.push(enemy(state, {
-      kind: spawn.kind,
-      x: spawn.x,
-      y: spawn.y,
-      hp: spec.hp,
-      maxHp: spec.hp,
-      r: spec.r,
-      score: spec.score,
-      vx: spec.vx,
-    }));
-  }
-
-  for (const foe of state.enemies) {
-    foe.age += frame;
-    foe.eggCd -= frame;
-    if (foe.kind === "boss") moveBoss(state, foe, frame, chapter);
-    else {
-      const drift = foe.vx == null ? -chapter.speed : foe.vx;
-      foe.x += drift * frame;
-      foe.y += Math.sin(state.time * 2.2 + foe.id) * 28 * frame;
-      if (chapter.dive && !foe.dived && foe.age > 2.4 && foe.x < WORLD_W - 80) {
-        foe.dived = true;
-        foe.vy = (state.y - foe.y) * 0.8;
-        foe.vx = -chapter.speed * 1.7;
-      }
-      if (foe.dived) foe.y += (foe.vy || 0) * frame;
-      if (foe.eggCd <= 0 && foe.x < WORLD_W - 10 && foe.x > 80) {
-        foe.eggCd = chapter.eggEvery;
-        layEgg(state, foe.x, foe.y, foe.kind === "rooster" ? 2 : 1);
-      }
-    }
-    foe.y = clamp(foe.y, foe.r, WORLD_H - foe.r);
-  }
-  state.enemies = state.enemies.filter((foe) => foe.x > -80);
-
-  for (const shot of state.shots) {
-    shot.x += shot.vx * frame;
-    shot.y += shot.vy * frame;
-  }
-  state.shots = state.shots.filter((shot) => shot.x < WORLD_W + 40 && shot.y > -40 && shot.y < WORLD_H + 40);
-
-  for (const egg of state.eggs) {
-    egg.x += egg.vx * frame;
-    egg.y += egg.vy * frame;
-  }
-  state.eggs = state.eggs.filter((egg) => egg.y < WORLD_H + 30 && egg.x > -40);
-
-  for (const gift of state.gifts) {
-    gift.x -= 40 * frame;
-    gift.y += Math.sin(state.time * 3 + gift.id) * 16 * frame;
-  }
-  state.gifts = state.gifts.filter((gift) => gift.x > -30);
+  state.timers = state.timers.filter((t) => {
+    t.at -= dt;
+    if (t.at > 0) return true;
+    due.push(t);
+    return false;
+  });
+  for (const t of due) t.fn();
 }
 
-function moveBoss(state, foe, frame, chapter) {
-  foe.x += Math.cos(foe.age * 0.7) * 12 * frame;
-  if (foe.boss === "carrier") foe.y = WORLD_H / 2 + Math.sin(foe.age * 1.3) * 180;
-  else if (foe.boss === "charger") {
-    const cycle = foe.age % 3.2;
-    foe.vx = cycle < 0.8 ? -280 : 90;
-    foe.x += foe.vx * frame;
-    if (foe.x < 520) foe.x = 520;
-  } else foe.y = WORLD_H / 2 + Math.sin(foe.age) * (foe.boss === "henship" ? 80 : 140);
-  if (foe.eggCd <= 0) {
-    foe.eggCd = Math.max(0.35, chapter.eggEvery * 0.45);
-    if (foe.boss === "henship") {
-      layEgg(state, foe.x - 20, foe.y - 40, 1);
-      layEgg(state, foe.x - 30, foe.y, 1);
-      layEgg(state, foe.x - 20, foe.y + 40, 1);
-    } else if (foe.boss === "carrier") {
-      layEgg(state, foe.x, foe.y - 20, 1);
-      layEgg(state, foe.x, foe.y + 20, 1);
-    } else layEgg(state, foe.x - 10, foe.y, foe.boss === "giant" ? 2 : 1);
-  }
-}
-
-function layEgg(state, x, y, count) {
-  for (let index = 0; index < count; index += 1) {
-    state.eggs.push({
-      id: state.nextId,
-      x,
-      y: y + (index - (count - 1) / 2) * 14,
-      vx: -30,
-      vy: 150,
-      r: 8,
-    });
-    state.nextId += 1;
-  }
-}
-
-function kindSpec(kind, chapter) {
-  if (kind === "chick") return { hp: 1, r: 12, score: 50, vx: -chapter.speed * 1.45 };
-  if (kind === "rooster") return { hp: chapter.hp * 3, r: 24, score: 250, vx: -chapter.speed * 0.72 };
-  return { hp: chapter.hp, r: 18, score: 100, vx: -chapter.speed };
-}
-
-function collide(state) {
-  const player = { x: state.x, y: state.y, r: 16 };
-  for (const shot of state.shots) {
-    if (shot.spent) continue;
-    for (const egg of state.eggs) {
-      if (egg.spent) continue;
-      if (circlesOverlap(shot, egg)) {
-        shot.spent = true;
-        egg.spent = true;
-        addScore(state, 10);
-      }
-    }
-    for (const foe of state.enemies) {
-      if (shot.spent || foe.hp <= 0) continue;
-      if (!circlesOverlap(shot, foe)) continue;
-      shot.spent = true;
-      foe.hp -= shot.damage;
-      if (foe.hp <= 0) destroyEnemy(state, foe);
-    }
-  }
-  state.shots = state.shots.filter((shot) => !shot.spent);
-  state.eggs = state.eggs.filter((egg) => !egg.spent);
-  reapEnemies(state);
-
-  if (state.invuln > 0 || state.phase !== "play") return;
-  const hazards = [
-    ...state.enemies.map((foe) => ({ x: foe.x, y: foe.y, r: foe.r })),
-    ...state.eggs,
-  ];
-  for (const hazard of hazards) {
-    if (!circlesOverlap(player, hazard)) continue;
-    hurt(state);
-    break;
-  }
-  for (const gift of state.gifts) {
-    if (gift.spent) continue;
-    if (!circlesOverlap(player, gift)) continue;
-    gift.spent = true;
-    applyGift(state, gift.gift);
-  }
-  state.gifts = state.gifts.filter((gift) => !gift.spent);
-}
-
-function reapEnemies(state) {
-  const alive = [];
-  for (const foe of state.enemies) {
-    if (foe.hp > 0) alive.push(foe);
-    else if (!foe.rewarded) destroyEnemy(state, foe);
-  }
-  state.enemies = alive.filter((foe) => !foe.rewarded);
-}
-
-function destroyEnemy(state, foe) {
-  if (foe.rewarded) return;
-  foe.rewarded = true;
-  addScore(state, foe.score);
-  state.sounds.push(foe.kind === "boss" ? "boss" : "pop");
-  if (state.random() < 0.22) {
-    const kinds = ["weapon", "shield", "bomb", "life", "score"];
-    const gift = kinds[Math.floor(state.random() * kinds.length)];
-    state.gifts.push({ id: state.nextId, x: foe.x, y: foe.y, r: 14, gift, spent: false });
-    state.nextId += 1;
-  }
-}
-
-function addScore(state, amount) {
-  state.combo += 1;
-  state.comboTime = 2;
-  const multiplier = Math.min(8, state.combo);
-  state.score += amount * multiplier;
-}
-
-function applyGift(state, gift) {
-  state.sounds.push("gift");
-  if (gift === "weapon") state.weapon = Math.min(MAX_WEAPON, state.weapon + 1);
-  else if (gift === "shield") state.shield = 1;
-  else if (gift === "bomb") state.bombs = Math.min(6, state.bombs + 1);
-  else if (gift === "life") state.lives = Math.min(7, state.lives + 1);
-  else state.score += 500;
-}
-
-function hurt(state) {
-  if (state.shield > 0) {
-    state.shield = 0;
-    state.invuln = 0.45;
-    state.sounds.push("shield");
-    return;
-  }
-  state.lives -= 1;
-  state.weapon = Math.max(1, state.weapon - 1);
+function updateCombo(state, dt) {
+  if (state.combo === 0) return;
+  state.comboTimer -= dt;
+  if (state.comboTimer > 0) return;
+  if (state.multiplier > 1) emit(state, "combo_end", { combo: state.combo });
   state.combo = 0;
-  state.hitThisWave = true;
-  state.invuln = 1.5;
-  state.sounds.push("hurt");
-  if (state.lives <= 0) state.phase = "game_over";
+  state.multiplier = 1;
 }
 
-function watchWave(state, frame) {
-  if (state.spawns.length > 0 || state.enemies.length > 0 || state.eggs.length > 0) {
-    state.waiting = false;
-    return;
-  }
-  if (!state.waiting) {
-    state.waiting = true;
-    state.clearDelay = 1.1;
-    if (!state.hitThisWave) state.score += 500 * (state.chapter + 1);
-    state.sounds.push("clear");
-    return;
-  }
-  state.clearDelay -= frame;
-  if (state.clearDelay > 0) return;
-  state.hitThisWave = false;
-  if (state.wave >= 4) {
-    if (state.chapter >= CHAPTERS.length - 1) {
-      state.phase = "victory";
-      state.banner = "Orbit clear";
-      return;
-    }
-    state.chapter += 1;
-    state.wave = 0;
-  } else state.wave += 1;
-  state.time = 0;
-  queueWave(state);
+function clearWave(state) {
+  setStage(state, "clear");
+  const flawless = state.waveDeaths === 0;
+  const bonus = (1000 + 250 * state.wave) * state.chapter * (flawless ? 2 : 1);
+  state.score += bonus;
+  state.timers = [];
+  emit(state, "clear", { bonus, flawless, boss: state.info.boss, chapter: state.chapter, wave: state.wave });
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
+function checkClear(state) {
+  if (state.stage !== "active" || state.boss) return;
+  if (state.timers.some((t) => !t.optional)) return;
+  if (state.enemies.some((e) => e.kind !== "golden")) return;
+  clearWave(state);
+}
+
+/**
+ * Advances the world by one fixed step.
+ * @param {any} state
+ * @param {{ moveX?: number, moveY?: number, targetX?: number|null, targetY?: number|null, fire?: boolean, bomb?: boolean }} input
+ */
+export function stepGame(state, input = {}, dt = STEP) {
+  if (state.over) return state;
+  state.time += dt;
+  state.stageTime += dt;
+  if (state.stage !== "dead" && state.stage !== "victory") state.stats.time += dt;
+  updateStage(state);
+  if (state.over) return state;
+  const f = state.formation;
+  f.t += dt;
+  const ramp = Math.min(1, f.t / 3);
+  f.ox = Math.sin(f.t * f.fx) * f.ax * ramp;
+  f.oy = Math.sin(f.t * f.fy) * f.ay * ramp;
+  updatePlayer(state, input, dt);
+  updateTimers(state, dt);
+  updateNova(state, dt);
+  updateShots(state, dt);
+  updateEnemies(state, dt);
+  updateBossState(state, dt);
+  updateEggs(state, dt);
+  updateBeams(state, dt);
+  updatePickups(state, dt);
+  updateCombo(state, dt);
+  checkClear(state);
+  return state;
+}
+
+export function drainEvents(state) {
+  const list = state.events;
+  state.events = [];
+  return list;
+}
+
+export function gameSummary(state) {
+  const s = state.stats;
+  return {
+    score: Math.floor(state.score),
+    chapter: state.chapter,
+    wave: state.wave,
+    kills: s.kills,
+    accuracy: s.fired > 0 ? Math.min(1, s.hits / s.fired) : 0,
+    bestCombo: s.bestCombo,
+    time: s.time,
+    food: s.food,
+    bosses: s.bosses,
+    deaths: s.deaths,
+    victory: state.victory,
+  };
 }
