@@ -662,7 +662,7 @@ function divePacer(state, dt) {
 }
 
 function updateEnemies(state, dt) {
-  const world = { formation: state.formation, time: state.time, rng: state.rng, player: state.player };
+  const world = { formation: state.formation, time: state.time, rng: state.rng };
   const p = state.player;
   for (const e of state.enemies) {
     if (e.dead) continue;

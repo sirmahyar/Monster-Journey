@@ -175,18 +175,12 @@ export function moveEnemy(e, dt, world) {
       e.pathT = Math.min(1, e.pathT + dt / e.pathDur);
       const k = e.pathT * (0.55 + 0.45 * e.pathT);
       const p = bezier(e.path, k);
-      const player = world.player;
-      const home = !e.once;
-      const aim = player && e.pathT > 0.32 ? clamp((e.pathT - 0.32) / 0.68, 0, 1) : 0;
-      const aimPull = home ? aim * 0.9 : aim * 0.72;
-      const ax = player ? lerp(p.x, player.x, aimPull) : p.x;
-      const ay = player ? lerp(p.y, player.y, aimPull) : p.y;
       if (e.once) {
-        e.x = ax;
-        e.y = ay;
+        e.x = p.x;
+        e.y = p.y;
       } else {
-        e.x = clamp(ax, 28, W - 28);
-        e.y = clamp(ay, 48, H - 80);
+        e.x = clamp(p.x, 28, W - 28);
+        e.y = clamp(p.y, 48, H - 80);
       }
       if (e.pathT >= 1) {
         if (e.once) {

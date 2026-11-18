@@ -4,11 +4,11 @@ import { clamp, lerp, pick, rand } from "./math.js";
 import { WEAPON_ORDER } from "./weapons.js";
 
 export const PICKUPS = Object.freeze({
-  kernel: Object.freeze({ r: 12, food: 1, score: 25 }),
-  nugget: Object.freeze({ r: 17, food: 3, score: 75 }),
-  burger: Object.freeze({ r: 20, food: 6, score: 150 }),
-  pizza: Object.freeze({ r: 20, food: 8, score: 200 }),
-  cob: Object.freeze({ r: 17, food: 5, score: 150 }),
+  kernel: Object.freeze({ r: 9, food: 1, score: 25 }),
+  nugget: Object.freeze({ r: 13, food: 3, score: 75 }),
+  burger: Object.freeze({ r: 16, food: 6, score: 150 }),
+  pizza: Object.freeze({ r: 16, food: 8, score: 200 }),
+  cob: Object.freeze({ r: 13, food: 5, score: 150 }),
   power: Object.freeze({ r: 14, food: 0, score: 500 }),
   crate: Object.freeze({ r: 17, food: 0, score: 300 }),
   shield: Object.freeze({ r: 14, food: 0, score: 300 }),

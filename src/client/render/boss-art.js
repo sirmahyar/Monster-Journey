@@ -567,7 +567,8 @@ export function drawBoss(ctx, b, time, player) {
   ctx.save();
   ctx.translate(x, y);
   if (b.dying > 0) ctx.globalAlpha = Math.max(0.3, b.dying / 2.4);
-  PAINT[b.kind](ctx, b, time);
+  const paintBoss = PAINT[b.kind];
+  if (paintBoss) paintBoss(ctx, b, time);
   ctx.restore();
   for (const part of b.parts) turret(ctx, part, player, time);
   if (b.flash > 0) {

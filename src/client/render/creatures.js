@@ -35,6 +35,7 @@ export const FEATHER_TINTS = {
   sniper: ["#e7eef8", "#8fd8ff", "#8ea0b8", "#243044"],
   spinner: CHICK_COLORS,
   shell: ["#d9e2ee", "#8fd0ff", "#6d7c90", "#f4f7fb"],
+  warden: ["#dce7f2", "#8fb6d8", "#5a6d86", "#f2e8ff"],
 };
 
 function legs(g, r, swing) {
@@ -497,6 +498,21 @@ function golden(g, r, variant, frame, blink) {
   }
 }
 
+export const CREATURE_PAINTER_KINDS = Object.freeze([
+  "hen",
+  "chick",
+  "rooster",
+  "saucer",
+  "golden",
+  "diver",
+  "bomber",
+  "miner",
+  "sniper",
+  "spinner",
+  "shell",
+  "warden",
+]);
+
 const PAINTERS = {
   hen: (g, r, v, f, b) => hen(g, r, v, f, b),
   chick,
@@ -570,6 +586,24 @@ const PAINTERS = {
     g.lineWidth = r * 0.045;
     g.stroke();
   },
+  warden: (g, r, v, f, b) => {
+    hen(g, r, v, f, b, { colors: { body: "#dfe9f4", shade: "#607488", wing: "#b8c7d8" }, helmet: true });
+    g.strokeStyle = rgba("#8fd0ff", 0.9);
+    g.lineWidth = r * 0.07;
+    for (let i = 0; i < 5; i += 1) {
+      const a = (i / 5) * TAU - Math.PI / 2;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * r * 0.35, Math.sin(a) * r * 0.35);
+      g.lineTo(Math.cos(a) * r * 1.05, Math.sin(a) * r * 1.05);
+      g.stroke();
+    }
+    ellipse(g, 0, r * 0.85, r * 0.55, r * 0.18);
+    g.fillStyle = rgba("#b8e8ff", 0.35);
+    g.fill();
+    g.strokeStyle = "#4a6a88";
+    g.lineWidth = r * 0.04;
+    g.stroke();
+  },
 };
 
 /** Paints one cached animation frame of a creature. */
@@ -579,7 +613,7 @@ export function creatureSprite(kind, variant, frame, blink, r) {
     const tall = kind === "rooster" ? 4 : 3.4;
     return sprite(r * 4.2, r * tall, (g) => {
       if (kind === "rooster") g.translate(0, r * 0.25);
-      PAINTERS[kind](g, r, variant, frame, blink);
+      (PAINTERS[kind] || PAINTERS.hen)(g, r, variant, frame, blink);
     });
   });
 }
