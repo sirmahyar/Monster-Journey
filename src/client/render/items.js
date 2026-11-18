@@ -167,48 +167,6 @@ function shotSprite(kind, level) {
         g.fillRect(-2.2, -6, 4.4, 5);
       });
     }
-    if (kind === "slug") {
-      return sprite(36, 36, (g) => {
-        g.fillStyle = radial(g, 0, 0, 16, [[0, "#fff6d0"], [0.35, "#ffb03a"], [1, "rgba(255,70,20,0)"]]);
-        g.beginPath();
-        g.arc(0, 0, 14, 0, TAU);
-        g.fill();
-      });
-    }
-    if (kind === "needle") {
-      return sprite(10, 36, (g) => {
-        g.fillStyle = "#fffaf0";
-        g.fillRect(-1.2, -16, 2.4, 32);
-        g.fillStyle = "#ffd36a";
-        g.fillRect(-0.4, -16, 0.8, 22);
-      });
-    }
-    if (kind === "prism") {
-      return sprite(28, 28, (g) => {
-        g.fillStyle = "rgba(180,255,255,0.95)";
-        g.beginPath();
-        g.moveTo(0, -12);
-        g.lineTo(10, 0);
-        g.lineTo(0, 12);
-        g.lineTo(-10, 0);
-        g.closePath();
-        g.fill();
-      });
-    }
-    if (kind === "comet") {
-      return sprite(40, 48, (g) => {
-        g.fillStyle = linear(g, 0, 16, 0, -8, [[0, "rgba(255,170,80,0)"], [1, "rgba(255,150,60,0.8)"]]);
-        g.beginPath();
-        g.moveTo(0, 18);
-        g.lineTo(7, 2);
-        g.lineTo(-7, 2);
-        g.fill();
-        g.fillStyle = radial(g, 0, -4, 14, [[0, "#ffffff"], [0.4, "#d7b0ff"], [1, "rgba(120,40,255,0)"]]);
-        g.beginPath();
-        g.arc(0, -4, 12, 0, TAU);
-        g.fill();
-      });
-    }
     if (kind === "ion") {
       const r = 7 + level * 0.5;
       return sprite(r * 4, r * 4, (g) => {
@@ -243,7 +201,7 @@ export function drawShots(ctx, shots, time) {
   for (const s of shots) {
     const angle = Math.atan2(s.vy, s.vx) + Math.PI / 2;
     const spr = shotSprite(s.kind, s.level || 1);
-    if (s.kind === "ion" || s.kind === "comet") {
+    if (s.kind === "ion") {
       for (let i = 3; i >= 1; i -= 1) {
         blit(ctx, spr, s.x - s.vx * 0.012 * i, s.y - s.vy * 0.012 * i, 0, 1 - i * 0.18, 1 - i * 0.18, 0.35 / i);
       }

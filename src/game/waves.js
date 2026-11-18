@@ -72,10 +72,11 @@ export function waveInfo(chapter, wave) {
 
 export function wavePacing(info) {
   const base = PACING[info.template];
+  const pressure = info.chapter < 3 ? 1 + 0.2 * (info.chapter - 1) : 1.7 + 0.55 * (info.chapter - 3);
   return {
-    eggRate: base.egg * (1 + 0.25 * (info.chapter - 1)) * (1 + 0.03 * (info.wave - 1)),
-    diveRate: base.dive * (1 + 0.25 * (info.chapter - 1)),
-    diveLoop: info.chapter >= 3 ? 0.45 : info.chapter === 2 ? 0.2 : 0,
+    eggRate: base.egg * pressure * (1 + 0.04 * (info.wave - 1)),
+    diveRate: base.dive * pressure,
+    diveLoop: info.chapter >= 4 ? 0.75 : info.chapter >= 3 ? 0.58 : info.chapter === 2 ? 0.2 : 0,
   };
 }
 
@@ -293,7 +294,7 @@ export function buildWave(api, info) {
   api.setFormation(SWAY[info.template] || { ax: 60, ay: 12, fx: 0.5, fy: 1.2 });
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "rock" && e.kind !== "golden");
-  const crates = arsenal(info.chapter).length > 1 ? (info.chapter >= 3 ? 2 : 1) : 0;
+  const crates = arsenal(info.chapter).length > 1 ? (info.chapter >= 3 ? 3 : 2) : 0;
   const powers = info.wave === 2 || info.wave === 4 || info.wave === 6 ? 1 : 0;
   for (let i = 0; i < crates + powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);

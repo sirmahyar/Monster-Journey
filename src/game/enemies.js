@@ -19,7 +19,9 @@ export const ROCK_SIZES = Object.freeze({
 });
 
 export function hpScale(chapter) {
-  return 1 + 0.45 * (chapter - 1);
+  const steady = 1 + 0.4 * (chapter - 1);
+  if (chapter < 3) return steady;
+  return steady + 0.7 * (chapter - 2);
 }
 
 /**
@@ -240,7 +242,8 @@ export function fireFrom(e, target, rng, chapter) {
   const y = e.y + e.r * 0.55;
   switch (ENEMY_TYPES[e.kind].egg) {
     case "egg": {
-      const egg = { kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90), r: e.kind === "chick" ? 10 : 13 };
+      const rush = chapter >= 3 ? 32 * (chapter - 2) : 0;
+      const egg = { kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90) + rush, r: e.kind === "chick" ? 10 : 13 };
       if (e.kind === "chick" && e.variant % 4 === 1) return [{ ...egg, weave: true, r: 9, vy: egg.vy + 35 }];
       if (e.kind !== "chick" && e.variant % 4 === 3) {
         return [
@@ -256,12 +259,12 @@ export function fireFrom(e, target, rng, chapter) {
       }
       return [{ kind: "yolk", x, y, vx: rand(rng, -30, 30), vy: 120, r: 13 }];
     case "quill": {
-      const speed = 290 + 25 * chapter;
+      const speed = 290 + 25 * chapter + (chapter >= 3 ? 45 * (chapter - 2) : 0);
       const offsets = chapter >= 3 ? [-14, 0, 14] : [0];
       return offsets.map((off) => ({ kind: "quill", x, y, ...aimed(x, y, target, speed, off), r: 7 }));
     }
     case "spark": {
-      const speed = 330 + 30 * chapter;
+      const speed = 330 + 30 * chapter + (chapter >= 3 ? 40 * (chapter - 2) : 0);
       const shots = [{ kind: "spark", x, y, ...aimed(x, y, target, speed), r: 8 }];
       if (chapter >= 2) shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed * 0.82, 0), r: 8 });
       return shots;

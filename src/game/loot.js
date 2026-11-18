@@ -64,6 +64,10 @@ export function rollDrops(e, rng, player) {
     if (weapon) out.push({ kind: "crate", weapon });
   }
   if (e.carrier === "power") out.push({ kind: "power" });
+  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.05) {
+    const weapon = crateWeapon(rng, player);
+    if (weapon) out.push({ kind: "crate", weapon });
+  }
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
   const roll = rng();
   if (roll < 0.016) out.push({ kind: "power" });

@@ -56,14 +56,9 @@ describe("weapons", () => {
     expect(volley("laser", 6, 0, 0).every((s) => s.pierce > 0)).toBe(true);
     expect(volley("ion", 6, 0, 0).every((s) => s.homing > 0)).toBe(true);
     expect(volley("pulse", 1, 100, 500)[0].vy).toBeLessThan(0);
-    const kinds = new Set();
-    for (const type of WEAPON_ORDER) {
-      for (let level = 1; level <= MAX_LEVEL; level += 1) {
-        for (const shot of volley(type, level, 0, 0)) kinds.add(shot.kind);
-      }
-    }
-    kinds.add("rocket");
-    expect(kinds.size).toBe(8);
+    expect(volley("pulse", 6, 0, 0).every((shot) => shot.kind === "pulse" && shot.pierce === 0)).toBe(true);
+    expect(volley("laser", 6, 0, 0).every((shot) => shot.kind === "lance")).toBe(true);
+    expect(volley("ion", 6, 0, 0).every((shot) => shot.kind === "ion")).toBe(true);
   });
 });
 
