@@ -52,6 +52,7 @@ function popPoop(state, x, y, scale, shot = null) {
 
 function updateGases(state, dt) {
   const p = state.player;
+  if ((p.gasCd || 0) > 0) p.gasCd -= dt;
   let w = 0;
   for (const c of state.gases) {
     c.age += dt;
@@ -59,7 +60,17 @@ function updateGases(state, dt) {
     if (c.life <= 0) continue;
     const k = Math.min(1, c.age / 1.15);
     const r = c.r0 + (c.r1 - c.r0) * k;
-    if (p.alive && p.invuln <= 0 && p.shield <= 0 && overlap(c.x, c.y, r * 0.72, p.x, p.y, PLAYER.radius * 0.8)) {
+    if (
+      p.alive &&
+      p.invuln <= 0 &&
+      p.shield <= 0 &&
+      (p.gasCd || 0) <= 0 &&
+      !c.seared &&
+      overlap(c.x, c.y, r * 0.72, p.x, p.y, PLAYER.radius * 0.8)
+    ) {
+      c.seared = true;
+      p.gasCd = 2.4;
+      emit(state, "gas_burn", { x: p.x, y: p.y, cx: c.x, cy: c.y });
       killPlayer(state);
     }
     state.gases[w] = c;
