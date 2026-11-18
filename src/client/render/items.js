@@ -396,6 +396,21 @@ function eggSprite(kind, r) {
         g.fill();
       });
     }
+    if (kind === "poop") {
+      return sprite(r * 2.5, r * 2.8, (g) => {
+        g.fillStyle = radial(g, 0, 0, r * 1.4, [[0, "#e6c078"], [0.45, "#9a5c22"], [1, "#3a2208"]], -3, -4);
+        g.beginPath();
+        g.ellipse(0, 0, r * 0.92, r * 1.08, 0, 0, TAU);
+        g.fill();
+        g.strokeStyle = "rgba(40,24,8,0.85)";
+        g.lineWidth = Math.max(1.2, r * 0.12);
+        g.stroke();
+        g.fillStyle = "rgba(60,38,14,0.55)";
+        g.beginPath();
+        g.ellipse(-r * 0.2, r * 0.15, r * 0.18, r * 0.12, -0.3, 0, TAU);
+        g.fill();
+      });
+    }
     if (kind === "goldenegg") {
       return sprite(r * 3.6, r * 3.8, (g) => {
         eggShape(g, r);
@@ -475,7 +490,10 @@ export function drawEggs(ctx, eggs, time) {
       }
     } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce" || e.kind === "goldenegg") blit(ctx, spr, e.x, e.y);
     else if (e.kind === "net") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 4 + e.x) * 0.35, 1 + Math.sin(e.t * 6) * 0.06);
-    else blit(ctx, spr, e.x, e.y, e.kind === "spark" ? time * 8 : 0);
+    else if (e.kind === "poop") {
+      const wob = Math.sin(e.t * 7 + e.x * 0.1) * 0.18;
+      blit(ctx, spr, e.x, e.y, wob, 1 + Math.sin(e.t * 8) * 0.05);
+    } else blit(ctx, spr, e.x, e.y, e.kind === "spark" ? time * 8 : 0);
     if (e.kind === "mine" && e.t >= (e.arm || 0.85)) {
       ctx.globalCompositeOperation = "lighter";
       blit(ctx, glowDot("mine", e.r * 2.2, "#ff5a3d"), e.x, e.y, 0, 1, 1, 0.35 + 0.45 * Math.sin(time * 16));
@@ -744,6 +762,44 @@ function rockSprite(size, variant, r) {
       g.stroke(outline);
     }),
   );
+}
+
+export function netIconSprite(r = 22) {
+  return eggSprite("net", r);
+}
+
+export function poopIconSprite(r = 22) {
+  return cached(`poop-icon:${r}`, () =>
+    sprite(r * 2.4, r * 2.6, (g) => {
+      g.fillStyle = radial(g, 0, 0, r, [[0, "#c48a3a"], [0.55, "#7a4a18"], [1, "#3a2208"]], -4, -6);
+      g.beginPath();
+      g.ellipse(0, 0, r * 0.9, r * 1.1, 0, 0, TAU);
+      g.fill();
+      g.strokeStyle = "rgba(40,24,8,0.85)";
+      g.lineWidth = 1.4;
+      g.stroke();
+    }),
+  );
+}
+
+export function drawGases(ctx, gases, time) {
+  for (const c of gases) {
+    const k = Math.min(1, c.age / 1.15);
+    const r = c.r0 + (c.r1 - c.r0) * k;
+    const fade = Math.min(1, c.life / 1.5) * Math.min(1, c.age / 0.3);
+    const wobX = Math.sin(time * 3.2 + c.x * 0.03) * 5;
+    const wobY = Math.cos(time * 2.6 + c.y * 0.02) * 3;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    blit(ctx, glowDot(`gas-glow:${Math.round(r)}`, r * 2.1, "#8bff4a"), c.x + wobX, c.y + wobY, 0, 1, 1, 0.2 * fade);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.3 * fade;
+    ctx.fillStyle = radial(ctx, c.x + wobX, c.y + wobY, r, [[0, "rgba(210,255,150,0.55)"], [0.4, "rgba(120,220,70,0.35)"], [1, "rgba(40,90,20,0)"]], 0, -6);
+    ctx.beginPath();
+    ctx.arc(c.x + wobX, c.y + wobY, r, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 export function drawHazard(ctx, e, time) {

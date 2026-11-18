@@ -4,7 +4,7 @@ import { drawBeams, drawBoss } from "./boss-art.js";
 import { FRAMES, creatureFlash, creatureSprite } from "./creatures.js";
 import { createFx, drawDecals, drawParticles, drawPopups, fxEvent, puff, shakeOffset, trail, updateFx } from "./fx.js";
 import { createHud, drawHud, hudEvent } from "./hud.js";
-import { drawEggs, drawHazard, drawPickups, drawRock, drawShip, drawShots } from "./items.js";
+import { drawEggs, drawGases, drawHazard, drawPickups, drawRock, drawShip, drawShots } from "./items.js";
 import { blit, glowDot, rgba, setSpriteScale } from "./paint.js";
 
 const TAU = Math.PI * 2;
@@ -172,6 +172,7 @@ export function drawGame(r, state, dt, { hud = true } = {}) {
   drawBackground(ctx, { chapter: r.bg.chapter, fromChapter: r.bg.from, fade: r.bg.fade, warp: r.warp, time: r.time });
   drawDecals(ctx, fx);
   drawPickups(ctx, state.pickups, r.time);
+  drawGases(ctx, state.gases || [], r.time);
   if (state.boss) drawBoss(ctx, state.boss, r.time, state.player);
   drawEnemies(ctx, state.enemies, r.time);
   drawBeams(ctx, state.beams, r.time);

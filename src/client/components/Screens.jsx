@@ -265,7 +265,7 @@ export function Help({ onBack }) {
         </section>
         <Guide
           title={strings.enemiesTitle}
-          rows={[...strings.enemies, ["rock", strings.rockName, strings.rockText, "rock"]]}
+          rows={[...strings.enemies, ["rock", strings.rockName, strings.rockText, "rock"], ["poop", strings.poopName, strings.poopText, "hazard"], ["net", strings.netName, strings.netText, "hazard"]]}
           type="creature"
         />
         <Guide title={strings.lootTitle} rows={strings.loot} type="pickup" />
