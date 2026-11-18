@@ -221,7 +221,6 @@ export function playEvent(ev, extra = {}) {
     case "hit":
       if (!(a = ready("hit", 0.035))) break;
       if (BIRDS.has(ev.kind)) {
-        noise(a, { dur: 0.05, gain: 0.05, filter: "bandpass", freq: 1700, q: 1.1, pan });
         if (free(a, "hitcall", 0.13) && Math.random() < 0.55) voice(a, ev.kind === "chick" ? "peep" : "cluck", { rate: jitter(CALL_RATE[ev.kind]), gain: HIT_GAIN[ev.kind], pan, maxLength: 0.14 });
       } else if (ev.kind === "rock") {
         noise(a, { dur: 0.05, gain: 0.07, filter: "bandpass", freq: 900, q: 2, pan });
@@ -260,7 +259,7 @@ export function playEvent(ev, extra = {}) {
       }
       if (free(a, "call", 0.06)) {
         if (ev.kind === "chick") voice(a, "peep", { rate: jitter(1.04, 0.07), gain: 0.42, pan });
-        else voice(a, "bawk", { rate: jitter(CALL_RATE[ev.kind] || 1, 0.06), gain: ev.kind === "rooster" ? 0.55 : 0.46, pan, maxLength: 0.42 });
+        else voice(a, "cluck", { rate: jitter(CALL_RATE[ev.kind] || 1, 0.05), gain: ev.kind === "rooster" ? 0.5 : 0.42, pan, maxLength: 0.2 });
       }
       if (ev.kind === "golden") chime(a, [88, 91, 95, 98, 100], { step: 0.05, gain: 0.045 });
       break;
