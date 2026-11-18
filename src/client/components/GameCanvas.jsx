@@ -170,7 +170,7 @@ export function GameCanvas({ mode, runId, paused, onFinish, onCheckpoint, onPaus
       if (control.current.mode !== "play") return;
       for (const ev of events) {
         playEvent(ev, { food: game.player.food, boss: game.boss?.kind });
-        if (ev.type === "clear") props.current.onCheckpoint?.({ score: ev.score, chapter: ev.chapter, wave: ev.wave });
+        if (ev.type === "clear" && ev.boss) props.current.onCheckpoint?.({ score: ev.score, chapter: ev.chapter, wave: ev.wave });
         if (ev.type === "chapter_brief") props.current.onChapter?.(ev.chapter);
         if (ev.type === "wave") playMusic(ev.boss ? "boss" : "stage", ev.chapter);
         else if (ev.type === "boss_dead") playMusic("stage", game.chapter);

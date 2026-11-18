@@ -267,13 +267,9 @@ export function playEvent(ev, extra = {}) {
       break;
     case "pickup":
       if (!(a = ready(`pickup:${ev.kind}`, 0.04))) break;
-      if (ev.kind === "nugget" || ev.kind === "burger" || ev.kind === "pizza") {
-        noise(a, { dur: 0.045, gain: 0.11, filter: "lowpass", freq: 980, to: 240, pan, attack: 0.002 });
-        noise(a, { dur: 0.07, gain: 0.07, filter: "bandpass", freq: 1600, to: 420, q: 1.2, pan, delay: 0.055 });
-        tone(a, { type: "triangle", freq: 210, to: 90, dur: 0.11, gain: 0.045, pan, delay: 0.04 });
-      } else if (ev.kind === "kernel" || ev.kind === "cob") {
-        noise(a, { dur: 0.012, gain: 0.03, filter: "highpass", freq: 4200, pan, attack: 0.001 });
-        bell(a, midi(scaleNote(81, (extra.food || 0) % 10)), { gain: 0.04, dur: 0.25, ratio: 2, index: 0.8, pan });
+      if (ev.kind === "kernel" || ev.kind === "cob" || ev.kind === "nugget" || ev.kind === "burger" || ev.kind === "pizza") {
+        tone(a, { type: "sine", freq: 360, to: 190, dur: 0.38, gain: 0.07, pan, attack: 0.05 });
+        tone(a, { type: "triangle", freq: 180, to: 95, dur: 0.55, gain: 0.055, pan, attack: 0.1, delay: 0.14 });
       } else if (ev.kind === "crate") {
         noise(a, { dur: 0.05, gain: 0.08, filter: "bandpass", freq: 520, q: 1.5 });
         noise(a, { dur: 0.05, gain: 0.06, filter: "bandpass", freq: 430, q: 1.5, delay: 0.06 });
