@@ -117,6 +117,20 @@ describe("bucket scoreboard", () => {
     expect(JSON.parse(file).scores[0].name).toBe("مهیار");
   });
 
+  it("treats an empty scoreboard object as a board with no scores", async () => {
+    let file = "{}";
+    const fetchImpl = async (_url, init) => {
+      if (init.method === "GET") return new Response(file, { status: 200 });
+      file = new TextDecoder().decode(init.body);
+      return new Response(null, { status: 200 });
+    };
+    const store = createBucketScoreStore(env, fetchImpl);
+    expect(await store.top()).toEqual([]);
+    await store.insert({ name: "مهیار", score: 10, chapter: 1, wave: 1 });
+    expect(JSON.parse(file).scores).toHaveLength(1);
+    expect((await store.top())[0].name).toBe("مهیار");
+  });
+
   it("refuses to write when the storage keys are missing", async () => {
     const store = createBucketScoreStore({}, async () => new Response(null, { status: 500 }));
     await expect(store.top()).rejects.toThrow(/not configured/);

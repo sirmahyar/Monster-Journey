@@ -154,9 +154,7 @@ async function readBoard(creds, fetchImpl) {
   } catch {
     throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
   }
-  const list = Array.isArray(data) ? data : data && typeof data === "object" ? data.scores : null;
-  if (!Array.isArray(list)) throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
-  return list.filter(isScoreRow).map(publicScore).sort((a, b) => b.score - a.score || b.id - a.id);
+  return boardRows(data).filter(isScoreRow).map(publicScore).sort((a, b) => b.score - a.score || b.id - a.id);
 }
 
 /**
@@ -191,6 +189,22 @@ async function writeBoard(creds, rows, fetchImpl) {
     throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard storage refused the request.", 503);
   }
   await response.arrayBuffer().catch(() => {});
+}
+
+/**
+ * The bucket file may be `{}` before the first score. That is an empty board.
+ * @param {unknown} data
+ */
+function boardRows(data) {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== "object") {
+    throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
+  }
+  if (!Object.hasOwn(data, "scores")) return [];
+  if (!Array.isArray(data.scores)) {
+    throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
+  }
+  return data.scores;
 }
 
 /** @param {unknown} row */
