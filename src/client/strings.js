@@ -74,7 +74,7 @@ export const hudText = {
   warning: "چشماتو باز کن",
   chapter: (n) => `فصل ${fa(n)}`,
   wave: (n) => `موج ${fa(n)}`,
-  bossDown: "غولمون رو انداختیم زمین!",
+  bossDown: "گنده این محل ماییم!",
   waveClear: (wave = 1) =>
     [
       "آفرین از دستشون خلاص شدی",

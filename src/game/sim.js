@@ -38,7 +38,7 @@ function spawnPoopGas(state, x, y, scale = 1) {
     y,
     r0: 32 * scale,
     r1: 108 * scale,
-    life: 4.8,
+    life: 2.6,
     age: 0,
   });
   emit(state, "poop_gas", { x, y, r: 52 * scale });
