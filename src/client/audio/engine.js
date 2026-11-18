@@ -80,7 +80,7 @@ function build(ctx) {
   state.music = ctx.createGain();
   state.music.connect(comp);
   const musicSend = ctx.createGain();
-  musicSend.gain.value = 0.38;
+  musicSend.gain.value = 0.16;
   state.music.connect(musicSend);
   musicSend.connect(state.verb);
 
@@ -109,8 +109,8 @@ function build(ctx) {
 function applySettings() {
   if (!state.ctx) return;
   const now = state.ctx.currentTime;
-  state.sfx.gain.setTargetAtTime(state.settings.sfx ? 0.85 : 0, now, 0.03);
-  state.music.gain.setTargetAtTime(state.settings.music ? 0.42 : 0, now, 0.08);
+  state.sfx.gain.setTargetAtTime(state.settings.sfx ? 1 : 0, now, 0.03);
+  state.music.gain.setTargetAtTime(state.settings.music ? 0.2 : 0, now, 0.08);
 }
 
 /** Runs `fn(ctx)` once the audio context exists (right away if it already does). */

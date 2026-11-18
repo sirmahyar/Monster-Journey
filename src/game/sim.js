@@ -147,7 +147,6 @@ function startWave(state) {
     template: info.template,
     bossKind: info.bossKind,
   });
-  if (info.wave === 1 && !info.boss) emit(state, "chapter_brief", { chapter: info.chapter });
   if (info.boss) {
     state.boss = makeBoss(info.bossKind);
     emit(state, "boss_intro", { name: state.boss.name, kind: info.bossKind });

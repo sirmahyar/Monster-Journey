@@ -109,21 +109,6 @@ export function Menu({ best, prefs, onToggle, onPlay, onBoard, onHelp }) {
   );
 }
 
-export function ChapterBrief({ chapter, onStart }) {
-  const brief = strings.chapterBriefs[chapter - 1];
-  return (
-    <section className="overlay">
-      <div className="card card-narrow">
-        <h2>{brief.title}</h2>
-        <ul className="brief">
-          {brief.lines.map((line) => <li key={line}>{line}</li>)}
-        </ul>
-        <button type="button" className="btn primary" onClick={onStart} autoFocus>{strings.briefStart}</button>
-      </div>
-    </section>
-  );
-}
-
 export function Pause({ prefs, onToggle, onResume, onRestart, onQuit }) {
   return (
     <section className="overlay">

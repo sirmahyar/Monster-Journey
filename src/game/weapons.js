@@ -75,17 +75,12 @@ export function volley(type, level, x, y, phase = 0) {
     out.push(shot("lance", x, y - 24, 0, 1350, dmg, 3 + lv * 0.8, { pierce, life: 0.9, level: lv }));
     if (lv >= 3) {
       for (const side of [-1, 1]) {
-        out.push(shot("lance", x + side * 15, y - 14, side * 1.2, 1350, dmg * 0.7, 2.5 + lv * 0.4, { pierce, life: 0.9, level: lv }));
+        out.push(shot("prism", x + side * 15, y - 14, side * 7, 1180, dmg * 0.7, 4, { pierce, life: 0.7, level: lv }));
       }
     }
     if (lv >= 5) {
       for (const side of [-1, 1]) {
-        out.push(shot("lance", x + side * 28, y - 6, side * 4, 1300, dmg * 0.7, 2.5 + lv * 0.4, { pierce, life: 0.9, level: lv }));
-      }
-    }
-    if (step === 1 && lv >= 2) {
-      for (const side of [-1, 1]) {
-        out.push(shot("lance", x + side * 8, y - 16, side * 8, 1520, dmg * 0.4, 2, { pierce: 1, life: 0.5, level: lv }));
+        out.push(shot("needle", x + side * 28, y - 6, side * 4, 1460, dmg * 0.55, 2.2, { pierce, life: 0.75, level: lv }));
       }
     }
     return out;
@@ -94,26 +89,29 @@ export function volley(type, level, x, y, phase = 0) {
     const count = ION_COUNT[lv - 1];
     for (let i = 0; i < count; i += 1) {
       const t = count === 1 ? 0 : i / (count - 1) - 0.5;
-      const orb = shot("ion", x + t * 34, y - 16, t * 34, 560, 1.7 + 0.15 * lv, 7 + lv * 0.5, {
-        homing: 3.2 + 0.4 * lv,
-        life: 2.4,
+      const comet = lv >= 3 && i % 2 === 1;
+      const orb = shot(comet ? "comet" : "ion", x + t * 34, y - 16, t * (comet ? 22 : 34), comet ? 470 : 560, 1.7 + 0.15 * lv, comet ? 9 : 7 + lv * 0.5, {
+        homing: (comet ? 4.4 : 3.2) + 0.4 * lv,
+        life: comet ? 2.8 : 2.4,
         level: lv,
       });
-      if (step === 1) orb.vx += t * 220;
+      if (step === 1) orb.vx += t * 180;
       out.push(orb);
-    }
-    if (step === 2 && lv >= 3) {
-      out.push(shot("ion", x, y - 6, 0, 420, 1.1, 5.5, { homing: 6, life: 2.6, level: lv }));
     }
     return out;
   }
   const big = lv >= 4 ? 1 : 0;
-  const sweep = step === 2 ? 5 : 0;
+  const sweep = step === 2 ? 6 : 0;
   for (const angle of PULSE_FAN[lv - 1]) {
-    out.push(shot("pulse", x + angle * 1.6, y - 20, angle + sweep, 980, 1 + big * 0.15, 5 + big, { life: 1.2, level: lv }));
-  }
-  if (step === 1 && lv >= 2) {
-    out.push(shot("pulse", x, y - 24, 0, 720, 1.4, 8, { life: 1.4, level: lv }));
+    const center = angle === 0 && lv >= 3;
+    const edge = Math.abs(angle) >= 12 && lv >= 5;
+    if (center) {
+      out.push(shot("slug", x, y - 18, sweep, 640, 1.35 + big * 0.2, 9, { life: 1.5, level: lv }));
+    } else if (edge) {
+      out.push(shot("needle", x + angle * 1.4, y - 22, angle + sweep, 1280, 0.9 + big * 0.15, 2.4, { pierce: 1, life: 0.85, level: lv }));
+    } else {
+      out.push(shot("pulse", x + angle * 1.6, y - 20, angle + sweep, 980, 1 + big * 0.15, 5 + big, { life: 1.2, level: lv }));
+    }
   }
   return out;
 }
