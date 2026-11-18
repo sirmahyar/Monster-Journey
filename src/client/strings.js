@@ -170,7 +170,7 @@ export const strings = {
   ],
   weaponsTitle: "سلاح‌ها",
   weapons: [
-    ["pulse", names.weapons.pulse, "رگبار پهن. در سطح‌های بالاتر گلوله‌ی سنگین و سوزن هم شلیک می‌کند."],
+    ["pulse", names.weapons.pulse, "رگبارِ تقریباً مستقیم. در سطح‌های بالاتر گلوله‌ی سنگین و سوزن هم شلیک می‌کند."],
     ["laser", names.weapons.laser, "نیزه‌ی سوراخ‌کننده، همراه با منشور و سوزن."],
     ["ion", names.weapons.ion, "گوی و دنباله‌دارِ هدف‌یاب."],
   ],

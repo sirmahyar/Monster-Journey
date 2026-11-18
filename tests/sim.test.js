@@ -163,7 +163,7 @@ describe("simulation", () => {
 
   it("overheats under constant fire and cools down", () => {
     const state = createGame({ random: seeded(5) });
-    const events = run(state, 15, { fire: true }, godMode);
+    const events = run(state, 40, { fire: true }, godMode);
     expect(events.some((e) => e.type === "overheat")).toBe(true);
     run(state, 4, { fire: false }, godMode);
     expect(state.player.overheated).toBe(false);

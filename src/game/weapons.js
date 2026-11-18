@@ -3,9 +3,9 @@ import { clamp } from "./math.js";
 export const MAX_LEVEL = 6;
 
 export const WEAPONS = Object.freeze({
-  pulse: Object.freeze({ name: "Pulse Blaster", short: "PULSE", rate: 0.115, heat: 2.3, color: "#ff7a3d" }),
-  laser: Object.freeze({ name: "Photon Lance", short: "LANCE", rate: 0.08, heat: 1.6, color: "#5cf2ff" }),
-  ion: Object.freeze({ name: "Ion Seeker", short: "ION", rate: 0.19, heat: 3.8, color: "#c08cff" }),
+  pulse: Object.freeze({ name: "Pulse Blaster", short: "PULSE", rate: 0.115, heat: 1.15, color: "#ff7a3d" }),
+  laser: Object.freeze({ name: "Photon Lance", short: "LANCE", rate: 0.08, heat: 0.8, color: "#5cf2ff" }),
+  ion: Object.freeze({ name: "Ion Seeker", short: "ION", rate: 0.19, heat: 1.9, color: "#c08cff" }),
 });
 
 export const WEAPON_ORDER = Object.freeze(["pulse", "laser", "ion"]);
@@ -34,11 +34,11 @@ const DEG = Math.PI / 180;
 
 const PULSE_FAN = [
   [0],
-  [-2.5, 2.5],
-  [-6, 0, 6],
-  [-9, -3, 3, 9],
-  [-12, -6, 0, 6, 12],
-  [-18, -12, -6, 0, 6, 12, 18],
+  [-1.4, 1.4],
+  [-2.6, 0, 2.6],
+  [-3.6, -1.2, 1.2, 3.6],
+  [-4.4, -2.2, 0, 2.2, 4.4],
+  [-5.2, -3.2, -1.2, 0, 1.2, 3.2, 5.2],
 ];
 
 const ION_COUNT = [1, 2, 2, 3, 4, 5];
@@ -101,16 +101,17 @@ export function volley(type, level, x, y, phase = 0) {
     return out;
   }
   const big = lv >= 4 ? 1 : 0;
-  const sweep = step === 2 ? 6 : 0;
-  for (const angle of PULSE_FAN[lv - 1]) {
+  const fan = PULSE_FAN[lv - 1];
+  const widest = Math.max(...fan.map((angle) => Math.abs(angle)));
+  for (const angle of fan) {
     const center = angle === 0 && lv >= 3;
-    const edge = Math.abs(angle) >= 12 && lv >= 5;
+    const edge = lv >= 5 && widest > 0 && Math.abs(angle) === widest;
     if (center) {
-      out.push(shot("slug", x, y - 18, sweep, 640, 1.35 + big * 0.2, 9, { life: 1.5, level: lv }));
+      out.push(shot("slug", x, y - 18, 0, 640, 1.35 + big * 0.2, 9, { life: 1.5, level: lv }));
     } else if (edge) {
-      out.push(shot("needle", x + angle * 1.4, y - 22, angle + sweep, 1280, 0.9 + big * 0.15, 2.4, { pierce: 1, life: 0.85, level: lv }));
+      out.push(shot("needle", x + angle * 1.4, y - 22, angle, 1280, 0.9 + big * 0.15, 2.4, { pierce: 1, life: 0.85, level: lv }));
     } else {
-      out.push(shot("pulse", x + angle * 1.6, y - 20, angle + sweep, 980, 1 + big * 0.15, 5 + big, { life: 1.2, level: lv }));
+      out.push(shot("pulse", x + angle * 1.6, y - 20, angle, 980, 1 + big * 0.15, 5 + big, { life: 1.2, level: lv }));
     }
   }
   return out;

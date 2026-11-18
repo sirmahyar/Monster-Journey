@@ -22,8 +22,8 @@ export const PLAYER = Object.freeze({
 
 export const HEAT = Object.freeze({
   max: 100,
-  coolIdle: 46,
-  coolFiring: 9,
+  coolIdle: 70,
+  coolFiring: 6,
   coolLocked: 36,
   unlockAt: 28,
 });
