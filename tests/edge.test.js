@@ -131,22 +131,41 @@ describe("bucket scoreboard", () => {
     expect((await store.top())[0].name).toBe("مهیار");
   });
 
-  it("replaces an unreadable scoreboard with a new file", async () => {
-    let file = "not-json";
+  it("places a new score among the previous ones and keeps every player", async () => {
+    let file = JSON.stringify({
+      scores: [
+        { id: 2, name: "بالا", score: 1000, chapter: 2, wave: 3, createdAt: "2026-11-18T00:00:00.000Z" },
+        { id: 1, name: "پایین", score: 100, chapter: 1, wave: 1, createdAt: "2026-11-18T00:00:00.000Z" },
+      ],
+    });
     const fetchImpl = async (_url, init) => {
-      if (init.method !== "PUT") return new Response(file, { status: 200 });
+      if (init.method === "GET") return new Response(file, { status: 200 });
       file = new TextDecoder().decode(init.body);
       return new Response(null, { status: 200 });
     };
     const store = createBucketScoreStore(env, fetchImpl);
-    expect(await store.top()).toEqual([]);
-    await store.insert({ name: "مهیار", score: 10, chapter: 1, wave: 1 });
-    expect(JSON.parse(file).scores[0].name).toBe("مهیار");
+    await store.insert({ name: "وسط", score: 500, chapter: 1, wave: 4 });
+    expect(JSON.parse(file).scores.map((row) => [row.name, row.score])).toEqual([
+      ["بالا", 1000],
+      ["وسط", 500],
+      ["پایین", 100],
+    ]);
+  });
+
+  it("does not replace the file when the previous scores cannot be read", async () => {
+    let puts = 0;
+    const fetchImpl = async (_url, init) => {
+      if (init.method === "PUT") puts += 1;
+      return new Response("not-json", { status: 200 });
+    };
+    const store = createBucketScoreStore(env, fetchImpl);
+    await expect(store.insert({ name: "مهیار", score: 10, chapter: 1, wave: 1 })).rejects.toThrow(/could not be read/);
+    expect(puts).toBe(0);
   });
 
   it("refuses to write when the storage keys are missing", async () => {
     const store = createBucketScoreStore({}, async () => new Response("{}", { status: 200 }));
-    expect(await store.top()).toEqual([]);
+    await expect(store.top()).rejects.toThrow(/not configured/);
     await expect(store.insert({ name: "مهیار", score: 1, chapter: 1, wave: 1 })).rejects.toThrow(/not configured/);
   });
 });

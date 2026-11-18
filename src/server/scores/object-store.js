@@ -1,4 +1,4 @@
-import { bucketUrl, SCOREBOARD_KEY } from "../../shared/assets.js";
+import { SCOREBOARD_KEY } from "../../shared/assets.js";
 import { readEdgeEnv } from "../adapters/edge-env.js";
 import { GameError } from "../errors.js";
 
@@ -9,8 +9,9 @@ const WRITE_HOSTS = ["s3.ir-central1.arvanstorage.ir", "s3.ir-thr-at1.arvanstora
 
 /**
  * Scoreboard stored as scoreboard.json in the music bucket.
- * Each accepted score uploads a complete new file. An empty `{}` or an
- * unreadable file counts as no scores, so it never blocks the next upload.
+ * A new score is read from the previous file, inserted by score, and the
+ * full list is uploaded. The file is private, so both the read and the write
+ * are signed. A failed read is not treated as an empty board.
  * Credentials are the edge JSON variables ARVANSTORAGE_BUCKET_NAME,
  * ARVANSTORAGE_ACCESS_KEY, and ARVANSTORAGE_SECRET_KEY.
  * @param {object | undefined} envBinding
@@ -19,12 +20,12 @@ const WRITE_HOSTS = ["s3.ir-central1.arvanstorage.ir", "s3.ir-thr-at1.arvanstora
 export function createBucketScoreStore(envBinding, fetchImpl = globalThis.fetch) {
   return {
     async top(limit = 50) {
-      const rows = await readBoard(fetchImpl);
+      const rows = await readBoard(storageCredentials(envBinding), fetchImpl);
       return rows.slice(0, limit);
     },
     async insert(entry) {
       const creds = storageCredentials(envBinding);
-      const current = await readBoard(fetchImpl);
+      const current = await readBoard(creds, fetchImpl);
       const row = {
         id: Date.now(),
         name: entry.name,
@@ -41,6 +42,7 @@ export function createBucketScoreStore(envBinding, fetchImpl = globalThis.fetch)
 }
 
 /**
+ * Keeps every previous score and places the new one by score, highest first.
  * @param {object[]} current
  * @param {object} row
  */
@@ -119,26 +121,54 @@ function jsonString(value) {
   return "";
 }
 
-/** @param {typeof fetch} fetchImpl */
-async function readBoard(fetchImpl) {
-  try {
-    const response = await fetchImpl(bucketUrl(SCOREBOARD_KEY), { method: "GET", cache: "no-store" });
-    if (!response.ok) return [];
+/** @param {{ bucket: string, accessKey: string, secret: string }} creds @param {typeof fetch} fetchImpl */
+async function readBoard(creds, fetchImpl) {
+  let lastStatus = 0;
+  for (const host of WRITE_HOSTS) {
+    const date = new Date().toUTCString();
+    const response = await fetchImpl(`https://${creds.bucket}.${host}/${SCOREBOARD_KEY}`, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        Host: `${creds.bucket}.${host}`,
+        Date: date,
+        "Cache-Control": "no-cache",
+        Authorization: await authorizeObject({
+          method: "GET",
+          contentType: "",
+          date,
+          bucket: creds.bucket,
+          key: SCOREBOARD_KEY,
+          accessKey: creds.accessKey,
+          secret: creds.secret,
+        }),
+      },
+    });
     const text = await response.text();
-    if (!text.trim()) return [];
-    return rowsFrom(JSON.parse(text));
-  } catch {
-    return [];
+    if (response.ok) return rowsFrom(text);
+    if (response.status === 404 || text.includes("NoSuchKey")) return [];
+    lastStatus = response.status;
   }
+  throw new GameError("SERVICE_UNAVAILABLE", `Scoreboard file could not be read (${lastStatus}).`, 503);
 }
 
-/** @param {unknown} data */
-function rowsFrom(data) {
+/** @param {string} text */
+function rowsFrom(text) {
+  if (!text.trim()) return [];
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
+  }
   const list = Array.isArray(data)
     ? data
     : data && typeof data === "object" && Array.isArray(data.scores)
       ? data.scores
-      : [];
+      : data && typeof data === "object" && !Array.isArray(data) && !Object.hasOwn(data, "scores")
+        ? []
+        : null;
+  if (!list) throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
   return list.filter(isScoreRow).map(publicScore).sort((a, b) => b.score - a.score || b.id - a.id);
 }
 

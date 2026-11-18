@@ -73,12 +73,12 @@
   function createBucketScoreStore(envBinding, fetchImpl = globalThis.fetch) {
     return {
       async top(limit = 50) {
-        const rows = await readBoard(fetchImpl);
+        const rows = await readBoard(storageCredentials(envBinding), fetchImpl);
         return rows.slice(0, limit);
       },
       async insert(entry) {
         const creds = storageCredentials(envBinding);
-        const current = await readBoard(fetchImpl);
+        const current = await readBoard(creds, fetchImpl);
         const row = {
           id: Date.now(),
           name: entry.name,
@@ -160,19 +160,45 @@ ${resource}`;
     }
     return "";
   }
-  async function readBoard(fetchImpl) {
-    try {
-      const response = await fetchImpl(bucketUrl(SCOREBOARD_KEY), { method: "GET", cache: "no-store" });
-      if (!response.ok) return [];
+  async function readBoard(creds, fetchImpl) {
+    let lastStatus = 0;
+    for (const host of WRITE_HOSTS) {
+      const date = (/* @__PURE__ */ new Date()).toUTCString();
+      const response = await fetchImpl(`https://${creds.bucket}.${host}/${SCOREBOARD_KEY}`, {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          Host: `${creds.bucket}.${host}`,
+          Date: date,
+          "Cache-Control": "no-cache",
+          Authorization: await authorizeObject({
+            method: "GET",
+            contentType: "",
+            date,
+            bucket: creds.bucket,
+            key: SCOREBOARD_KEY,
+            accessKey: creds.accessKey,
+            secret: creds.secret
+          })
+        }
+      });
       const text = await response.text();
-      if (!text.trim()) return [];
-      return rowsFrom(JSON.parse(text));
-    } catch {
-      return [];
+      if (response.ok) return rowsFrom(text);
+      if (response.status === 404 || text.includes("NoSuchKey")) return [];
+      lastStatus = response.status;
     }
+    throw new GameError("SERVICE_UNAVAILABLE", `Scoreboard file could not be read (${lastStatus}).`, 503);
   }
-  function rowsFrom(data) {
-    const list = Array.isArray(data) ? data : data && typeof data === "object" && Array.isArray(data.scores) ? data.scores : [];
+  function rowsFrom(text) {
+    if (!text.trim()) return [];
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
+    }
+    const list = Array.isArray(data) ? data : data && typeof data === "object" && Array.isArray(data.scores) ? data.scores : data && typeof data === "object" && !Array.isArray(data) && !Object.hasOwn(data, "scores") ? [] : null;
+    if (!list) throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
     return list.filter(isScoreRow).map(publicScore).sort((a, b) => b.score - a.score || b.id - a.id);
   }
   async function writeBoard(creds, rows, fetchImpl) {
