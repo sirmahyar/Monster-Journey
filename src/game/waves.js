@@ -376,9 +376,9 @@ function spawnDriftRock(api, chapter, opts = {}) {
 function rocks(api, chapter) {
   const count = chapter >= 7 ? 22 : 16 + chapter * 5;
   const span = 20 + chapter * 2;
-  const warm = Math.min(6, count);
-  for (let i = 0; i < warm; i += 1) {
-    spawnDriftRock(api, chapter, { y: rand(api.rng, 90, 340), pattern: "wobble" });
+  const early = Math.min(4, count);
+  for (let i = 0; i < early; i += 1) {
+    spawnDriftRock(api, chapter, { y: -35 - i * 28 });
   }
   for (let i = 0; i < count; i += 1) {
     api.later((i / count) * span + rand(api.rng, 0, 0.6), () => {

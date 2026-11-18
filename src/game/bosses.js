@@ -428,7 +428,7 @@ function startAttack(b, api) {
   if (name === b.last && list.length > 1) name = list[(list.indexOf(name) + 1) % list.length];
   b.last = name;
   b.attack = { name, t: 0, n: 0, acc: 0 };
-  api.event("boss_attack", { name });
+  api.event("boss_attack", { name, kind: b.kind });
 }
 
 /**

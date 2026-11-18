@@ -204,10 +204,101 @@ function bossVoice(a, kind, mood) {
   const angry = mood === "angry";
   if (kind === "grandhen") voice(a, angry ? "bawk" : "cackle", { rate: angry ? 0.62 : 0.72, gain: 0.62, lowpass: 3800, reverb: 0.55, maxLength: angry ? 0.6 : 2.1, priority: true });
   else if (kind === "ironrooster") voice(a, angry ? "bawk" : "crow", { index: angry ? undefined : 1, rate: angry ? 0.58 : 0.8, gain: 0.58, lowpass: 3600, reverb: 0.5, maxLength: angry ? 0.6 : 2.4, priority: true });
-  else if (kind === "carrier" || kind === "king") flock(a, angry ? 5 : 8, angry ? 0.5 : 1.2);
-  else if (kind === "barnowl") voice(a, angry ? "bawk" : "cackle", { rate: angry ? 0.5 : 0.64, gain: 0.58, lowpass: 2800, reverb: 0.6, maxLength: angry ? 0.55 : 1.8, priority: true });
+  else if (kind === "carrier" || kind === "king" || kind === "eternity") flock(a, angry ? 5 : 8, angry ? 0.5 : 1.2);
+  else if (kind === "barnowl" || kind === "matron") voice(a, angry ? "bawk" : "cackle", { rate: angry ? 0.5 : 0.64, gain: 0.58, lowpass: 2800, reverb: 0.6, maxLength: angry ? 0.55 : 1.8, priority: true });
   else if (kind === "plume") voice(a, angry ? "bawk" : "crow", { index: angry ? undefined : 1, rate: angry ? 0.62 : 0.86, gain: 0.56, lowpass: 3600, reverb: 0.5, maxLength: angry ? 0.55 : 2.1, priority: true });
   else if (kind === "cyclone") voice(a, angry ? "bawk" : "cackle", { rate: angry ? 0.7 : 0.9, gain: 0.55, lowpass: 3400, reverb: 0.45, maxLength: angry ? 0.5 : 1.6, priority: true });
+  else if (kind === "reactor") {
+    tone(a, { type: "sawtooth", freq: 62, dur: angry ? 0.35 : 0.8, gain: angry ? 0.05 : 0.06, filter: "lowpass", cutoff: 320, vibrato: angry ? 18 : 0 });
+    crackle(a, { count: angry ? 5 : 3, spread: 0.7, gain: 0.025, freq: 3800 });
+  }
+}
+
+function bossIntroFx(a, kind) {
+  if (kind === "reactor") {
+    tone(a, { type: "sawtooth", freq: 55, dur: 1.6, gain: 0.08, attack: 0.6, filter: "lowpass", cutoff: 420 });
+    tone(a, { type: "sawtooth", freq: 82.5, dur: 1.6, gain: 0.05, attack: 0.6, filter: "lowpass", cutoff: 420 });
+    crackle(a, { count: 8, spread: 1.2, gain: 0.03, freq: 4500, delay: 0.3 });
+    return;
+  }
+  if (kind === "grandhen") {
+    chime(a, [55, 58, 62], { step: 0.18, gain: 0.04, dur: 1.1 });
+    voice(a, "cackle", { rate: 0.7, gain: 0.55, lowpass: 3600, reverb: 0.5, maxLength: 2, priority: true, delay: 0.25 });
+    return;
+  }
+  if (kind === "ironrooster") {
+    tone(a, { type: "triangle", freq: 95, to: 52, dur: 1.2, gain: 0.07, filter: "lowpass", cutoff: 500 });
+    voice(a, "crow", { index: 1, rate: 0.78, gain: 0.58, lowpass: 3400, reverb: 0.45, maxLength: 2.2, priority: true, delay: 0.15 });
+    return;
+  }
+  if (kind === "carrier") {
+    flock(a, 7, 1.35);
+    boom(a, 0.75);
+    return;
+  }
+  if (kind === "barnowl") {
+    tone(a, { type: "sine", freq: 220, to: 120, dur: 1.5, gain: 0.04, filter: "lowpass", cutoff: 900, vibrato: 6 });
+    voice(a, "cackle", { rate: 0.58, gain: 0.52, lowpass: 2600, reverb: 0.65, maxLength: 1.7, priority: true, delay: 0.35 });
+    return;
+  }
+  if (kind === "king" || kind === "eternity") {
+    for (let i = 0; i < 3; i += 1) tone(a, { type: "sawtooth", freq: 65 + i * 18, dur: 0.5, gain: 0.05, delay: i * 0.22, filter: "lowpass", cutoff: 700 });
+    flock(a, 10, 1.4);
+    return;
+  }
+  if (kind === "matron") {
+    tone(a, { type: "triangle", freq: 180, to: 88, dur: 1.35, gain: 0.05, filter: "lowpass", cutoff: 700, vibrato: 8 });
+    voice(a, "cackle", { rate: 0.52, gain: 0.54, lowpass: 2400, reverb: 0.7, maxLength: 1.6, priority: true, delay: 0.2 });
+    return;
+  }
+  bossVoice(a, kind, "intro");
+}
+
+function bossAttackFx(a, name, pan) {
+  if (name === "relocate" || name === "dash" || name === "charge" || name === "swoop") {
+    noise(a, { dur: 0.55, gain: 0.1, filter: "bandpass", freq: 360, to: 140, q: 1.5, pan, attack: 0.02 });
+    tone(a, { type: "sawtooth", freq: 140, to: 72, dur: 0.5, gain: 0.055, filter: "lowpass", cutoff: 850, pan });
+    return;
+  }
+  if (name === "beams" || name === "beam") {
+    tone(a, { type: "sawtooth", freq: 200, to: 900, dur: 0.75, gain: 0.045, filter: "lowpass", cutoff: 1600, pan, delay: 0.05 });
+    return;
+  }
+  if (name === "missiles" || name === "bombs") {
+    noise(a, { dur: 0.35, gain: 0.09, filter: "bandpass", freq: 900, to: 2600, q: 2.5, pan, attack: 0.04 });
+    tone(a, { type: "sawtooth", freq: 95, to: 55, dur: 0.3, gain: 0.07, filter: "lowpass", cutoff: 700, pan });
+    return;
+  }
+  if (name === "mines" || name === "ring" || name === "spiral2" || name === "spirals") {
+    crackle(a, { count: 6, spread: 0.5, gain: 0.035, freq: 4200, pan });
+    tone(a, { type: "triangle", freq: 260, to: 170, dur: 0.5, gain: 0.055, pan, vibrato: 12 });
+    return;
+  }
+  if (name === "needles" || name === "fan" || name === "rain") {
+    tone(a, { type: "sawtooth", freq: 320, to: 130, dur: 0.45, gain: 0.05, filter: "lowpass", cutoff: 1200, pan });
+    noise(a, { dur: 0.35, gain: 0.06, filter: "highpass", freq: 2200, pan });
+    return;
+  }
+  if (name === "gust" || name === "stomp" || name === "sweep") {
+    noise(a, { dur: 0.5, gain: 0.1, filter: "bandpass", freq: 260, to: 110, q: 1.4, pan });
+    tone(a, { type: "sawtooth", freq: 120, to: 70, dur: 0.45, gain: 0.065, filter: "lowpass", cutoff: 900, pan });
+    return;
+  }
+  if (name === "hatch" || name === "summon" || name === "twin") {
+    flock(a, 4, 0.7);
+    tone(a, { type: "triangle", freq: 140, to: 90, dur: 0.4, gain: 0.05, pan });
+    return;
+  }
+  noise(a, { dur: 0.4, gain: 0.1, filter: "bandpass", freq: 300, to: 160, q: 2, pan });
+  tone(a, { type: "sawtooth", freq: 120, to: 85, dur: 0.4, gain: 0.06, filter: "lowpass", cutoff: 900, pan });
+}
+
+function bossKillVoice(a, kind) {
+  if (kind === "grandhen" || kind === "ironrooster") voice(a, "bawk", { rate: 0.6, gain: 0.6, lowpass: 3000, reverb: 0.6, priority: true });
+  else if (kind === "carrier" || kind === "king" || kind === "eternity") flock(a, 6, 1.1);
+  else if (kind === "reactor") crackle(a, { count: 10, spread: 0.8, gain: 0.04, freq: 5000 });
+  else if (kind === "barnowl" || kind === "matron") voice(a, "cackle", { rate: 0.58, gain: 0.55, lowpass: 2800, reverb: 0.55, maxLength: 0.9, priority: true });
+  else if (kind === "plume" || kind === "cyclone") voice(a, "crow", { index: 1, rate: 0.66, gain: 0.52, lowpass: 3200, reverb: 0.45, maxLength: 0.85, priority: true });
 }
 
 /** Plays the sound that belongs to one simulation event. */
@@ -372,8 +463,9 @@ export function playEvent(ev, extra = {}) {
     case "shield_block":
     case "boss_shield_hit":
       if ((a = ready("shieldhit", 0.06))) {
-        tone(a, { freq: 900, to: 700, dur: 0.08, gain: 0.04, pan });
-        bell(a, 1400, { gain: 0.02, dur: 0.3, pan });
+        tone(a, { freq: 1040, to: 680, dur: 0.1, gain: 0.05, pan });
+        bell(a, 1560, { gain: 0.028, dur: 0.35, pan, ratio: 2.8 });
+        crackle(a, { count: 4, spread: 0.15, gain: 0.02, freq: 3800, pan });
       }
       break;
     case "shield_on":
@@ -403,18 +495,12 @@ export function playEvent(ev, extra = {}) {
       }
       break;
     case "boss_intro":
-      if ((a = ready("bossintro"))) {
-        if (ev.kind === "reactor") {
-          tone(a, { type: "sawtooth", freq: 55, dur: 1.6, gain: 0.08, attack: 0.6, filter: "lowpass", cutoff: 420 });
-          tone(a, { type: "sawtooth", freq: 82.5, dur: 1.6, gain: 0.05, attack: 0.6, filter: "lowpass", cutoff: 420 });
-          crackle(a, { count: 8, spread: 1.2, gain: 0.03, freq: 4500, delay: 0.3 });
-        } else bossVoice(a, ev.kind, "intro");
-      }
+      if ((a = ready("bossintro"))) bossIntroFx(a, ev.kind);
       break;
     case "boss_attack":
-      if ((a = ready("bossattack", 0.4))) {
-        noise(a, { dur: 0.4, gain: 0.1, filter: "bandpass", freq: 300, to: 160, q: 2 });
-        tone(a, { type: "sawtooth", freq: 120, to: 85, dur: 0.4, gain: 0.06, filter: "lowpass", cutoff: 900 });
+      if ((a = ready("bossattack", 0.35))) {
+        bossAttackFx(a, ev.name, pan);
+        if (ev.kind && Math.random() < 0.35) bossVoice(a, ev.kind, "angry");
       }
       break;
     case "boss_shoot":
@@ -450,7 +536,7 @@ export function playEvent(ev, extra = {}) {
       if ((a = ready("bosskilled"))) {
         boom(a, 2.5);
         noise(a, { dur: 1.4, gain: 0.1, filter: "bandpass", freq: 3000, to: 200, q: 1 });
-        if (ev.kind === "grandhen" || ev.kind === "ironrooster") voice(a, "bawk", { rate: 0.6, gain: 0.6, lowpass: 3000, reverb: 0.6, priority: true });
+        bossKillVoice(a, ev.kind);
       }
       break;
     case "boss_dead":
