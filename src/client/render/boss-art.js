@@ -548,13 +548,19 @@ export function drawBoss(ctx, b, time, player) {
     x += Math.sin(time * 90) * 4;
     y += Math.cos(time * 77) * 4;
   }
-  if (b.aim != null) {
+  const mark = b.mark || (b.aim != null ? { x: b.aim, y: 600 } : null);
+  if (mark) {
     ctx.save();
-    ctx.strokeStyle = rgba("#ff3b3b", 0.5 + 0.4 * Math.sin(time * 20));
+    const pulse = 0.55 + 0.45 * Math.sin(time * 18);
+    ctx.strokeStyle = `rgba(255, 70, 70, ${pulse})`;
     ctx.lineWidth = 3;
     ctx.setLineDash([10, 8]);
     ctx.beginPath();
-    ctx.arc(b.aim, 600, 46, 0, TAU);
+    ctx.arc(mark.x, mark.y, 28 + pulse * 18, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(mark.x, mark.y, 6, 0, TAU);
     ctx.stroke();
     ctx.restore();
   }
@@ -568,6 +574,17 @@ export function drawBoss(ctx, b, time, player) {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     blit(ctx, glowDot("bossflash", 64, "#ffffff"), x, y, 0, SIZE[b.kind] / 50, SIZE[b.kind] / 60, (b.flash / 0.06) * 0.45);
+    ctx.restore();
+  }
+  if (b.shield > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const k = b.shield / b.maxShield;
+    ctx.strokeStyle = rgba("#9ff0ff", 0.35 + 0.4 * k);
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 130, 100, time * 0.8, 0, TAU);
+    ctx.stroke();
     ctx.restore();
   }
   if (b.armored) {

@@ -126,6 +126,7 @@ function addEnemy(state, kind, fields) {
 }
 
 function shotPace(chapter) {
+  if (chapter >= 10) return 2.6;
   return 0.68 + 0.07 * (chapter - 1);
 }
 
@@ -318,7 +319,7 @@ function updatePlayer(state, input, dt) {
     for (const s of shots) state.shots.push(s);
     state.stats.fired += shots.length;
     p.fireCd = weapon.rate * (p.haste > 0 ? 0.55 : 1);
-    if (p.frost <= 0) p.heat += weapon.heat * 1.21;
+    if (p.frost <= 0) p.heat += weapon.heat * 1.331;
     emit(state, "shot", { weapon: p.weapon, level: p.level, x: p.x, y: p.y });
     if (p.rockets && p.rocketCd <= 0) {
       p.rocketCd = 0.85;
@@ -362,6 +363,10 @@ function killPlayer(state) {
   p.overheated = false;
   p.shield = 0;
   p.frost = 0;
+  if (p.rockets) {
+    p.rockets = false;
+    emit(state, "rocket_lost", { x: p.x, y: p.y });
+  }
   state.waveDeaths += 1;
   state.stats.deaths += 1;
   state.combo = 0;
@@ -403,10 +408,27 @@ function updateNova(state, dt) {
   state.eggs.length = 0;
   state.beams.length = 0;
   const dmg = 30 + 12 * state.chapter;
-  for (const e of state.enemies) if (!e.dead && !e.hidden && e.y > -30 && e.y < H) damageEnemy(state, e, dmg, null);
+  for (const e of state.enemies) if (!e.dead && !e.hidden && e.y > -30 && e.y < H) bombHit(state, e, dmg);
   if (state.boss) bossResult(state, bombBoss(state.boss), state.boss.x, state.boss.y);
   state.player.invuln = Math.max(state.player.invuln, 0.8);
   state.enemies = state.enemies.filter((e) => !e.dead);
+}
+
+function bombHit(state, e, dmg) {
+  if (e.bombProof) {
+    e.bombShield = Math.max(0, (e.bombShield ?? e.maxBombShield) - 1);
+    e.flash = 0.14;
+    emit(state, e.bombShield > 0 ? "shield_hit" : "shield_break", { x: e.x, y: e.y, ex: e.x, ey: e.y });
+    return;
+  }
+  if ((e.chapter || 1) >= 5 && e.kind !== "rock" && e.kind !== "golden" && e.kind !== "poop" && e.kind !== "net") {
+    const floor = Math.max(1, e.maxHp * 0.4);
+    e.hp = Math.max(floor, e.hp - dmg * 0.45);
+    e.flash = 0.09;
+    emit(state, "hit", { x: e.x, y: e.y, kind: e.kind });
+    return;
+  }
+  damageEnemy(state, e, dmg, null);
 }
 
 function damageEnemy(state, e, dmg, shot) {
@@ -719,7 +741,8 @@ function updateEggs(state, dt) {
     g.t += dt;
     if (g.weave) g.vx += Math.cos(g.t * 8) * 140 * dt;
     if (g.bend) bendShot(g, p, dt);
-    if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce" || g.kind === "goldenegg") {
+    if (g.kind === "poop") g.vx += Math.sin(g.t * 5) * 50 * dt;
+    if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce" || g.kind === "goldenegg" || g.kind === "poop") {
       g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * (g.gravity || 1) * dt);
     } else if (g.kind === "yolk") {
       g.vy = Math.min(260, g.vy + 60 * dt);
@@ -774,7 +797,7 @@ function updateEggs(state, dt) {
       g.bounces -= 1;
     }
     const depth = g.oy == null ? g.y : g.oy;
-    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster" || g.kind === "goldenegg") && g.y >= FLOOR_Y) {
+    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster" || g.kind === "goldenegg" || g.kind === "poop") && g.y >= FLOOR_Y) {
       emit(state, "splat", { x: g.x, y: FLOOR_Y, big: g.r > 11, yolk: g.kind === "yolk" });
       continue;
     }
@@ -858,6 +881,9 @@ function collect(state, k) {
   } else if (k.kind === "magnet") {
     p.magnet = 8;
     emit(state, "shield_on", { x: p.x, y: p.y });
+  } else if (k.kind === "rocket" && state.chapter >= 4) {
+    p.rockets = true;
+    emit(state, "weapon", { weapon: p.weapon, x: p.x, y: p.y });
   }
   emit(state, "pickup", { kind: k.kind, weapon: k.weapon, x: k.x, y: k.y, points: PICKUPS[k.kind].score });
 }

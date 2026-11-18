@@ -12,6 +12,9 @@ export const ENEMY_TYPES = Object.freeze({
   sniper: Object.freeze({ r: 24, hp: 6, score: 450, egg: "needle", eggWeight: 0.85, food: 0.5, dive: 0.1 }),
   spinner: Object.freeze({ r: 18, hp: 4, score: 280, egg: "spiral", eggWeight: 0.9, food: 0.4, dive: 0.35 }),
   shell: Object.freeze({ r: 28, hp: 12, score: 600, egg: "bounce", eggWeight: 0.8, food: 0.65, dive: 0.15, shield: 10 }),
+  warden: Object.freeze({ r: 28, hp: 18, score: 750, egg: "net", eggWeight: 0.85, food: 0.35, dive: 0.12, shield: 14, bombProof: true }),
+  poop: Object.freeze({ r: 18, hp: 4, score: 70, egg: null, eggWeight: 0, food: 0, dive: 0 }),
+  net: Object.freeze({ r: 34, hp: 9, score: 160, egg: null, eggWeight: 0, food: 0, dive: 0 }),
   golden: Object.freeze({ r: 26, hp: 30, score: 2500, egg: "goldenegg", eggWeight: 1.15, food: 1, dive: 0 }),
   rock: Object.freeze({ r: 38, hp: 16, score: 150, egg: null, eggWeight: 0, food: 0.12, dive: 0 }),
 });
@@ -42,6 +45,7 @@ export function makeEnemy(id, kind, chapter, fields = {}) {
   const base = kind === "rock" ? ROCK_SIZES[fields.size || 3] : ENEMY_TYPES[kind];
   const hp = Math.round(base.hp * hpScale(chapter) * 10) / 10;
   const shield = ENEMY_TYPES[kind].shield ? Math.round(ENEMY_TYPES[kind].shield * hpScale(chapter)) : 0;
+  const bombProof = Boolean(ENEMY_TYPES[kind].bombProof);
   const enemy = {
     id,
     kind,
@@ -52,6 +56,9 @@ export function makeEnemy(id, kind, chapter, fields = {}) {
     score: base.score,
     shield,
     maxShield: shield,
+    bombProof,
+    bombShield: bombProof ? 2 : 0,
+    maxBombShield: bombProof ? 2 : 0,
     x: -200,
     y: -200,
     vx: 0,
@@ -180,11 +187,21 @@ export function moveEnemy(e, dt, world) {
           e.gone = true;
           break;
         }
-        e.mode = "home";
-        const a = anchor(e, world);
-        e.x = a.x;
-        e.y = a.y;
+        e.mode = "return";
+        e.returnT = 0;
+        e.returnX = e.x;
+        e.returnY = e.y;
+        e.returnDur = 1.7;
       }
+      break;
+    }
+    case "return": {
+      const a = anchor(e, world);
+      e.returnT = Math.min(1, e.returnT + dt / (e.returnDur || 1.7));
+      const k = e.returnT * e.returnT * (3 - 2 * e.returnT);
+      e.x = lerp(e.returnX, a.x, k);
+      e.y = lerp(e.returnY, a.y, k);
+      if (e.returnT >= 1) e.mode = "home";
       break;
     }
     case "roam": {
@@ -222,12 +239,20 @@ export function moveEnemy(e, dt, world) {
       }
       if ((e.dir > 0 && e.x > W + 90) || (e.dir < 0 && e.x < -90)) e.gone = true;
       break;
-    case "drift":
-      e.x += e.dx * dt + (e.variant % 3 === 2 ? Math.cos(e.t * 1.6) * 70 * dt : 0);
-      e.y += e.dy * dt;
+    case "drift": {
+      const pattern = e.pattern || "straight";
+      let sway = 0;
+      let fall = 1;
+      if (pattern === "zig") sway = Math.sin(e.t * 3.4) * 160;
+      else if (pattern === "wobble") sway = Math.sin(e.t * 1.3) * 90;
+      else if (pattern === "stall") fall = e.t < 1.3 ? 0.28 : 1.85;
+      else if (e.variant % 3 === 2) sway = Math.cos(e.t * 1.6) * 70;
+      e.x += e.dx * dt + sway * dt;
+      e.y += e.dy * fall * dt;
       e.angle += e.spin * dt;
       if (e.t > 1 && (e.y > H + 80 || e.x < -110 || e.x > W + 110)) e.gone = true;
       break;
+    }
     default:
       break;
   }
@@ -299,6 +324,9 @@ export function fireFrom(e, target, rng, chapter) {
           { ...egg, x: x + 12, vx: egg.vx + 45 },
         ];
       }
+      if (chapter >= 4 && e.kind === "hen" && rng() < 0.16) {
+        return [{ kind: "poop", x, y, vx: rand(rng, -18, 18), vy: 55, r: 15, gravity: 0.8, wobble: true }];
+      }
       if (chapter >= 5 && e.kind === "hen" && rng() < (chapter >= 7 ? 0.08 : 0.22)) {
         return [{ kind: "cluster", x, y, vx: egg.vx, vy: egg.vy, r: 14, splitY: rand(rng, 380, 560), gravity: 1 }];
       }
@@ -344,6 +372,8 @@ export function fireFrom(e, target, rng, chapter) {
       return [{ kind: "needle", x, y, ...aimed(x, y, target, 520 + 18 * chapter), r: 5 }];
     case "spiral":
       return [{ kind: "spiral", x, y, vx: rand(rng, -30, 30), vy: 70, r: 11, spin: rng() < 0.5 ? 5 : -5, orbit: chapter >= 7 ? 14 : 30 }];
+    case "net":
+      return [{ kind: "net", x, y, vx: rand(rng, -16, 16), vy: 62, r: 30, gravity: 0.12 }];
     case "bounce": {
       let vx = rand(rng, -110, 110);
       if (Math.abs(vx) < 40) vx = vx < 0 ? -70 : 70;

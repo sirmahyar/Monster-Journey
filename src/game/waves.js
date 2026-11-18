@@ -113,7 +113,7 @@ const GRID_ROWS = [
   ["bomber", "hen", "hen", "chick"],
   ["rooster", "hen", "diver", "hen", "chick"],
   ["rooster", "bomber", "diver", "hen", "hen"],
-  ["miner", "hen", "miner", "chick", "hen"],
+  ["miner", "warden", "miner", "chick", "hen"],
   ["sniper", "hen", "diver", "hen", "chick"],
   ["spinner", "bomber", "spinner", "hen", "chick"],
   ["shell", "rooster", "miner", "sniper", "hen"],
@@ -155,8 +155,11 @@ function giftWeight(gift, count) {
 }
 
 function keptGift(gift, chapter, rng) {
-  if (gift === "nova" && rng() < 0.1) return "";
-  if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant") && rng() < 0.1) return "";
+  let keep = 1;
+  if (gift === "nova") keep *= 0.9;
+  if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant")) keep *= 0.9;
+  if (gift === "nova" || gift === "shield" || gift === "coolant" || gift === "crate") keep *= 0.85;
+  if (rng() >= keep) return "";
   return gift;
 }
 
@@ -212,7 +215,7 @@ function grid(api, rows, cols, style) {
 
 function flock(api, chapter) {
   const perRibbon = 14 + chapter * 3;
-  const flockExtra = [null, "bomber", "diver", "rooster", "miner", "sniper", "spinner", "shell", "diver", "sniper"];
+  const flockExtra = [null, "bomber", "diver", "rooster", "warden", "sniper", "spinner", "shell", "warden", "sniper"];
   const extra = flockExtra[(chapter - 1) % flockExtra.length];
   for (let ribbon = 0; ribbon < 2; ribbon += 1) {
     const side = ribbon === 0 ? -1 : 1;
@@ -349,29 +352,37 @@ function saucers(api, chapter) {
   grid(api, chapter >= 3 ? ["hen", "chick"] : ["chick"], 8, "drop");
 }
 
+function spawnDriftRock(api, chapter, opts = {}) {
+  const slant = chapter >= 2 ? 120 : 50;
+  const variant = opts.variant ?? randInt(api.rng, 0, 3);
+  const tumble = variant === 3;
+  const roll = api.rng();
+  const kind = roll < 0.18 ? "poop" : roll < 0.32 ? "net" : "rock";
+  const pattern = opts.pattern || ["straight", "zig", "wobble", "stall"][variant];
+  api.spawn(kind, {
+    size: kind === "rock" ? weighted(api.rng, [[3, 0.35], [2, 0.4], [1, 0.25]]) : 2,
+    mode: "drift",
+    pattern,
+    x: opts.x ?? rand(api.rng, 40, W - 40),
+    y: opts.y ?? -50,
+    dx: opts.dx ?? rand(api.rng, tumble ? -slant * 1.6 : -slant, tumble ? slant * 1.6 : slant),
+    dy: opts.dy ?? rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15 + (chapter >= 7 ? 50 : 0),
+    spin: opts.spin ?? rand(api.rng, tumble ? -4.5 : -2, tumble ? 4.5 : 2),
+    angle: opts.angle ?? rand(api.rng, 0, TAU),
+    variant,
+  });
+}
+
 function rocks(api, chapter) {
   const count = chapter >= 7 ? 22 : 16 + chapter * 5;
   const span = 20 + chapter * 2;
+  const warm = Math.min(6, count);
+  for (let i = 0; i < warm; i += 1) {
+    spawnDriftRock(api, chapter, { y: rand(api.rng, 90, 340), pattern: "wobble" });
+  }
   for (let i = 0; i < count; i += 1) {
     api.later((i / count) * span + rand(api.rng, 0, 0.6), () => {
-      const slant = chapter >= 2 ? 120 : 50;
-      const variant = randInt(api.rng, 0, 3);
-      const tumble = variant === 3;
-      api.spawn("rock", {
-        size: weighted(api.rng, [
-          [3, 0.35],
-          [2, 0.4],
-          [1, 0.25],
-        ]),
-        mode: "drift",
-        x: rand(api.rng, 40, W - 40),
-        y: -50,
-        dx: rand(api.rng, tumble ? -slant * 1.6 : -slant, tumble ? slant * 1.6 : slant),
-        dy: rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15 + (chapter >= 7 ? 50 : 0),
-        spin: rand(api.rng, tumble ? -4.5 : -2, tumble ? 4.5 : 2),
-        angle: rand(api.rng, 0, TAU),
-        variant,
-      });
+      spawnDriftRock(api, chapter);
     });
   }
   api.later(span * 0.45, () => api.spawnGolden());
@@ -553,6 +564,7 @@ export function buildWave(api, info) {
   const pool = spawned.filter((e) => e.kind !== "golden");
   const gifts = ["power", "shield", "coolant", "nova"];
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
+  if (info.chapter >= 4) gifts.push("rocket");
   const powerChance = info.chapter <= 3 ? 0.81 : 0.9;
   const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < powerChance ? 1 : 0;
   for (let i = 0; i < powers && pool.length > 0; i += 1) {

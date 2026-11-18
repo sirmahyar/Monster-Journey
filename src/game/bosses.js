@@ -58,16 +58,16 @@ const SPECS = Object.freeze({
 });
 
 const ATTACKS = Object.freeze({
-  grandhen: [["fan", "rain", "bounce"], ["fan", "needles", "summon", "charge"], ["fan", "gust", "spiral", "rain"]],
-  reactor: [["ring", "gust", "bombs"], ["ring", "mines", "beams", "spiral"], ["spiral2", "beams", "bounce", "bombs"]],
-  ironrooster: [["missiles", "needles", "dash"], ["missiles", "sweep", "gust", "stomp"], ["missiles", "fan", "bounce", "dash"]],
-  carrier: [["twin", "hatch", "bounce"], ["beams", "gust", "missiles", "mines"], ["beams", "spiral2", "needles", "ring"]],
-  barnowl: [["mines", "needles", "swoop"], ["mines", "gust", "bounce", "fan"], ["spirals", "needles", "beams", "swoop"]],
-  plume: [["needles", "gust", "fan"], ["needles", "missiles", "bounce", "sweep"], ["beams", "gust", "swoop", "fan"]],
-  cyclone: [["gust", "swoop", "mines"], ["needles", "bounce", "fan"], ["gust", "beams", "swoop"]],
-  king: [["bounce", "twin", "needles"], ["mines", "beams", "gust", "hatch"], ["ring", "missiles", "spirals", "fan"]],
-  matron: [["needles", "mines", "swoop", "gust"], ["beams", "bounce", "missiles", "fan"], ["ring", "spirals", "beams", "swoop"]],
-  eternity: [["fan", "beams", "needles", "mines"], ["ring", "missiles", "gust", "bounce"], ["spiral2", "beams", "swoop", "ring", "fan"]],
+  grandhen: [["relocate", "fan", "charge"], ["relocate", "needles", "charge", "summon"], ["relocate", "gust", "charge", "rain"]],
+  reactor: [["relocate", "ring", "bombs"], ["relocate", "mines", "beams", "gust"], ["relocate", "spiral2", "bounce", "beams"]],
+  ironrooster: [["relocate", "missiles", "dash"], ["relocate", "needles", "sweep", "stomp"], ["relocate", "fan", "bounce", "charge"]],
+  carrier: [["relocate", "twin", "hatch"], ["relocate", "beams", "missiles", "mines"], ["relocate", "needles", "ring", "bounce"]],
+  barnowl: [["relocate", "mines", "needles"], ["relocate", "gust", "swoop", "fan"], ["relocate", "beams", "bounce", "spirals"]],
+  plume: [["relocate", "needles", "gust"], ["relocate", "missiles", "sweep", "bounce"], ["relocate", "beams", "swoop", "fan"]],
+  cyclone: [["relocate", "gust", "swoop"], ["relocate", "needles", "mines", "fan"], ["relocate", "beams", "bounce", "charge"]],
+  king: [["relocate", "twin", "needles"], ["relocate", "beams", "gust", "hatch"], ["relocate", "ring", "missiles", "fan"]],
+  matron: [["relocate", "needles", "mines"], ["relocate", "beams", "missiles", "swoop"], ["relocate", "ring", "gust", "bounce"]],
+  eternity: [["relocate", "beams", "needles", "fan"], ["relocate", "ring", "missiles", "mines"], ["relocate", "spiral2", "bounce", "charge", "swoop"]],
 });
 
 const REST = [1.5, 1.05, 0.72];
@@ -99,6 +99,10 @@ export function makeBoss(kind) {
     charge: 0,
     spin: 0,
     boomClock: 0,
+    idle: 0,
+    mark: null,
+    shield: Math.round(spec.hp * 0.14),
+    maxShield: Math.round(spec.hp * 0.14),
     parts: (spec.parts || []).map(([dx, dy, r, hp], id) => ({ id, dx, dy, r, hp, maxHp: hp, alive: true, x: 0, y: 0, flash: 0 })),
   };
   syncParts(boss);
@@ -172,6 +176,33 @@ function runAttack(b, a, dt, api) {
         b.mouth = 1;
       }
       return a.t >= 1.8;
+    case "relocate": {
+      b.lockMove = true;
+      if (a.n === 0) {
+        a.n = 1;
+        a.sx = b.x;
+        a.sy = b.y;
+        a.tx = rand(rng, 130, W - 130);
+        a.ty = rand(rng, 120, 300);
+        b.mark = { x: a.tx, y: a.ty };
+      }
+      if (a.t < 0.65) b.charge = a.t / 0.65;
+      else if (a.t < 0.98) {
+        const k = easeInCubic((a.t - 0.65) / 0.33);
+        b.x = lerp(a.sx, a.tx, k);
+        b.y = lerp(a.sy, a.ty, k);
+        b.charge = 1;
+      } else {
+        b.charge = 0;
+        b.mark = null;
+        if (a.n === 1) {
+          a.n = 2;
+          radial(api, b.x, b.y + 20, 8 + b.phase * 2, 150, a.t, b.phase > 0 ? "spark" : "egg");
+          api.event("boss_shoot", {});
+        }
+      }
+      return a.t >= 1.35;
+    }
     case "charge": {
       b.lockMove = true;
       if (a.n === 0) {
@@ -180,6 +211,7 @@ function runAttack(b, a, dt, api) {
         a.sy = b.y;
         a.tx = clamp(api.player.x, 120, W - 120);
         b.aim = a.tx;
+        b.mark = { x: a.tx, y: 600 };
       }
       if (a.t < 0.6) {
         b.x = a.sx + Math.sin(a.t * 60) * 4;
@@ -197,6 +229,7 @@ function runAttack(b, a, dt, api) {
       } else {
         b.charge = 0;
         b.aim = null;
+        b.mark = null;
         b.y = lerp(600, b.homeY, easeInOutSine(Math.min(1, (a.t - 1.5) / 1)));
       }
       return a.t >= 2.5;
@@ -430,13 +463,18 @@ export function updateBoss(b, dt, api) {
     b.rest = Math.max(b.rest, 0.8);
     api.event("boss_phase", { phase, x: b.x, y: b.y });
   }
-  b.armored = b.parts.some((p) => p.alive);
+  b.armored = b.parts.some((p) => p.alive) || b.shield > 0;
+  b.idle += dt;
+  if (b.idle > 3.2 && b.hp < b.maxHp) b.hp = Math.min(b.maxHp, b.hp + b.maxHp * 0.05 * dt);
+  if (b.idle > 3.2 && b.shield < b.maxShield) b.shield = Math.min(b.maxShield, b.shield + b.maxShield * 0.08 * dt);
   if (!b.lockMove) hover(b, dt);
   if (b.attack) {
     if (runAttack(b, b.attack, dt, api)) {
       b.attack = null;
       b.lockMove = false;
       b.charge = 0;
+      b.mark = null;
+      b.aim = null;
       const calm = b.kind === "eternity" ? 0.28 : b.kind === "matron" ? 0.5 : 1;
       b.rest = REST[b.phase] * calm * rand(api.rng, 0.85, 1.2);
     }
@@ -460,6 +498,7 @@ export function hitBoss(b, x, y, r, dmg) {
   for (const c of bossCircles(b)) {
     if (!overlap(x, y, r, c.x, c.y, c.r)) continue;
     if (b.intro > 0) return "immune";
+    b.idle = 0;
     if (c.part) {
       c.part.hp -= dmg;
       c.part.flash = 0.08;
@@ -473,8 +512,10 @@ export function hitBoss(b, x, y, r, dmg) {
 }
 
 function damageCore(b, dmg) {
+  b.idle = 0;
   const armored = b.parts.some((p) => p.alive);
-  b.hp -= armored ? dmg * 0.2 : dmg;
+  const hit = armored ? dmg * 0.2 : dmg;
+  b.hp -= hit;
   b.flash = 0.06;
   if (b.hp > 0) return armored ? "armored" : "hit";
   b.hp = 0;
@@ -487,6 +528,8 @@ function damageCore(b, dmg) {
 /** Nova charge damage: parts take a heavy hit, the core a slice of its health. */
 export function bombBoss(b) {
   if (b.intro > 0 || b.dying > 0 || b.dead) return null;
+  b.idle = 0;
+  b.shield = Math.max(0, b.shield - b.maxShield * 0.45);
   let result = null;
   for (const p of b.parts) {
     if (!p.alive) continue;

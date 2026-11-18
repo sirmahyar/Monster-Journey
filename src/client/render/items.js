@@ -682,6 +682,41 @@ function rockSprite(size, variant, r) {
   );
 }
 
+export function drawHazard(ctx, e, time) {
+  if (e.kind === "poop") {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.angle || 0);
+    ctx.fillStyle = radial(ctx, 0, 0, e.r, [[0, "#c48a3a"], [0.55, "#7a4a18"], [1, "#3a2208"]], -4, -6);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, e.r * 0.9, e.r * 1.1, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(40,24,8,0.85)";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  ctx.rotate(Math.sin(time * 3 + e.id) * 0.2);
+  ctx.strokeStyle = "rgba(255,210,120,0.9)";
+  ctx.lineWidth = 2.2;
+  for (let i = 0; i < 4; i += 1) {
+    const a = (i / 4) * TAU + time * 0.8;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * e.r * 0.35, Math.sin(a) * e.r * 0.35);
+    ctx.lineTo(Math.cos(a) * e.r * 1.2, Math.sin(a) * e.r * 1.2);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(255,255,255,0.75)";
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath();
+  ctx.arc(0, 0, e.r * 1.05, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawRock(ctx, e, time) {
   const spr = rockSprite(e.size, e.variant, e.r);
   const speed = Math.hypot(e.vx || 0, e.vy || 0);

@@ -18,6 +18,7 @@ export const PICKUPS = Object.freeze({
   gem: Object.freeze({ r: 13, food: 0, score: 1800 }),
   haste: Object.freeze({ r: 13, food: 0, score: 250 }),
   magnet: Object.freeze({ r: 13, food: 0, score: 250 }),
+  rocket: Object.freeze({ r: 14, food: 0, score: 400 }),
 });
 
 export function makePickup(kind, x, y, rng, extra = {}) {
@@ -54,13 +55,14 @@ function dropCuts(chapter) {
   const early = chapter <= 3 ? 0.9 : 1;
   const widths = [
     0.012065 * early,
-    0.0076 * early,
-    0.0038 * early,
-    0.0038 * 0.9,
+    0.0076 * early * 0.85,
+    0.0038 * early * 0.85,
+    0.0038 * 0.9 * 0.85,
     0.001425,
     0.00151,
     0.0012,
     0.001,
+    0.0016,
   ];
   let cursor = 0;
   return widths.map((width) => {
@@ -85,15 +87,15 @@ export function rollDrops(e, rng, player) {
     const weapon = crateWeapon(rng, player);
     if (weapon) out.push({ kind: "crate", weapon });
   }
-  if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "nova") {
+  if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "nova" || e.carrier === "rocket") {
     out.push({ kind: e.carrier });
   }
-  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.038) {
+  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.0323) {
     const weapon = crateWeapon(rng, player);
     if (weapon) out.push({ kind: "crate", weapon });
   }
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
-  const [power, coolant, shield, nova, life, gem, haste, magnet] = dropCuts(e.chapter || 1);
+  const [power, coolant, shield, nova, life, gem, haste, magnet, rocket] = dropCuts(e.chapter || 1);
   const roll = rng();
   if (roll < power) out.push({ kind: "power" });
   else if (roll < coolant) out.push({ kind: "coolant" });
@@ -103,6 +105,7 @@ export function rollDrops(e, rng, player) {
   else if (roll < gem) out.push({ kind: "gem" });
   else if (roll < haste) out.push({ kind: "haste" });
   else if (roll < magnet) out.push({ kind: "magnet" });
+  else if (roll < rocket && (e.chapter || 1) >= 4) out.push({ kind: "rocket" });
   return out;
 }
 
