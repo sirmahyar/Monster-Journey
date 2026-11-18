@@ -31,7 +31,6 @@ await esbuild.build({
   charset: "utf8",
   outfile: "dist/edge/game-api.js",
   legalComments: "none",
-  external: ["cloudflare:sockets"],
   plugins: [siteAssetPlugin(assets)],
   banner: {
     js: [

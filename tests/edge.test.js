@@ -15,7 +15,7 @@ describe("edge database password", () => {
     expect(passwordFromEdgeValue("s3cret")).toBe("s3cret");
     expect(passwordFromEdgeValue({ password: "s3cret" })).toBe("s3cret");
     expect(passwordFromEdgeValue({ dbpassword: "s3cret" })).toBe("s3cret");
-    const config = connectionFromEdge({ dbpassword: { password: "s3cret", database: "scores" } });
+    const config = connectionFromEdge({ DB_PASSWORD: { password: "s3cret", database: "scores" } });
     expect(config.password).toBe("s3cret");
     expect(config.database).toBe("scores");
     expect(config.user).toBe("base-user");

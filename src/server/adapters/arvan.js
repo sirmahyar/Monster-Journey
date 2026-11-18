@@ -38,6 +38,11 @@ const edgeApp = {
 
 if (typeof addEventListener === "function") {
   addEventListener("fetch", (event) => {
-    event.respondWith(edgeApp.fetch(event.request, event.env));
+    event.respondWith(Promise.resolve()
+      .then(() => edgeApp.fetch(event.request))
+      .catch(() => new Response(JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "Unexpected error" } }), {
+        status: 500,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      })));
   });
 }

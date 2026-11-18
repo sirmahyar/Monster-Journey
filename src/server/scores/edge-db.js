@@ -19,7 +19,7 @@ const CREATE_TABLE = `CREATE TABLE IF NOT EXISTS scores (
 
 /**
  * Scoreboard backed by the Arvan DBaaS database.
- * The password comes from the edge variable `dbpassword` and is never written into the bundle.
+ * The password comes from the edge JSON variable `DB_PASSWORD` (`env.DB_PASSWORD.password`).
  * @param {object | undefined} envBinding
  */
 export function createEdgeScoreStore(envBinding, openSocket = openScoreSocket) {
@@ -52,16 +52,28 @@ async function withDatabase(envBinding, run, openSocket) {
 
 /** @param {object | undefined} envBinding */
 export function connectionFromEdge(envBinding) {
-  const raw = edgeValue(envBinding, "dbpassword");
+  const raw = edgeValue(envBinding, "DB_PASSWORD") ?? edgeValue(envBinding, "dbpassword");
   const parsed = objectValue(raw);
   return {
     host: text(parsed, ["host", "hostname", "MYSQL_HOST"]) || HOST,
     port: numberValue(parsed, ["port", "MYSQL_PORT"]) || PORT,
     user: text(parsed, ["user", "username", "MYSQL_USER"]) || USER,
     database: text(parsed, ["database", "db", "MYSQL_DATABASE"]) || DATABASE,
-    password: passwordFromEdgeValue(raw),
+    password: readPassword(raw),
     servername: text(parsed, ["host", "hostname", "MYSQL_HOST"]) || HOST,
   };
+}
+
+function readPassword(raw) {
+  try {
+    if (typeof env === "object" && env !== null && env.DB_PASSWORD && typeof env.DB_PASSWORD.password === "string") {
+      return env.DB_PASSWORD.password;
+    }
+  } catch {
+    /* this runtime does not expose a lexical env binding */
+  }
+  if (raw && typeof raw === "object" && typeof raw.password === "string") return raw.password;
+  return passwordFromEdgeValue(raw);
 }
 
 function edgeValue(envBinding, name) {
@@ -136,14 +148,16 @@ async function openScoreSocket(host, port) {
 }
 
 async function tryConnect(host, port) {
-  if (typeof connect === "function") return wrapWeb(await connect({ hostname: host, port }, { secureTransport: "off" }));
-  if (typeof globalThis.connect === "function") {
-    return wrapWeb(await globalThis.connect({ hostname: host, port }, { secureTransport: "off" }));
-  }
-  if (globalThis.Deno?.connect) return wrapDeno(await globalThis.Deno.connect({ hostname: host, port }));
+  const address = { hostname: host, port: Number(port) };
   try {
-    const mod = await import("cloudflare:sockets");
-    if (typeof mod.connect === "function") return wrapWeb(await mod.connect({ hostname: host, port }, { secureTransport: "off" }));
+    if (globalThis.Deno?.connect) return wrapDeno(await globalThis.Deno.connect(address));
+  } catch {
+    return null;
+  }
+  try {
+    if (typeof globalThis.connect === "function") {
+      return wrapWeb(await globalThis.connect(address, { secureTransport: "off" }));
+    }
   } catch {
     return null;
   }

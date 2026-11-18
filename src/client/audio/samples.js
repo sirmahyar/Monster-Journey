@@ -1,4 +1,6 @@
-import spriteUrl from "./chickens.mp3?url";
+import { cdnPath } from "../../shared/assets.js";
+
+const spriteUrl = cdnPath("chickens.mp3");
 import { onAudioReady, output } from "./engine.js";
 
 /**
