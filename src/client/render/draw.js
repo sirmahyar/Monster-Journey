@@ -8,7 +8,7 @@ import { drawEggs, drawPickups, drawRock, drawShip, drawShots } from "./items.js
 import { blit, glowDot, rgba, setSpriteScale } from "./paint.js";
 
 const TAU = Math.PI * 2;
-const CARRIER_GLOW = { crate: "#ffd95a", power: "#ff5a3d" };
+const CARRIER_GLOW = { crate: "#ffd95a", power: "#ff8a1f", shield: "#7fe8ff", coolant: "#9be8ff", nova: "#ff4fd8" };
 
 /** @param {HTMLCanvasElement} canvas */
 export function createRenderer(canvas) {
@@ -56,17 +56,12 @@ function drawEnemies(ctx, enemies, time) {
   for (const e of enemies) {
     if (e.hidden) continue;
     if (e.kind === "rock") {
+      drawCarrierMark(ctx, e, time, 0);
       drawRock(ctx, e, time);
       continue;
     }
     const bob = Math.sin(time * 4 + e.phase) * 2;
-    if (e.carrier) {
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      const color = CARRIER_GLOW[e.carrier];
-      blit(ctx, glowDot(`carrier:${color}`, 40, color), e.x, e.y + bob, 0, 1, 1, 0.45 + 0.25 * Math.sin(time * 7 + e.id));
-      ctx.restore();
-    }
+    drawCarrierMark(ctx, e, time, bob);
     const speed = e.mode === "dive" ? 22 : e.kind === "chick" ? 15 : 10;
     const frame = Math.floor(time * speed + e.phase * 3) % FRAMES;
     const blink = (time + e.id * 0.37) % 3.7 < 0.12;
@@ -90,6 +85,25 @@ function drawEnemies(ctx, enemies, time) {
       ctx.restore();
     }
   }
+}
+
+function drawCarrierMark(ctx, e, time, bob) {
+  if (!e.carrier) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  const pulse = 0.55 + 0.35 * Math.sin(time * 6 + e.id);
+  if (e.carrier === "power") {
+    ctx.strokeStyle = `rgba(255, 148, 32, ${pulse})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y + bob, e.r * 1.75, 0, TAU);
+    ctx.stroke();
+    blit(ctx, glowDot("carrier:#ff8a1f", Math.max(42, e.r * 2.4), "#ff8a1f"), e.x, e.y + bob, 0, 1, 1, 0.35 + 0.2 * pulse);
+  } else {
+    const color = CARRIER_GLOW[e.carrier] || "#ffffff";
+    blit(ctx, glowDot(`carrier:${color}`, 40, color), e.x, e.y + bob, 0, 1, 1, 0.45 + 0.25 * Math.sin(time * 7 + e.id));
+  }
+  ctx.restore();
 }
 
 function drawNova(ctx, n, time) {

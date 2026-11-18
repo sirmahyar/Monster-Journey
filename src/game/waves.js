@@ -299,13 +299,24 @@ export function buildWave(api, info) {
   } };
   api.setFormation(SWAY[info.template] || { ax: 60, ay: 12, fx: 0.5, fy: 1.2 });
   BUILDERS[info.template](tracked, info.chapter);
-  const pool = spawned.filter((e) => e.kind !== "rock" && e.kind !== "golden");
-  const crates = arsenal(info.chapter).length > 1 ? scaledCount(info.chapter >= 3 ? 3 : 2, api.rng) : 0;
-  const powers = info.wave === 2 || info.wave === 4 || info.wave === 6 ? scaledCount(1, api.rng) : 0;
-  for (let i = 0; i < crates + powers && pool.length > 0; i += 1) {
+  const pool = spawned.filter((e) => e.kind !== "golden");
+  const gifts = ["power", "shield", "coolant", "nova"];
+  if (arsenal(info.chapter).length > 1) gifts.push("crate");
+  const powers = info.wave === 2 || info.wave === 4 || info.wave === 6 ? 1 : 0;
+  for (let i = 0; i < powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
-    pool[index].carrier = i < crates ? "crate" : "power";
+    pool[index].carrier = "power";
     pool.splice(index, 1);
+  }
+  const marked = scaledCount(info.chapter >= 3 ? 3 : 2, api.rng);
+  for (let i = 0; i < marked && pool.length > 0; i += 1) {
+    const index = randInt(api.rng, 0, pool.length - 1);
+    pool[index].carrier = gifts[randInt(api.rng, 0, gifts.length - 1)];
+    pool.splice(index, 1);
+  }
+  for (const enemy of pool) {
+    if (api.rng() >= 0.035) continue;
+    enemy.carrier = gifts[randInt(api.rng, 0, gifts.length - 1)];
   }
   return spawned;
 }
