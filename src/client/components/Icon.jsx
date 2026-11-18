@@ -1,11 +1,13 @@
 import { useEffect, useRef } from "react";
 import { ENEMY_TYPES } from "../../game/enemies.js";
 import { creatureSprite } from "../render/creatures.js";
-import { pickupSprite, rockSprite, shipSprite } from "../render/items.js";
+import { netIconSprite, pickupSprite, poopIconSprite, rockSprite, shipSprite } from "../render/items.js";
 
 function source(type, kind) {
   if (type === "creature") return creatureSprite(kind, 0, 1, false, ENEMY_TYPES[kind].r);
   if (type === "pickup") return pickupSprite(kind, kind === "crate" ? "laser" : undefined);
+  if (type === "hazard" && kind === "net") return netIconSprite(24);
+  if (type === "hazard" && kind === "poop") return poopIconSprite(24);
   if (type === "rock") return rockSprite(3, 1, 48);
   return shipSprite(kind);
 }

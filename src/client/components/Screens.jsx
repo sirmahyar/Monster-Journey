@@ -165,7 +165,7 @@ export function NameGate({ name, setName, error, onStart, onBack }) {
   );
 }
 
-export function GameOver({ result, name, saving, saved, savedId, saveError, onRetry, scores, error, loading, onAgain, onMenu }) {
+export function GameOver({ result, name, saving, saved, savedId, saveError, onRetry, scores, error, loading, onAgain, onContinue, onMenu }) {
   const stats = [
     [strings.stats.kills, formatNumber(result.kills)],
     [strings.stats.accuracy, `${fa(Math.round(result.accuracy * 100))}٪`],
@@ -204,7 +204,10 @@ export function GameOver({ result, name, saving, saved, savedId, saveError, onRe
         )}
         <ScoreList scores={scores.slice(0, 10)} highlight={savedId} error={error} loading={loading} compact />
         <div className="row">
-          <button type="button" className="btn primary" onClick={onAgain}>{strings.again}</button>
+          {!result.victory && result.checkpoint && (
+            <button type="button" className="btn primary" onClick={onContinue}>{strings.continueChapter}</button>
+          )}
+          <button type="button" className={`btn ${result.victory || !result.checkpoint ? "primary" : ""}`} onClick={onAgain}>{strings.again}</button>
           <button type="button" className="btn ghost" onClick={onMenu}>{strings.menu}</button>
         </div>
       </div>
@@ -262,7 +265,7 @@ export function Help({ onBack }) {
         </section>
         <Guide
           title={strings.enemiesTitle}
-          rows={[...strings.enemies, ["rock", strings.rockName, strings.rockText, "rock"]]}
+          rows={[...strings.enemies, ["rock", strings.rockName, strings.rockText, "rock"], ["poop", strings.poopName, strings.poopText, "hazard"], ["net", strings.netName, strings.netText, "hazard"]]}
           type="creature"
         />
         <Guide title={strings.lootTitle} rows={strings.loot} type="pickup" />

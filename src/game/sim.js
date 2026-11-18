@@ -29,6 +29,68 @@ const FROST_TIME = 6;
 const SHIELD_TIME = 8;
 /** Hazards are drawn at full radius but only the inner part of them hurts. */
 const HAZARD_HIT = 0.58;
+const MAX_GASES = 28;
+
+function spawnPoopGas(state, x, y, scale = 1) {
+  if (state.gases.length >= MAX_GASES) state.gases.shift();
+  state.gases.push({
+    x,
+    y,
+    r0: 32 * scale,
+    r1: 108 * scale,
+    life: 4.8,
+    age: 0,
+  });
+  emit(state, "poop_gas", { x, y, r: 52 * scale });
+}
+
+function popPoop(state, x, y, scale, shot = null) {
+  spawnPoopGas(state, x, y, scale);
+  emit(state, "poop_burst", { x, y });
+  if (shot) countHit(state, shot);
+}
+
+function updateGases(state, dt) {
+  const p = state.player;
+  let w = 0;
+  for (const c of state.gases) {
+    c.age += dt;
+    c.life -= dt;
+    if (c.life <= 0) continue;
+    const k = Math.min(1, c.age / 1.15);
+    const r = c.r0 + (c.r1 - c.r0) * k;
+    if (p.alive && p.invuln <= 0 && p.shield <= 0 && overlap(c.x, c.y, r * 0.72, p.x, p.y, PLAYER.radius * 0.8)) {
+      killPlayer(state);
+    }
+    state.gases[w] = c;
+    w += 1;
+  }
+  state.gases.length = w;
+}
+
+function shotHitsIronNet(state, s) {
+  if (s.kind === "rocket") return false;
+  for (const g of state.eggs) {
+    if (g.kind !== "net") continue;
+    if (!overlap(s.x, s.y, s.r, g.x, g.y, g.r * 0.85)) continue;
+    emit(state, "shield_hit", { x: s.x, y: s.y, ex: g.x, ey: g.y });
+    return true;
+  }
+  return false;
+}
+
+function shotHitsPoopEgg(state, s) {
+  if (s.kind === "rocket") return false;
+  for (let i = state.eggs.length - 1; i >= 0; i -= 1) {
+    const g = state.eggs[i];
+    if (g.kind !== "poop") continue;
+    if (!overlap(s.x, s.y, s.r, g.x, g.y, g.r * 0.85)) continue;
+    state.eggs.splice(i, 1);
+    popPoop(state, g.x, g.y, 0.95, s);
+    return true;
+  }
+  return false;
+}
 
 function emit(state, type, data = {}) {
   state.events.push({ type, ...data });
@@ -39,7 +101,7 @@ function setStage(state, stage) {
   state.stageTime = 0;
 }
 
-export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {}) {
+export function createGame({ random = Math.random, chapter = 1, wave = 1, resume = null } = {}) {
   const state = {
     rng: random,
     time: 0,
@@ -59,6 +121,8 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {})
       invuln: PLAYER.invuln,
       shield: 0,
       frost: 0,
+      haste: 0,
+      magnet: 0,
       lives: PLAYER.lives,
       bombs: PLAYER.bombs,
       food: 0,
@@ -75,6 +139,7 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {})
       volley: 0,
     },
     shots: [],
+    gases: [],
     eggs: [],
     enemies: [],
     pickups: [],
@@ -98,7 +163,20 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {})
     over: false,
     victory: false,
     events: [],
+    checkpoint: null,
   };
+  if (resume && resume.chapter === chapter) {
+    state.score = resume.score || 0;
+    state.stats = { ...state.stats, ...resume.stats };
+    const p = state.player;
+    p.lives = resume.lives;
+    p.bombs = resume.bombs;
+    p.food = resume.food || 0;
+    p.level = resume.level || 1;
+    p.weapon = resume.weapon || p.weapon;
+    p.weapons = resume.weapons || p.weapons;
+    p.rockets = Boolean(resume.rockets);
+  }
   startWave(state);
   return state;
 }
@@ -110,8 +188,23 @@ function addEnemy(state, kind, fields) {
   return enemy;
 }
 
+function shotPace(chapter) {
+  if (chapter >= 10) return 2.6;
+  return 0.68 + 0.07 * (chapter - 1);
+}
+
+const MAX_EGGS = 160;
+
 function addEgg(state, spec) {
-  state.eggs.push({ t: 0, gravity: 1, ...spec });
+  if (state.eggs.length >= MAX_EGGS) return;
+  const pace = shotPace(state.chapter);
+  state.eggs.push({
+    t: 0,
+    gravity: 1,
+    ...spec,
+    vx: (spec.vx || 0) * pace,
+    vy: (spec.vy || 0) * pace,
+  });
 }
 
 function spawnGolden(state) {
@@ -120,9 +213,10 @@ function spawnGolden(state) {
     mode: "flyby",
     dir,
     x: dir > 0 ? -60 : W + 60,
-    y: 120,
-    baseY: rand(state.rng, 90, 170),
-    speed: 165 + 15 * state.chapter,
+    y: 150,
+    baseY: rand(state.rng, 110, 220),
+    speed: 100,
+    passes: 0,
   });
   emit(state, "golden", {});
 }
@@ -154,10 +248,12 @@ function startWave(state) {
     buildWave(
       {
         rng: state.rng,
+        player: state.player,
         spawn: (kind, fields) => addEnemy(state, kind, fields),
         later: (at, fn) => state.timers.push({ at, fn, optional: false }),
         setFormation: (sway) => Object.assign(state.formation, sway),
         spawnGolden: () => spawnGolden(state),
+        drop: (spec) => addEgg(state, spec),
       },
       info,
     );
@@ -166,11 +262,27 @@ function startWave(state) {
     }
   }
   state.waveSize = Math.max(1, state.enemies.filter((e) => ENEMY_TYPES[e.kind].egg).length);
+  if (state.wave === 1) {
+    const p = state.player;
+    state.checkpoint = {
+      chapter: state.chapter,
+      score: state.score,
+      lives: p.lives,
+      bombs: p.bombs,
+      food: p.food,
+      level: p.level,
+      weapon: p.weapon,
+      weapons: p.weapons.slice(),
+      rockets: p.rockets,
+      stats: { ...state.stats },
+    };
+  }
 }
 
 function advance(state) {
   state.enemies = [];
   state.timers = [];
+  state.gases = [];
   if (state.wave < WAVES_PER_CHAPTER) {
     state.wave += 1;
     startWave(state);
@@ -223,6 +335,8 @@ function updatePlayer(state, input, dt) {
   p.invuln = Math.max(0, p.invuln - dt);
   p.shield = Math.max(0, p.shield - dt);
   p.frost = Math.max(0, p.frost - dt);
+  p.haste = Math.max(0, (p.haste || 0) - dt);
+  p.magnet = Math.max(0, (p.magnet || 0) - dt);
   if (!p.alive) {
     p.firing = false;
     cool(state, p, dt);
@@ -272,8 +386,8 @@ function updatePlayer(state, input, dt) {
     const shots = volley(p.weapon, p.level, p.x, p.y, p.volley);
     for (const s of shots) state.shots.push(s);
     state.stats.fired += shots.length;
-    p.fireCd = weapon.rate;
-    if (p.frost <= 0) p.heat += weapon.heat * 1.1;
+    p.fireCd = weapon.rate * (p.haste > 0 ? 0.55 : 1);
+    if (p.frost <= 0) p.heat += weapon.heat * HEAT.fireGain;
     emit(state, "shot", { weapon: p.weapon, level: p.level, x: p.x, y: p.y });
     if (p.rockets && p.rocketCd <= 0) {
       p.rocketCd = 0.85;
@@ -317,6 +431,10 @@ function killPlayer(state) {
   p.overheated = false;
   p.shield = 0;
   p.frost = 0;
+  if (p.rockets) {
+    p.rockets = false;
+    emit(state, "rocket_lost", { x: p.x, y: p.y });
+  }
   state.waveDeaths += 1;
   state.stats.deaths += 1;
   state.combo = 0;
@@ -335,6 +453,7 @@ function respawn(state) {
   p.invuln = PLAYER.invuln;
   p.fireCd = 0.3;
   state.eggs = state.eggs.filter((g) => Math.hypot(g.x - p.x, g.y - p.y) > 180);
+  state.gases = state.gases.filter((c) => Math.hypot(c.x - p.x, c.y - p.y) > 140);
   emit(state, "respawn", { x: p.x, y: p.y });
 }
 
@@ -354,18 +473,36 @@ function updateNova(state, dt) {
   n.y = lerp(n.sy, H * 0.36, 1 - (1 - k) * (1 - k));
   if (k < 1) return;
   state.nova = null;
+  for (const g of state.eggs) if (g.kind === "poop") spawnPoopGas(state, g.x, g.y, 0.85);
   emit(state, "nova", { x: n.x, y: n.y, eggs: state.eggs.map((g) => [g.x, g.y]) });
   state.eggs.length = 0;
   state.beams.length = 0;
   const dmg = 30 + 12 * state.chapter;
-  for (const e of state.enemies) if (!e.dead && !e.hidden && e.y > -30 && e.y < H) damageEnemy(state, e, dmg, null);
+  for (const e of state.enemies) if (!e.dead && !e.hidden && e.y > -30 && e.y < H) bombHit(state, e, dmg);
   if (state.boss) bossResult(state, bombBoss(state.boss), state.boss.x, state.boss.y);
   state.player.invuln = Math.max(state.player.invuln, 0.8);
   state.enemies = state.enemies.filter((e) => !e.dead);
 }
 
+function bombHit(state, e, dmg) {
+  if ((e.maxBombShield ?? 0) > 0 && (e.bombShield ?? 0) > 0) {
+    e.bombShield -= 1;
+    e.flash = 0.14;
+    emit(state, e.bombShield > 0 ? "shield_hit" : "shield_break", { x: e.x, y: e.y, ex: e.x, ey: e.y });
+    if (e.bombShield > 0) return;
+  }
+  damageEnemy(state, e, dmg, null);
+}
+
 function damageEnemy(state, e, dmg, shot) {
   if (e.dead) return;
+  if (e.kind === "net") {
+    const x = shot ? shot.x : e.x;
+    const y = shot ? shot.y : e.y;
+    emit(state, "shield_hit", { x, y, ex: e.x, ey: e.y });
+    e.flash = 0.07;
+    return;
+  }
   const x = shot ? shot.x : e.x;
   const y = shot ? shot.y : e.y;
   let rest = dmg;
@@ -378,11 +515,18 @@ function damageEnemy(state, e, dmg, shot) {
   }
   e.hp -= rest;
   e.flash = 0.09;
-  if (e.hp > 0) emit(state, "hit", { x, y, kind: e.kind });
-  else killEnemy(state, e);
+  if (e.hp > 0) {
+    if (e.kind === "rock") emit(state, "stone_chip", { x, y, size: e.size || 1 });
+    else emit(state, "hit", { x, y, kind: e.kind });
+  } else killEnemy(state, e);
 }
 
 function killEnemy(state, e) {
+  if (e.kind === "poop") {
+    e.dead = true;
+    popPoop(state, e.x, e.y, 1.15);
+    return;
+  }
   e.dead = true;
   state.combo += 1;
   state.comboTimer = COMBO_WINDOW;
@@ -418,6 +562,7 @@ function bossResult(state, result, x, y) {
   const b = state.boss;
   if (!result || !b) return;
   if (result === "immune") emit(state, "boss_immune", { x, y });
+  else if (result === "shield_block") emit(state, "boss_shield_hit", { x, y });
   else if (result === "part_down") {
     state.score += 3000;
     emit(state, "part_down", { x, y, points: 3000 });
@@ -465,7 +610,7 @@ function detonateRocket(state, s, ox, oy) {
   const splashed = [];
   const steps = 4;
   for (const e of state.enemies) {
-    if (e.dead || e.hidden) continue;
+    if (e.dead || e.hidden || e.kind === "net") continue;
     let near = false;
     let struck = false;
     for (let i = 1; i <= steps; i += 1) {
@@ -477,6 +622,17 @@ function detonateRocket(state, s, ox, oy) {
     }
     if (struck) direct = e;
     else if (near) splashed.push(e);
+  }
+  for (const e of state.enemies) {
+    if (e.dead || e.hidden || e.kind !== "net") continue;
+    for (let i = 1; i <= steps; i += 1) {
+      const x = ox + (s.x - ox) * (i / steps);
+      const y = oy + (s.y - oy) * (i / steps);
+      if (Math.hypot(e.x - x, e.y - y) <= s.r + e.r + 8) {
+        emit(state, "shield_hit", { x: s.x, y: s.y, ex: e.x, ey: e.y });
+        return true;
+      }
+    }
   }
   let bossHit = null;
   if (state.boss) {
@@ -506,6 +662,10 @@ function collideShot(state, s, ox = s.x, oy = s.y) {
   for (const e of state.enemies) {
     if (e.dead || e.hidden || (s.hit && s.hit.includes(e.id))) continue;
     if (!overlap(s.x, s.y, s.r, e.x, e.y, e.r)) continue;
+    if (e.kind === "net") {
+      damageEnemy(state, e, s.dmg, s);
+      return true;
+    }
     countHit(state, s);
     damageEnemy(state, e, s.dmg, s);
     if (s.pierce <= 0) return true;
@@ -531,6 +691,11 @@ function updateShots(state, dt) {
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     if (s.life <= 0 || s.y < -40 || s.y > H + 40 || s.x < -40 || s.x > W + 40) continue;
+    if (shotHitsIronNet(state, s)) continue;
+    if (shotHitsPoopEgg(state, s)) {
+      if (s.pierce <= 0) continue;
+      s.pierce -= 1;
+    }
     if (collideShot(state, s, ox, oy)) continue;
     state.shots[w] = s;
     w += 1;
@@ -550,6 +715,8 @@ function pickWeighted(rng, list, weightOf) {
   return list[list.length - 1];
 }
 
+const PACER_BURST = 10;
+
 function eggPacer(state, dt) {
   if (!state.player.alive) return;
   const shooters = state.enemies.filter(
@@ -557,26 +724,32 @@ function eggPacer(state, dt) {
   );
   if (shooters.length === 0) return;
   state.eggClock += dt * state.pacing.eggRate * (0.35 + 0.65 * Math.min(1, shooters.length / state.waveSize));
-  while (state.eggClock >= 1) {
+  let burst = PACER_BURST;
+  while (state.eggClock >= 1 && burst > 0) {
     state.eggClock -= 1;
+    burst -= 1;
     const e = pickWeighted(state.rng, shooters, (s) => ENEMY_TYPES[s.kind].eggWeight);
     for (const spec of fireFrom(e, state.player, state.rng, state.chapter)) addEgg(state, spec);
     e.lay = 0.35;
     emit(state, "egg", { x: e.x, y: e.y, kind: e.kind, egg: ENEMY_TYPES[e.kind].egg });
   }
+  if (burst <= 0 && state.eggClock >= 1) state.eggClock = Math.min(state.eggClock, 3);
 }
 
 function divePacer(state, dt) {
   if (!state.pacing.diveRate || !state.player.alive) return;
   state.diveClock += dt * state.pacing.diveRate;
-  while (state.diveClock >= 1) {
+  let burst = PACER_BURST;
+  while (state.diveClock >= 1 && burst > 0) {
     state.diveClock -= 1;
+    burst -= 1;
     const ready = state.enemies.filter((e) => !e.hidden && e.mode === "home" && e.home !== "snake" && ENEMY_TYPES[e.kind].dive > 0);
     if (ready.length === 0) return;
     const e = pickWeighted(state.rng, ready, (c) => ENEMY_TYPES[c.kind].dive);
     startDive(e, state.player, state.rng, state.rng() < state.pacing.diveLoop ? "loop" : "swoop");
     emit(state, "dive", { x: e.x, y: e.y, kind: e.kind });
   }
+  if (burst <= 0 && state.diveClock >= 1) state.diveClock = Math.min(state.diveClock, 3);
 }
 
 function updateEnemies(state, dt) {
@@ -666,16 +839,25 @@ function stepSpiral(g, dt) {
   g.y = g.oy + Math.sin(g.phase) * orbit * 0.55;
 }
 
+const FALLING_EGGS = new Set(["egg", "cluster", "bounce", "goldenegg"]);
+
 function updateEggs(state, dt) {
   const p = state.player;
   const spawned = [];
   let w = 0;
   for (const g of state.eggs) {
     g.t += dt;
-    if (g.weave) g.vx += Math.cos(g.t * 8) * 140 * dt;
     if (g.bend) bendShot(g, p, dt);
-    if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce") {
+    if (g.kind === "poop") g.vx += Math.sin(g.t * 5) * 50 * dt;
+    if (g.kind === "net") {
+      g.vy = Math.min(140, g.vy + 45 * dt);
+      g.vx += Math.sin(g.t * 4) * 35 * dt;
+    }
+    if (FALLING_EGGS.has(g.kind) || g.kind === "poop") {
       g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * (g.gravity || 1) * dt);
+    }
+    if (FALLING_EGGS.has(g.kind)) {
+      g.vx *= Math.max(0, 1 - dt * 1.25);
     } else if (g.kind === "yolk") {
       g.vy = Math.min(260, g.vy + 60 * dt);
       g.vx += Math.sin(g.t * 6) * 40 * dt;
@@ -704,7 +886,7 @@ function updateEggs(state, dt) {
       }
     }
     if (g.kind === "bigyolk" && g.y >= g.splitY) {
-      burstRing(spawned, g, 8, 170, 8);
+      burstRing(spawned, g, g.splitCount || 8, 170, 8);
       emit(state, "yolk_split", { x: g.x, y: g.y });
       continue;
     }
@@ -729,7 +911,7 @@ function updateEggs(state, dt) {
       g.bounces -= 1;
     }
     const depth = g.oy == null ? g.y : g.oy;
-    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster") && g.y >= FLOOR_Y) {
+    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster" || g.kind === "goldenegg" || g.kind === "poop") && g.y >= FLOOR_Y) {
       emit(state, "splat", { x: g.x, y: FLOOR_Y, big: g.r > 11, yolk: g.kind === "yolk" });
       continue;
     }
@@ -807,6 +989,20 @@ function collect(state, k) {
   } else if (k.kind === "life") {
     p.lives = Math.min(PLAYER.maxLives, p.lives + 1);
     emit(state, "life", { x: p.x, y: p.y });
+  } else if (k.kind === "haste") {
+    p.haste = 7;
+    emit(state, "coolant", { x: p.x, y: p.y });
+  } else if (k.kind === "magnet") {
+    p.magnet = 8;
+    emit(state, "shield_on", { x: p.x, y: p.y });
+  } else if (k.kind === "rocket" && state.chapter >= 4) {
+    p.rockets = true;
+    emit(state, "weapon", { weapon: p.weapon, x: p.x, y: p.y });
+  } else if (k.kind === "feather") {
+    p.frost = Math.max(p.frost, 4.5);
+    p.heat = Math.max(0, p.heat - 35);
+    p.overheated = false;
+    emit(state, "coolant", { x: p.x, y: p.y });
   }
   emit(state, "pickup", { kind: k.kind, weapon: k.weapon, x: k.x, y: k.y, points: PICKUPS[k.kind].score });
 }
@@ -836,7 +1032,7 @@ function updateTimers(state, dt) {
     due.push(t);
     return false;
   });
-  for (const t of due) t.fn();
+  for (const t of due.slice(0, 24)) t.fn();
 }
 
 function updateCombo(state, dt) {
@@ -895,6 +1091,7 @@ export function stepGame(state, input = {}, dt = STEP) {
   updateEnemies(state, dt);
   updateBossState(state, dt);
   updateEggs(state, dt);
+  updateGases(state, dt);
   updateBeams(state, dt);
   updatePickups(state, dt);
   updateCombo(state, dt);
@@ -922,5 +1119,6 @@ export function gameSummary(state) {
     bosses: s.bosses,
     deaths: s.deaths,
     victory: state.victory,
+    checkpoint: state.checkpoint,
   };
 }

@@ -8,6 +8,21 @@ export function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+/** Lerps X across the screen wrap so units exit one edge and re-enter the other. */
+export function lerpWrapX(a, b, t, width) {
+  let delta = b - a;
+  if (delta > width * 0.5) delta -= width;
+  if (delta < -width * 0.5) delta += width;
+  return a + delta * t;
+}
+
+export function wrapX(x, width) {
+  let v = x;
+  while (v < -90) v += width;
+  while (v > width + 90) v -= width;
+  return v;
+}
+
 /** @param {() => number} rng */
 export function rand(rng, min, max) {
   return min + (max - min) * rng();

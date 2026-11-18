@@ -4,7 +4,7 @@ import { drawBeams, drawBoss } from "./boss-art.js";
 import { FRAMES, creatureFlash, creatureSprite } from "./creatures.js";
 import { createFx, drawDecals, drawParticles, drawPopups, fxEvent, puff, shakeOffset, trail, updateFx } from "./fx.js";
 import { createHud, drawHud, hudEvent } from "./hud.js";
-import { drawEggs, drawPickups, drawRock, drawShip, drawShots } from "./items.js";
+import { drawEggs, drawGases, drawHazard, drawPickups, drawRock, drawShip, drawShots } from "./items.js";
 import { blit, glowDot, rgba, setSpriteScale } from "./paint.js";
 
 const TAU = Math.PI * 2;
@@ -54,9 +54,10 @@ export function timeScale(r) {
 function drawEnemies(ctx, enemies, time) {
   for (const e of enemies) {
     if (e.hidden) continue;
-    if (e.kind === "rock") {
+    if (e.kind === "rock" || e.kind === "poop" || e.kind === "net") {
       drawCarrierMark(ctx, e, time, 0);
-      drawRock(ctx, e, time);
+      if (e.kind === "rock") drawRock(ctx, e, time);
+      else drawHazard(ctx, e, time);
       continue;
     }
     const bob = Math.sin(time * 4 + e.phase) * 2;
@@ -70,6 +71,15 @@ function drawEnemies(ctx, enemies, time) {
     const lay = e.lay > 0 ? Math.sin((e.lay / 0.35) * Math.PI) * 0.14 : 0;
     blit(ctx, s, e.x, e.y + bob, rot, 1 + lay, 1 - lay);
     if (e.flash > 0) blit(ctx, creatureFlash(e.kind, e.variant, frame, blink, e.r), e.x, e.y + bob, rot, 1 + lay, 1 - lay, Math.min(1, e.flash / 0.09));
+    if (e.maxBombShield > 0 && e.bombShield > 0) {
+      ctx.save();
+      ctx.strokeStyle = rgba("#ff4fd8", 0.45 + 0.35 * (e.bombShield / e.maxBombShield));
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y + bob, e.r * 1.5, time * 2, time * 2 + 4.2);
+      ctx.stroke();
+      ctx.restore();
+    }
     if (e.shield > 0) {
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
@@ -162,6 +172,7 @@ export function drawGame(r, state, dt, { hud = true } = {}) {
   drawBackground(ctx, { chapter: r.bg.chapter, fromChapter: r.bg.from, fade: r.bg.fade, warp: r.warp, time: r.time });
   drawDecals(ctx, fx);
   drawPickups(ctx, state.pickups, r.time);
+  drawGases(ctx, state.gases || [], r.time);
   if (state.boss) drawBoss(ctx, state.boss, r.time, state.player);
   drawEnemies(ctx, state.enemies, r.time);
   drawBeams(ctx, state.beams, r.time);

@@ -179,6 +179,10 @@ export function fxEvent(fx, ev) {
       smoke(fx, ev.x, ev.y, 5, "#6f5f86", 16);
       shake(fx, 0.22);
       break;
+    case "stone_chip":
+      debris(fx, ev.x, ev.y, 3 + (ev.size || 1), "#b09a88", 90);
+      burst(fx, ev.x, ev.y, { count: 2, color: "#d8c7b8", speed: 120, life: 0.18, size: 1.5 });
+      break;
     case "hit":
       burst(fx, ev.x, ev.y, { count: 3, color: "#fff1c2", speed: 180, life: 0.22, size: 2 });
       break;
@@ -189,7 +193,9 @@ export function fxEvent(fx, ev) {
       burst(fx, ev.x, ev.y, { count: 2, color: "#8fa3b8", speed: 160, life: 0.2, size: 1.5 });
       break;
     case "shield_hit":
-      ring(fx, ev.ex, ev.ey, 40, "#6fe3ff", 0.25, 2);
+    case "boss_shield_hit":
+      ring(fx, ev.x ?? ev.ex, ev.y ?? ev.ey, ev.type === "boss_shield_hit" ? 58 : 40, "#6fe3ff", 0.3, ev.type === "boss_shield_hit" ? 3 : 2);
+      burst(fx, ev.x ?? ev.ex, ev.y ?? ev.ey, { count: ev.type === "boss_shield_hit" ? 10 : 4, color: "#b8f4ff", speed: 200, life: 0.28, size: 2 });
       break;
     case "shield_break":
       ring(fx, ev.ex, ev.ey, 56, "#9ff0ff", 0.4, 3);
@@ -296,6 +302,16 @@ export function fxEvent(fx, ev) {
       break;
     case "shield_block":
       burst(fx, ev.x, ev.y, { count: 6, color: "#9ff0ff", speed: 200, life: 0.3, size: 2 });
+      break;
+    case "poop_burst":
+      smoke(fx, ev.x, ev.y, 16, "#a4e85a", 20);
+      smoke(fx, ev.x, ev.y, 10, "#6fa83a", 14);
+      puff(fx, ev.x, ev.y, "#c8ff7a", 24);
+      popup(fx, ev.x, ev.y - 18, T.poopGas, { color: "#b8ff6a", size: 17, life: 1.15 });
+      shake(fx, 0.1);
+      break;
+    case "poop_gas":
+      glow(fx, ev.x, ev.y, ev.r || 52, "#8bff4a", 0.45);
       break;
     default:
       break;

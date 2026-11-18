@@ -1,4 +1,4 @@
-import { W, WAVES_PER_CHAPTER } from "./config.js";
+import { PLAYER, W, WAVES_PER_CHAPTER, playerPity } from "./config.js";
 import { arsenal } from "./weapons.js";
 import { TAU, rand, randInt, weighted } from "./math.js";
 
@@ -43,13 +43,25 @@ export const CHAPTERS = Object.freeze([
     name: "Yolk Gale",
     boss: "cyclone",
     bossName: "Yolk Cyclone",
-    waves: ["cyclone", "bombers", "flock", "ring", "snake", "rocks", "saucers"],
+    waves: ["reflex", "mix", "dive", "snipers", "shells", "cyclone", "ambush"],
   }),
   Object.freeze({
     name: "Galaxy Crown",
     boss: "king",
     bossName: "The Coop King",
     waves: ["shells", "gauntlet", "mines", "snipers", "cyclone", "dive", "rocks"],
+  }),
+  Object.freeze({
+    name: "Black Roost",
+    boss: "matron",
+    bossName: "The Night Matron",
+    waves: ["feathers", "reflex", "comets", "mix", "snipers", "dive", "ambush"],
+  }),
+  Object.freeze({
+    name: "Last Dawn",
+    boss: "eternity",
+    bossName: "The Eternal Hen",
+    waves: ["comets", "feathers", "ambush", "dive", "shells", "gauntlet", "cyclone"],
   }),
 ]);
 
@@ -67,6 +79,11 @@ export const WAVE_NAMES = Object.freeze({
   snipers: "Sniper Perch",
   cyclone: "Yolk Cyclone",
   shells: "Shell Wall",
+  reflex: "Sudden Dive",
+  mix: "Mixed Flock",
+  ambush: "Quick Ambush",
+  feathers: "Feather Rain",
+  comets: "Yolk Comets",
 });
 
 const PACING = Object.freeze({
@@ -82,7 +99,12 @@ const PACING = Object.freeze({
   mines: { egg: 2.0, dive: 0.08 },
   snipers: { egg: 1.6, dive: 0.12 },
   cyclone: { egg: 1.4, dive: 0.2 },
-  shells: { egg: 2.3, dive: 0.1 },
+  shells: { egg: 1.15, dive: 0.55 },
+  reflex: { egg: 0.85, dive: 1.2 },
+  mix: { egg: 1.05, dive: 0.9 },
+  ambush: { egg: 0.8, dive: 1.3 },
+  feathers: { egg: 0.7, dive: 0.45 },
+  comets: { egg: 0.7, dive: 0.35 },
   boss: { egg: 0, dive: 0.2 },
 });
 
@@ -91,10 +113,12 @@ const GRID_ROWS = [
   ["bomber", "hen", "hen", "chick"],
   ["rooster", "hen", "diver", "hen", "chick"],
   ["rooster", "bomber", "diver", "hen", "hen"],
-  ["miner", "hen", "miner", "chick", "hen"],
+  ["miner", "warden", "miner", "chick", "hen"],
   ["sniper", "hen", "diver", "hen", "chick"],
   ["spinner", "bomber", "spinner", "hen", "chick"],
   ["shell", "rooster", "miner", "sniper", "hen"],
+  ["diver", "sniper", "shell", "miner", "spinner"],
+  ["rooster", "sniper", "diver", "shell", "bomber"],
 ];
 
 export function waveInfo(chapter, wave) {
@@ -109,17 +133,43 @@ export function waveInfo(chapter, wave) {
 export function wavePacing(info) {
   const base = PACING[info.template];
   const throughFour = info.chapter < 3 ? 1 + 0.2 * (info.chapter - 1) : 1.7 + 0.55 * (Math.min(info.chapter, 4) - 3);
-  const pressure = info.chapter <= 4 ? throughFour : throughFour + 0.22 * (info.chapter - 4);
+  const climbed = info.chapter <= 4 ? throughFour : throughFour + 0.22 * (info.chapter - 4);
+  const pressure = info.chapter >= 10 ? 3.3 : info.chapter === 9 ? 2.2 : info.chapter >= 7 ? 1.55 : climbed;
+  const diveScale = info.chapter >= 10 ? 2.8 : info.chapter === 9 ? 2.15 : info.chapter >= 7 ? 1.7 : 1;
   return {
     eggRate: base.egg * pressure * (1 + 0.04 * (info.wave - 1)),
-    diveRate: base.dive * pressure,
-    diveLoop: info.chapter >= 4 ? 0.75 : info.chapter >= 3 ? 0.58 : info.chapter === 2 ? 0.2 : 0,
+    diveRate: base.dive * climbed * diveScale,
+    diveLoop: info.chapter >= 9 ? 1 : info.chapter >= 7 ? 0.95 : info.chapter >= 4 ? 0.75 : info.chapter >= 3 ? 0.58 : info.chapter === 2 ? 0.2 : 0,
   };
 }
 
-/** Power is ten percent less likely than the other gifts in this list. */
+/** Power is ten percent less likely, and a shield twenty percent less likely, than an even share. */
+function giftWeight(gift, count) {
+  if (gift === "power") return 0.9 * (count - 1) / (count - 0.1);
+  if (gift === "shield") {
+    const power = 0.9 * (count - 1) / (count - 0.1);
+    const total = power + (count - 1);
+    return 0.8 * (total - 1) / (total - 0.8);
+  }
+  return 1;
+}
+
+function keptGift(gift, chapter, rng, player) {
+  let keep = 1;
+  if (gift === "nova") keep *= 0.36;
+  if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant")) keep *= 0.9;
+  if (gift === "nova" || gift === "shield" || gift === "coolant" || gift === "crate") keep *= 0.85;
+  if (gift && gift !== "life") keep *= 0.5;
+  const scale = playerPity(player, chapter);
+  if (scale.gift !== 1 && (gift === "power" || gift === "shield" || gift === "coolant" || gift === "life" || gift === "crate")) {
+    keep *= scale.gift;
+  }
+  if (rng() >= keep) return "";
+  return gift;
+}
+
 function pickGift(gifts, rng) {
-  const weights = gifts.map((gift) => (gift === "power" ? 0.9 * (gifts.length - 1) / (gifts.length - 0.1) : 1));
+  const weights = gifts.map((gift) => giftWeight(gift, gifts.length));
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   let roll = rng() * total;
   for (let i = 0; i < gifts.length; i += 1) {
@@ -170,7 +220,8 @@ function grid(api, rows, cols, style) {
 
 function flock(api, chapter) {
   const perRibbon = 14 + chapter * 3;
-  const extra = [null, "bomber", "diver", "rooster", "miner", "sniper", "spinner", "shell"][chapter - 1];
+  const flockExtra = [null, "bomber", "diver", "rooster", "warden", "sniper", "spinner", "shell", "warden", "sniper"];
+  const extra = flockExtra[(chapter - 1) % flockExtra.length];
   for (let ribbon = 0; ribbon < 2; ribbon += 1) {
     const side = ribbon === 0 ? -1 : 1;
     for (let i = 0; i < perRibbon; i += 1) {
@@ -235,6 +286,8 @@ const RING_KINDS = [
   ["sniper", "rooster", "hen"],
   ["spinner", "bomber", "hen"],
   ["shell", "miner", "rooster"],
+  ["diver", "sniper", "shell", "spinner"],
+  ["rooster", "sniper", "diver", "bomber", "shell"],
 ];
 
 function ring(api, chapter) {
@@ -304,35 +357,47 @@ function saucers(api, chapter) {
   grid(api, chapter >= 3 ? ["hen", "chick"] : ["chick"], 8, "drop");
 }
 
+function spawnDriftRock(api, chapter, opts = {}) {
+  const slant = chapter >= 2 ? 120 : 50;
+  const variant = opts.variant ?? randInt(api.rng, 0, 3);
+  const tumble = variant === 3;
+  const roll = api.rng();
+  const kind = roll < 0.18 ? "poop" : roll < 0.32 ? "net" : "rock";
+  const pattern = opts.pattern || "straight";
+  api.spawn(kind, {
+    size: kind === "rock" ? weighted(api.rng, [[3, 0.35], [2, 0.4], [1, 0.25]]) : 2,
+    mode: "drift",
+    pattern,
+    x: opts.x ?? rand(api.rng, 40, W - 40),
+    y: opts.y ?? -50,
+    dx: opts.dx ?? rand(api.rng, tumble ? -slant * 1.6 : -slant, tumble ? slant * 1.6 : slant),
+    dy: opts.dy ?? rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15 + (chapter >= 7 ? 50 : 0),
+    spin: opts.spin ?? rand(api.rng, tumble ? -4.5 : -2, tumble ? 4.5 : 2),
+    angle: opts.angle ?? rand(api.rng, 0, TAU),
+    variant,
+  });
+}
+
 function rocks(api, chapter) {
-  const count = 16 + chapter * 5;
+  const count = chapter >= 7 ? 22 : 16 + chapter * 5;
   const span = 20 + chapter * 2;
+  const early = Math.min(4, count);
+  for (let i = 0; i < early; i += 1) {
+    spawnDriftRock(api, chapter, { y: -35 - i * 28 });
+  }
   for (let i = 0; i < count; i += 1) {
     api.later((i / count) * span + rand(api.rng, 0, 0.6), () => {
-      const slant = chapter >= 2 ? 120 : 50;
-      const variant = randInt(api.rng, 0, 3);
-      const tumble = variant === 3;
-      api.spawn("rock", {
-        size: weighted(api.rng, [
-          [3, 0.35],
-          [2, 0.4],
-          [1, 0.25],
-        ]),
-        mode: "drift",
-        x: rand(api.rng, 40, W - 40),
-        y: -50,
-        dx: rand(api.rng, tumble ? -slant * 1.6 : -slant, tumble ? slant * 1.6 : slant),
-        dy: rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15,
-        spin: rand(api.rng, tumble ? -4.5 : -2, tumble ? 4.5 : 2),
-        angle: rand(api.rng, 0, TAU),
-        variant,
-      });
+      spawnDriftRock(api, chapter);
     });
   }
   api.later(span * 0.45, () => api.spawnGolden());
 }
 
-function mines(api) {
+function mines(api, chapter) {
+  if (chapter >= 7) {
+    grid(api, ["miner", "diver", "hen"], 5, "drop");
+    return;
+  }
   grid(api, ["miner", "miner", "hen", "chick"], 7, "drop");
 }
 
@@ -355,18 +420,20 @@ function snipers(api, chapter) {
 }
 
 function cyclone(api, chapter) {
-  const n = 14;
+  const late = chapter >= 7;
+  const n = late ? 8 : 14;
+  const mixed = ["spinner", "diver", "sniper", "bomber"];
   for (let i = 0; i < n; i += 1) {
     const angle0 = (i / n) * TAU;
     const radius = i % 2 ? 180 : 100;
-    api.spawn(i % 3 === 0 ? "bomber" : "spinner", {
+    api.spawn(late ? mixed[i % mixed.length] : i % 3 === 0 ? "bomber" : "spinner", {
       mode: "enter",
       home: "orbit",
       cx: W / 2,
       cy: 260,
       radius,
       angle0,
-      orbitSpin: (i % 2 ? 1.1 : -1.6) * (1 + 0.05 * Math.max(0, chapter - 7)),
+      orbitSpin: (i % 2 ? 1.1 : -1.6) * (late ? 1.35 : 1 + 0.05 * Math.max(0, chapter - 7)),
       pulse: 20,
       squash: 0.8,
       path: [W / 2, -80, W / 2 + Math.cos(angle0) * 220, 90, W / 2, 200, W / 2, 260],
@@ -378,8 +445,65 @@ function cyclone(api, chapter) {
   }
 }
 
-function shells(api) {
+function shells(api, chapter) {
+  if (chapter >= 7) {
+    grid(api, ["shell", "diver"], 4, "swoop");
+    return;
+  }
   grid(api, ["shell", "miner", "shell", "hen"], 6, "swoop");
+}
+
+function reflex(api) {
+  grid(api, ["diver", "diver"], 6, "spiral");
+  for (let i = 0; i < 3; i += 1) {
+    const slotX = [140, 360, 580][i];
+    api.spawn("sniper", {
+      mode: "enter",
+      home: "formation",
+      slotX,
+      slotY: 110,
+      path: entryPath("drop", i % 2 ? 1 : -1, slotX, 110, api.rng),
+      pathDur: 1.4,
+      delay: 0.35 + i * 0.15,
+      variant: i,
+    });
+  }
+}
+
+function mix(api) {
+  grid(api, ["diver", "sniper", "spinner", "shell", "miner"], 4, "swoop");
+}
+
+function ambush(api) {
+  grid(api, ["sniper", "shell", "diver", "miner"], 5, "spiral");
+}
+
+function rain(api, chapter, kind, r, speed) {
+  const count = 12 + chapter * 2;
+  const span = 14;
+  for (let i = 0; i < count; i += 1) {
+    api.later((i / count) * span + rand(api.rng, 0, 0.4), () => {
+      api.drop({
+        kind,
+        x: rand(api.rng, 24, W - 24),
+        y: -24,
+        vx: rand(api.rng, -50, 50),
+        vy: rand(api.rng, speed, speed + 90),
+        r,
+        gravity: 0.2,
+      });
+    });
+  }
+}
+
+function feathers(api, chapter) {
+  grid(api, chapter >= 10 ? ["hen", "diver", "sniper"] : ["hen", "diver"], chapter >= 10 ? 6 : 5, "swoop");
+  rain(api, chapter, "quill", 8, 180);
+}
+
+function comets(api, chapter) {
+  grid(api, chapter >= 10 ? ["bomber", "spinner", "diver"] : ["bomber", "spinner"], 4, "drop");
+  rain(api, chapter, "yolk", 14, 150);
 }
 
 const BUILDERS = {
@@ -387,11 +511,20 @@ const BUILDERS = {
   flock,
   snake,
   ring,
-  dive: (api, ch) => grid(api, ch >= 3 ? ["diver", "diver", "diver", "hen"] : ["diver", "diver", "hen"], 7, "spiral"),
+  dive: (api, ch) => grid(
+    api,
+    ch >= 7 ? ["diver", "diver", "sniper"] : ch >= 3 ? ["diver", "diver", "diver", "hen"] : ["diver", "diver", "hen"],
+    ch >= 7 ? 5 : 7,
+    "spiral",
+  ),
   saucers,
   rocks,
   bombers: (api) => grid(api, ["bomber", "bomber", "hen", "chick"], 7, "swoop"),
   gauntlet: (api, ch) => {
+    if (ch >= 7) {
+      grid(api, ["rooster", "diver", "sniper", "shell"], 5, "drop");
+      return;
+    }
     grid(api, ["rooster", "bomber", "diver", "hen", "chick"], 9, "drop");
     if (ch >= 4) saucers(api, 0);
   },
@@ -399,6 +532,11 @@ const BUILDERS = {
   snipers,
   cyclone,
   shells,
+  reflex,
+  mix,
+  ambush,
+  feathers,
+  comets,
 };
 
 const SWAY = {
@@ -408,6 +546,11 @@ const SWAY = {
   snipers: { ax: 20, ay: 6, fx: 0.25, fy: 0.6 },
   cyclone: { ax: 50, ay: 16, fx: 0.7, fy: 1.3 },
   shells: { ax: 24, ay: 8, fx: 0.3, fy: 0.7 },
+  reflex: { ax: 70, ay: 16, fx: 0.8, fy: 1.4 },
+  mix: { ax: 36, ay: 10, fx: 0.45, fy: 1 },
+  ambush: { ax: 28, ay: 8, fx: 0.35, fy: 0.8 },
+  feathers: { ax: 34, ay: 12, fx: 0.5, fy: 1.1 },
+  comets: { ax: 48, ay: 14, fx: 0.6, fy: 1.2 },
 };
 
 /**
@@ -424,23 +567,34 @@ export function buildWave(api, info) {
   api.setFormation(SWAY[info.template] || { ax: 60, ay: 12, fx: 0.5, fy: 1.2 });
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "golden");
-  const gifts = ["power", "shield", "coolant", "nova"];
+  const player = api.player;
+  const scale = playerPity(player, info.chapter);
+  const gifts = ["power", "shield", "coolant"];
+  if (player.lives <= 2 && player.lives < PLAYER.maxLives) gifts.push("life");
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
-  const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < 0.9 ? 1 : 0;
+  if (info.chapter >= 3) gifts.push("feather");
+  if (info.chapter >= 4) gifts.push("rocket");
+  let powerChance = info.chapter <= 3 ? 0.405 : 0.45;
+  if (scale.powerWave !== 1) powerChance = Math.max(0.18, Math.min(0.75, powerChance * scale.powerWave));
+  const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < powerChance ? 1 : 0;
   for (let i = 0; i < powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = "power";
     pool.splice(index, 1);
   }
-  const marked = scaledCount((info.chapter >= 3 ? 3 : 2) * 0.95, api.rng);
+  const markedBase = (info.chapter >= 3 ? 3 : 2) * 0.475 * scale.marked;
+  const marked = scaledCount(markedBase, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
-    pool[index].carrier = pickGift(gifts, api.rng);
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng, player);
+    if (gift) pool[index].carrier = gift;
     pool.splice(index, 1);
   }
+  const rareCarrier = 0.016625 * scale.carrierRare;
   for (const enemy of pool) {
-    if (api.rng() >= 0.03325) continue;
-    enemy.carrier = pickGift(gifts, api.rng);
+    if (api.rng() >= rareCarrier) continue;
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng, player);
+    if (gift) enemy.carrier = gift;
   }
   return spawned;
 }
