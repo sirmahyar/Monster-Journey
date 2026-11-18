@@ -1,30 +1,30 @@
-import { SCOREBOARD_KEY } from "../../shared/assets.js";
+import { bucketUrl, SCOREBOARD_KEY } from "../../shared/assets.js";
 import { readEdgeEnv } from "../adapters/edge-env.js";
 import { GameError } from "../errors.js";
 
 const BOARD_LIMIT = 200;
 const CONTENT_TYPE = "application/json";
-/** Signed upload host from the object-storage sample. Public reads also work on ir-central1. */
-const STORAGE_HOST = "s3.ir-thr-at1.arvanstorage.ir";
+/** The public file the game reads, then the sample's upload endpoint if that host refuses the write. */
+const WRITE_HOSTS = ["s3.ir-central1.arvanstorage.ir", "s3.ir-thr-at1.arvanstorage.ir"];
 
 /**
- * Scoreboard stored as one JSON object in the same bucket as the music.
+ * Scoreboard stored as scoreboard.json in the music bucket.
+ * Each accepted score uploads a complete new file. An empty `{}` or an
+ * unreadable file counts as no scores, so it never blocks the next upload.
  * Credentials are the edge JSON variables ARVANSTORAGE_BUCKET_NAME,
- * ARVANSTORAGE_ACCESS_KEY, and ARVANSTORAGE_SECRET_KEY. The upload signs a
- * PUT the same way the object-storage sample does (AWS signature version 2).
- * Signed reads and writes use the Tehran endpoint from that sample.
+ * ARVANSTORAGE_ACCESS_KEY, and ARVANSTORAGE_SECRET_KEY.
  * @param {object | undefined} envBinding
  * @param {typeof fetch} [fetchImpl]
  */
 export function createBucketScoreStore(envBinding, fetchImpl = globalThis.fetch) {
   return {
     async top(limit = 50) {
-      const rows = await readBoard(storageCredentials(envBinding), fetchImpl);
+      const rows = await readBoard(fetchImpl);
       return rows.slice(0, limit);
     },
     async insert(entry) {
       const creds = storageCredentials(envBinding);
-      const current = await readBoard(creds, fetchImpl);
+      const current = await readBoard(fetchImpl);
       const row = {
         id: Date.now(),
         name: entry.name,
@@ -119,42 +119,27 @@ function jsonString(value) {
   return "";
 }
 
-/** @param {{ bucket: string, accessKey: string, secret: string }} creds */
-function objectUrl(creds) {
-  return `https://${creds.bucket}.${STORAGE_HOST}/${SCOREBOARD_KEY}`;
+/** @param {typeof fetch} fetchImpl */
+async function readBoard(fetchImpl) {
+  try {
+    const response = await fetchImpl(bucketUrl(SCOREBOARD_KEY), { method: "GET", cache: "no-store" });
+    if (!response.ok) return [];
+    const text = await response.text();
+    if (!text.trim()) return [];
+    return rowsFrom(JSON.parse(text));
+  } catch {
+    return [];
+  }
 }
 
-/** @param {{ bucket: string, accessKey: string, secret: string }} creds @param {typeof fetch} fetchImpl */
-async function readBoard(creds, fetchImpl) {
-  const date = new Date().toUTCString();
-  const response = await fetchImpl(objectUrl(creds), {
-    method: "GET",
-    cache: "no-store",
-    headers: {
-      Host: `${creds.bucket}.${STORAGE_HOST}`,
-      Date: date,
-      Authorization: await authorizeObject({
-        method: "GET",
-        contentType: "",
-        date,
-        bucket: creds.bucket,
-        key: SCOREBOARD_KEY,
-        accessKey: creds.accessKey,
-        secret: creds.secret,
-      }),
-    },
-  });
-  const text = await response.text();
-  if (response.status === 404 || (response.status === 403 && text.includes("NoSuchKey"))) return [];
-  if (!response.ok) throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard storage refused the request.", 503);
-  if (!text.trim()) return [];
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
-  }
-  return boardRows(data).filter(isScoreRow).map(publicScore).sort((a, b) => b.score - a.score || b.id - a.id);
+/** @param {unknown} data */
+function rowsFrom(data) {
+  const list = Array.isArray(data)
+    ? data
+    : data && typeof data === "object" && Array.isArray(data.scores)
+      ? data.scores
+      : [];
+  return list.filter(isScoreRow).map(publicScore).sort((a, b) => b.score - a.score || b.id - a.id);
 }
 
 /**
@@ -163,48 +148,37 @@ async function readBoard(creds, fetchImpl) {
  * @param {typeof fetch} fetchImpl
  */
 async function writeBoard(creds, rows, fetchImpl) {
-  const date = new Date().toUTCString();
   const body = new TextEncoder().encode(JSON.stringify({ scores: rows }));
-  const response = await fetchImpl(objectUrl(creds), {
-    method: "PUT",
-    body,
-    headers: {
-      Host: `${creds.bucket}.${STORAGE_HOST}`,
-      Date: date,
-      "Content-Type": CONTENT_TYPE,
-      "Content-Length": String(body.length),
-      Authorization: await authorizeObject({
-        method: "PUT",
-        contentType: CONTENT_TYPE,
-        date,
-        bucket: creds.bucket,
-        key: SCOREBOARD_KEY,
-        accessKey: creds.accessKey,
-        secret: creds.secret,
-      }),
-    },
-  });
-  if (!response.ok) {
+  let lastStatus = 0;
+  for (const host of WRITE_HOSTS) {
+    const date = new Date().toUTCString();
+    const response = await fetchImpl(`https://${creds.bucket}.${host}/${SCOREBOARD_KEY}`, {
+      method: "PUT",
+      body: body.slice(),
+      headers: {
+        Host: `${creds.bucket}.${host}`,
+        Date: date,
+        "Content-Type": CONTENT_TYPE,
+        "Content-Length": String(body.length),
+        Authorization: await authorizeObject({
+          method: "PUT",
+          contentType: CONTENT_TYPE,
+          date,
+          bucket: creds.bucket,
+          key: SCOREBOARD_KEY,
+          accessKey: creds.accessKey,
+          secret: creds.secret,
+        }),
+      },
+    });
+    if (response.ok) {
+      await response.arrayBuffer().catch(() => {});
+      return;
+    }
+    lastStatus = response.status;
     await response.text().catch(() => "");
-    throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard storage refused the request.", 503);
   }
-  await response.arrayBuffer().catch(() => {});
-}
-
-/**
- * The bucket file may be `{}` before the first score. That is an empty board.
- * @param {unknown} data
- */
-function boardRows(data) {
-  if (Array.isArray(data)) return data;
-  if (!data || typeof data !== "object") {
-    throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
-  }
-  if (!Object.hasOwn(data, "scores")) return [];
-  if (!Array.isArray(data.scores)) {
-    throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard file could not be read.", 503);
-  }
-  return data.scores;
+  throw new GameError("SERVICE_UNAVAILABLE", `Scoreboard upload was refused (${lastStatus}).`, 503);
 }
 
 /** @param {unknown} row */

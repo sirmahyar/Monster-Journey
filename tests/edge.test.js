@@ -108,7 +108,7 @@ describe("bucket scoreboard", () => {
     expect(top.map((row) => row.name)).toEqual(["مهیار", "Ace"]);
 
     const put = calls.find((call) => call.method === "PUT");
-    expect(put.url).toBe("https://game-assets22.s3.ir-thr-at1.arvanstorage.ir/scoreboard.json");
+    expect(put.url).toBe("https://game-assets22.s3.ir-central1.arvanstorage.ir/scoreboard.json");
     expect(put.headers["Content-Type"]).toBe("application/json");
     expect(put.headers["Content-Length"]).toBe(String(new TextEncoder().encode(put.bodyText).length));
     const stringToSign = `PUT\n\napplication/json\n${put.headers.Date}\n/game-assets22/scoreboard.json`;
@@ -131,8 +131,22 @@ describe("bucket scoreboard", () => {
     expect((await store.top())[0].name).toBe("مهیار");
   });
 
+  it("replaces an unreadable scoreboard with a new file", async () => {
+    let file = "not-json";
+    const fetchImpl = async (_url, init) => {
+      if (init.method !== "PUT") return new Response(file, { status: 200 });
+      file = new TextDecoder().decode(init.body);
+      return new Response(null, { status: 200 });
+    };
+    const store = createBucketScoreStore(env, fetchImpl);
+    expect(await store.top()).toEqual([]);
+    await store.insert({ name: "مهیار", score: 10, chapter: 1, wave: 1 });
+    expect(JSON.parse(file).scores[0].name).toBe("مهیار");
+  });
+
   it("refuses to write when the storage keys are missing", async () => {
-    const store = createBucketScoreStore({}, async () => new Response(null, { status: 500 }));
-    await expect(store.top()).rejects.toThrow(/not configured/);
+    const store = createBucketScoreStore({}, async () => new Response("{}", { status: 200 }));
+    expect(await store.top()).toEqual([]);
+    await expect(store.insert({ name: "مهیار", score: 1, chapter: 1, wave: 1 })).rejects.toThrow(/not configured/);
   });
 });
