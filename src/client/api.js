@@ -15,6 +15,7 @@ export async function submitScore(entry) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(entry),
+    keepalive: true,
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
@@ -23,4 +24,19 @@ export async function submitScore(entry) {
     throw error;
   }
   return payload.score;
+}
+
+/** Posts a score while the page is going away. The response is not needed. */
+export function submitScoreOnLeave(entry) {
+  const body = JSON.stringify(entry);
+  if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+    const blob = new Blob([body], { type: "application/json" });
+    if (navigator.sendBeacon("/api/scores", blob)) return;
+  }
+  fetch("/api/scores", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
 }

@@ -59,7 +59,7 @@ Eight chapters each have eight waves, and the last wave of each chapter is a bos
 
 `GET /api/scores` returns the top 20 scores. Only those 20 are kept in `scoreboard.json`.
 
-The game asks for a pilot name before the first wave and posts the current score at the end of every chapter, and again when the run ends. `POST /api/scores` accepts `{ "name", "score", "chapter", "wave" }`. The name is 1 to 16 Persian or English letters, digits, spaces, or zero-width non-joiners. The score is an integer from 0 to 9999999. Chapter is 1 to 8. Wave is 1 to 8.
+The game asks for a pilot name before the first wave. It posts that score when the player loses, and when the browser tab closes during a run. Closing the tab after a win posts that score too. A finished chapter does not post by itself. `POST /api/scores` accepts `{ "name", "score", "chapter", "wave" }`. The name is 1 to 16 Persian or English letters, digits, spaces, or zero-width non-joiners. The score is an integer from 0 to 9999999. Chapter is 1 to 8. Wave is 1 to 8.
 
 On the edge, each accepted score is merged into `scoreboard.json` and that file is uploaded again. The bucket name and keys stay in the edge environment, not in the client bundle. The optional local Node server still writes to MySQL when `npm run dev` is used.
 

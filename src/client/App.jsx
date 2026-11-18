@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isValidName, normalizeName } from "../shared/pilot-name.js";
-import { fetchScores, submitScore } from "./api.js";
+import { fetchScores, submitScore, submitScoreOnLeave } from "./api.js";
 import { audioSettings, setAudioSetting, unlockAudio } from "./audio/engine.js";
 import { whenOpeningMusicReady } from "./audio/music.js";
 import { playUi } from "./audio/sfx.js";
@@ -163,8 +163,20 @@ export function App() {
       setBest(score);
       store(BEST_KEY, score);
     }
-    record(next);
+    if (!summary.victory) record(next);
     setScreen("over");
+  };
+
+  const leaveRun = (entry) => {
+    const score = Math.min(MAX_SCORE, Math.floor(Number(entry.score) || 0));
+    const { chapter, wave } = entry;
+    if (score <= 0 || chapter == null || wave == null) return;
+    const clean = normalizeName(nameRef.current);
+    if (!isValidName(clean)) return;
+    const key = `${score}:${chapter}:${wave}`;
+    if (posted.current.has(key) || inflight.current.has(key)) return;
+    posted.current.add(key);
+    submitScoreOnLeave({ name: clean, score, chapter, wave });
   };
 
   const requestPause = (force) => {
@@ -185,7 +197,7 @@ export function App() {
     <main className="app">
       <div className="backdrop" aria-hidden="true" />
       <div className={`stage screen-${screen}`}>
-        <GameCanvas mode={mode} runId={runId} paused={paused} onFinish={finish} onCheckpoint={record} onPause={requestPause} />
+        <GameCanvas mode={mode} runId={runId} paused={paused} onFinish={finish} onLeave={leaveRun} onPause={requestPause} />
         {screen === "play" && !paused && (
           <button type="button" className="pause-btn" onClick={() => requestPause(true)} aria-label={strings.pause}>
             <span />
