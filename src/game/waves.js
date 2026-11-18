@@ -1,4 +1,4 @@
-import { W, WAVES_PER_CHAPTER } from "./config.js";
+import { PLAYER, W, WAVES_PER_CHAPTER, playerPity } from "./config.js";
 import { arsenal } from "./weapons.js";
 import { TAU, rand, randInt, weighted } from "./math.js";
 
@@ -154,12 +154,16 @@ function giftWeight(gift, count) {
   return 1;
 }
 
-function keptGift(gift, chapter, rng) {
+function keptGift(gift, chapter, rng, player) {
   let keep = 1;
   if (gift === "nova") keep *= 0.36;
   if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant")) keep *= 0.9;
   if (gift === "nova" || gift === "shield" || gift === "coolant" || gift === "crate") keep *= 0.85;
   if (gift && gift !== "life") keep *= 0.5;
+  const pity = playerPity(player, chapter);
+  if (pity && (gift === "power" || gift === "shield" || gift === "coolant" || gift === "life" || gift === "crate")) {
+    keep *= pity.gift;
+  }
   if (rng() >= keep) return "";
   return gift;
 }
@@ -563,27 +567,33 @@ export function buildWave(api, info) {
   api.setFormation(SWAY[info.template] || { ax: 60, ay: 12, fx: 0.5, fy: 1.2 });
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "golden");
+  const player = api.player;
+  const pity = playerPity(player, info.chapter);
   const gifts = ["power", "shield", "coolant"];
+  if (pity && player.lives < PLAYER.maxLives) gifts.push("life");
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
   if (info.chapter >= 3) gifts.push("feather");
   if (info.chapter >= 4) gifts.push("rocket");
-  const powerChance = info.chapter <= 3 ? 0.405 : 0.45;
+  let powerChance = info.chapter <= 3 ? 0.405 : 0.45;
+  if (pity) powerChance = Math.min(0.75, powerChance * pity.powerWave);
   const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < powerChance ? 1 : 0;
   for (let i = 0; i < powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = "power";
     pool.splice(index, 1);
   }
-  const marked = scaledCount((info.chapter >= 3 ? 3 : 2) * 0.475, api.rng);
+  const markedBase = (info.chapter >= 3 ? 3 : 2) * 0.475 * (pity?.marked ?? 1);
+  const marked = scaledCount(markedBase, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
-    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng, player);
     if (gift) pool[index].carrier = gift;
     pool.splice(index, 1);
   }
+  const rareCarrier = 0.016625 * (pity?.carrierRare ?? 1);
   for (const enemy of pool) {
-    if (api.rng() >= 0.016625) continue;
-    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
+    if (api.rng() >= rareCarrier) continue;
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng, player);
     if (gift) enemy.carrier = gift;
   }
   return spawned;

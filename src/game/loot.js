@@ -1,4 +1,4 @@
-import { W } from "./config.js";
+import { W, playerPity } from "./config.js";
 import { ENEMY_TYPES } from "./enemies.js";
 import { clamp, lerp, pick, rand } from "./math.js";
 import { WEAPON_ORDER } from "./weapons.js";
@@ -52,15 +52,17 @@ function crateWeapon(rng, player) {
   return pick(rng, choices);
 }
 
-function dropCuts(chapter) {
+function dropCuts(chapter, player) {
   const early = chapter <= 3 ? 0.9 : 1;
   const gift = 0.5;
+  const pity = playerPity(player, chapter);
+  const help = pity?.drop ?? 1;
   const widths = [
-    0.012065 * early * gift,
-    0.0076 * early * 0.85 * gift,
-    0.0038 * early * 0.85 * gift,
+    0.012065 * early * gift * help,
+    0.0076 * early * 0.85 * gift * help,
+    0.0038 * early * 0.85 * gift * help,
     0,
-    0.001425,
+    0.001425 * help,
     0.00151 * gift,
     0.0012 * gift,
     0.001 * gift,
@@ -83,7 +85,8 @@ export function rollDrops(e, rng, player) {
     if (weapon) out.push({ kind: "crate", weapon });
     out.push({ kind: "cob" }, { kind: "cob" });
     for (let i = 0; i < 6; i += 1) out.push({ kind: "kernel" });
-    if (rng() < 0.3) out.push({ kind: "life" });
+    const goldenLife = playerPity(player, e.chapter || 1)?.goldenLife ?? 0.3;
+    if (rng() < goldenLife) out.push({ kind: "life" });
     return out;
   }
   if (e.carrier === "crate") {
@@ -93,12 +96,14 @@ export function rollDrops(e, rng, player) {
   if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "rocket" || e.carrier === "feather") {
     out.push({ kind: e.carrier });
   }
-  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.01615) {
+  const pity = playerPity(player, e.chapter || 1);
+  const crateChance = 0.01615 + (pity?.crateBonus ?? 0);
+  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < crateChance) {
     const weapon = crateWeapon(rng, player);
     if (weapon) out.push({ kind: "crate", weapon });
   }
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
-  const [power, coolant, shield, nova, life, gem, haste, magnet, rocket, feather] = dropCuts(e.chapter || 1);
+  const [power, coolant, shield, nova, life, gem, haste, magnet, rocket, feather] = dropCuts(e.chapter || 1, player);
   const roll = rng();
   if (roll < power) out.push({ kind: "power" });
   else if (roll < coolant) out.push({ kind: "coolant" });

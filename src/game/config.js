@@ -3,6 +3,14 @@ export const H = 960;
 export const STEP = 1 / 60;
 
 export const CHAPTER_COUNT = 10;
+
+/** Extra help when the run is on its last ship(s); off in the final two chapters. */
+export function playerPity(player, chapter) {
+  if (chapter >= CHAPTER_COUNT - 1 || !player || player.lives > 2) return null;
+  return player.lives === 1
+    ? { drop: 2.45, gift: 2.15, carrierRare: 2.6, powerWave: 1.7, marked: 1.8, goldenLife: 0.55, crateBonus: 0.038 }
+    : { drop: 1.72, gift: 1.52, carrierRare: 1.9, powerWave: 1.38, marked: 1.42, goldenLife: 0.42, crateBonus: 0.024 };
+}
 export const WAVES_PER_CHAPTER = 8;
 
 export const PLAYER = Object.freeze({

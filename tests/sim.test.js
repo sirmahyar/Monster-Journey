@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHAPTER_COUNT, H, HEAT, PLAYER, STEP, W, WAVES_PER_CHAPTER } from "../src/game/config.js";
+import { CHAPTER_COUNT, H, HEAT, PLAYER, STEP, W, WAVES_PER_CHAPTER, playerPity } from "../src/game/config.js";
 import { bossCircles, hitBoss, makeBoss } from "../src/game/bosses.js";
 import { makeEnemy } from "../src/game/enemies.js";
 import { makePickup, rollDrops } from "../src/game/loot.js";
@@ -190,6 +190,24 @@ describe("simulation", () => {
     expect(events.some((e) => e.type === "nova")).toBe(true);
     expect(state.enemies.length).toBeLessThan(before);
     expect(p.bombs).toBe(PLAYER.bombs);
+  });
+
+  it("raises survival drops when only one or two ships remain (not in final chapters)", () => {
+    expect(playerPity({ lives: 1 }, 5)?.drop).toBeGreaterThan(1);
+    expect(playerPity({ lives: 3 }, 5)).toBeNull();
+    expect(playerPity({ lives: 1 }, CHAPTER_COUNT - 1)).toBeNull();
+    expect(playerPity({ lives: 1 }, CHAPTER_COUNT)).toBeNull();
+    const enemy = { kind: "hen", r: 24, carrier: null, chapter: 5 };
+    const helpKinds = new Set(["life", "shield", "power", "coolant"]);
+    function helpfulCount(lives, chapter, seed) {
+      let n = 0;
+      for (let i = 0; i < 2400; i += 1) {
+        const drops = rollDrops(enemy, seeded(seed + i), { weapon: "pulse", weapons: ["pulse", "laser"], level: 3, lives });
+        if (drops.some((d) => helpKinds.has(d.kind))) n += 1;
+      }
+      return n;
+    }
+    expect(helpfulCount(1, 5, 900)).toBeGreaterThan(helpfulCount(3, 5, 900));
   });
 
   it("lets some chickens drop a meal worth several coins", () => {

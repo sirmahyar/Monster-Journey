@@ -185,6 +185,7 @@ function startWave(state) {
     buildWave(
       {
         rng: state.rng,
+        player: state.player,
         spawn: (kind, fields) => addEnemy(state, kind, fields),
         later: (at, fn) => state.timers.push({ at, fn, optional: false }),
         setFormation: (sway) => Object.assign(state.formation, sway),
