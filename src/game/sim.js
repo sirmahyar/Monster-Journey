@@ -748,21 +748,25 @@ function stepSpiral(g, dt) {
   g.y = g.oy + Math.sin(g.phase) * orbit * 0.55;
 }
 
+const FALLING_EGGS = new Set(["egg", "cluster", "bounce", "goldenegg"]);
+
 function updateEggs(state, dt) {
   const p = state.player;
   const spawned = [];
   let w = 0;
   for (const g of state.eggs) {
     g.t += dt;
-    if (g.weave) g.vx += Math.cos(g.t * 8) * 140 * dt;
     if (g.bend) bendShot(g, p, dt);
     if (g.kind === "poop") g.vx += Math.sin(g.t * 5) * 50 * dt;
     if (g.kind === "net") {
       g.vy = Math.min(140, g.vy + 45 * dt);
       g.vx += Math.sin(g.t * 4) * 35 * dt;
     }
-    if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce" || g.kind === "goldenegg" || g.kind === "poop") {
+    if (FALLING_EGGS.has(g.kind) || g.kind === "poop") {
       g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * (g.gravity || 1) * dt);
+    }
+    if (FALLING_EGGS.has(g.kind)) {
+      g.vx *= Math.max(0, 1 - dt * 1.25);
     } else if (g.kind === "yolk") {
       g.vy = Math.min(260, g.vy + 60 * dt);
       g.vx += Math.sin(g.t * 6) * 40 * dt;

@@ -473,7 +473,7 @@ export function drawEggs(ctx, eggs, time) {
         ctx.globalCompositeOperation = "lighter";
         blit(ctx, glowDot("warn", e.r * 2, "#ff3b1f"), e.x, e.y, 0, 1, 1, 0.3 + 0.3 * Math.sin(time * 14));
       }
-    } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce" || e.kind === "goldenegg") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 7 + e.x) * 0.35);
+    } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce" || e.kind === "goldenegg") blit(ctx, spr, e.x, e.y);
     else if (e.kind === "net") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 4 + e.x) * 0.35, 1 + Math.sin(e.t * 6) * 0.06);
     else blit(ctx, spr, e.x, e.y, e.kind === "spark" ? time * 8 : 0);
     if (e.kind === "mine" && e.t >= (e.arm || 0.85)) {

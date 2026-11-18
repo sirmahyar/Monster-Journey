@@ -359,7 +359,7 @@ function spawnDriftRock(api, chapter, opts = {}) {
   const tumble = variant === 3;
   const roll = api.rng();
   const kind = roll < 0.18 ? "poop" : roll < 0.32 ? "net" : "rock";
-  const pattern = opts.pattern || ["straight", "zig", "wobble", "stall"][variant];
+  const pattern = opts.pattern || "straight";
   api.spawn(kind, {
     size: kind === "rock" ? weighted(api.rng, [[3, 0.35], [2, 0.4], [1, 0.25]]) : 2,
     mode: "drift",
