@@ -4,15 +4,8 @@ import { cdnPath, MUSIC_FILES } from "../../shared/assets.js";
 const FILES = Object.fromEntries(Object.entries(MUSIC_FILES).map(([id, name]) => [id, cdnPath(name)]));
 const OPENING = "boss";
 
-/** One looping list per screen. The first thing heard is always the boss-battle theme. */
-const PLAYLIST = {
-  menu: [OPENING, "theme", "xmas2"],
-  stage1: ["ingame1"],
-  stage2: ["ingame2"],
-  stage3: ["ingame3"],
-  stage4: ["xmas1", "xmas3"],
-  boss: [OPENING],
-};
+/** Menu and every wave share this one looping track, so entering a stage does not restart it. */
+const BACKGROUND = [OPENING];
 
 const buffers = new Map();
 const loading = new Map();
@@ -36,12 +29,6 @@ function load(ctx, id) {
 }
 
 const player = { key: "", list: [], index: 0, nodes: [], token: 0 };
-
-function listFor(name, chapter) {
-  if (name === "boss") return "boss";
-  if (name === "stage") return `stage${Math.min(4, Math.max(1, chapter))}`;
-  return "menu";
-}
 
 function fade(nodes, seconds = 0.9) {
   const a = audio();
@@ -102,14 +89,14 @@ export function whenOpeningMusicReady() {
   });
 }
 
-/** Starts a playlist. The same screen and chapter keep playing without a restart. */
-export function playMusic(name, chapter = 1) {
-  const key = listFor(name, chapter);
+/** Starts the shared background track. Menu, stages, and bosses all keep the same loop. */
+export function playMusic() {
+  const key = "background";
   if (key === player.key) return;
   fade(player.nodes);
   player.nodes = [];
   player.key = key;
-  player.list = PLAYLIST[key] || PLAYLIST.menu;
+  player.list = BACKGROUND;
   player.index = 0;
   const token = ++player.token;
   const start = () => {
@@ -119,7 +106,7 @@ export function playMusic(name, chapter = 1) {
       window.setTimeout(start, 150);
       return;
     }
-    for (const id of Object.keys(FILES)) load(a.ctx, id);
+    load(a.ctx, OPENING);
     arm(token);
   };
   if (audio()) start();

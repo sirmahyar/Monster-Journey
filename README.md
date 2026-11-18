@@ -6,7 +6,7 @@ Every text in the game is Persian. The UI is right-to-left, numbers use Persian 
 
 Scores are the only thing stored on a server. A small Node API writes them to MySQL. The browser never opens the database itself.
 
-The ship, chickens, and effects are original art. Background music is the soundtrack included with the game.
+The ship, chickens, and effects are original art. The menu and the in-game background both play the boss-battle theme.
 
 ## Play
 
