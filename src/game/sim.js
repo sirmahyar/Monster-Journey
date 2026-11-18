@@ -322,7 +322,7 @@ function updatePlayer(state, input, dt) {
     for (const s of shots) state.shots.push(s);
     state.stats.fired += shots.length;
     p.fireCd = weapon.rate * (p.haste > 0 ? 0.55 : 1);
-    if (p.frost <= 0) p.heat += weapon.heat * 2.662;
+    if (p.frost <= 0) p.heat += weapon.heat * HEAT.fireGain;
     emit(state, "shot", { weapon: p.weapon, level: p.level, x: p.x, y: p.y });
     if (p.rockets && p.rocketCd <= 0) {
       p.rocketCd = 0.85;
