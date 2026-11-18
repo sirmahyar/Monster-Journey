@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHAPTER_COUNT, H, HEAT, PLAYER, STEP, W, WAVES_PER_CHAPTER } from "../src/game/config.js";
 import { bossCircles, hitBoss, makeBoss } from "../src/game/bosses.js";
-import { makePickup } from "../src/game/loot.js";
+import { makePickup, rollDrops } from "../src/game/loot.js";
 import { createGame, drainEvents, gameSummary, stepGame } from "../src/game/sim.js";
 import { CHAPTERS, waveInfo } from "../src/game/waves.js";
 import { MAX_LEVEL, WEAPON_ORDER, focusedDps, volley } from "../src/game/weapons.js";
@@ -186,6 +186,19 @@ describe("simulation", () => {
     expect(events.some((e) => e.type === "nova")).toBe(true);
     expect(state.enemies.length).toBeLessThan(before);
     expect(p.bombs).toBe(PLAYER.bombs);
+  });
+
+  it("lets some chickens drop a meal worth several coins", () => {
+    let n = 0;
+    const values = [0.1, 0.1, 0.9];
+    const rng = () => values[n++] ?? 0.9;
+    const drops = rollDrops({ kind: "hen", r: 24, carrier: null }, rng, { weapon: "pulse", weapons: ["pulse"] });
+    expect(drops).toEqual([{ kind: "burger" }]);
+    const state = createGame({ random: seeded(3) });
+    const before = state.player.food;
+    state.pickups.push(makePickup("burger", state.player.x, state.player.y, state.rng));
+    run(state, STEP);
+    expect(state.player.food).toBe(before + 6);
   });
 
   it("locks later weapons until their chapter and fires wing rockets in chapter 4", () => {

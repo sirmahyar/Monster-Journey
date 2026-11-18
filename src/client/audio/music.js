@@ -4,8 +4,8 @@ import { cdnPath, MUSIC_FILES } from "../../shared/assets.js";
 const FILES = Object.fromEntries(Object.entries(MUSIC_FILES).map(([id, name]) => [id, cdnPath(name)]));
 const OPENING = "boss";
 
-/** Menu and every wave share this one looping track, so entering a stage does not restart it. */
-const BACKGROUND = [OPENING];
+/** The boss theme plays first. Later tracks follow only when the current one ends. */
+const ORDER = [OPENING, "ingame1", "ingame2", "ingame3", "theme", "xmas1", "xmas2", "xmas3"];
 
 const buffers = new Map();
 const loading = new Map();
@@ -44,7 +44,7 @@ function load(ctx, id) {
   return job;
 }
 
-const player = { key: "", list: [], index: 0, nodes: [], token: 0 };
+const player = { active: false, index: 0, nodes: [], token: 0, skips: 0 };
 
 function fade(nodes, seconds = 0.9) {
   const a = audio();
@@ -64,15 +64,23 @@ function fade(nodes, seconds = 0.9) {
 
 function arm(token) {
   const a = audio();
-  if (!a || player.token !== token || player.list.length === 0) return;
-  const id = player.list[player.index % player.list.length];
+  if (!a || player.token !== token || !player.active) return;
+  const id = ORDER[player.index % ORDER.length];
   load(a.ctx, id).then((buffer) => {
-    if (!buffer || player.token !== token) return;
+    if (player.token !== token || !player.active) return;
+    if (!buffer) {
+      player.skips += 1;
+      if (player.skips >= ORDER.length) return;
+      player.index += 1;
+      arm(token);
+      return;
+    }
+    player.skips = 0;
     const ctx = a.ctx;
     const now = ctx.currentTime;
     const src = ctx.createBufferSource();
     src.buffer = buffer;
-    src.loop = player.list.length === 1;
+    src.loop = false;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, now);
     g.gain.exponentialRampToValueAtTime(1, now + 0.9);
@@ -81,24 +89,22 @@ function arm(token) {
     src.start(now);
     const node = { src, g };
     player.nodes.push(node);
+    load(ctx, ORDER[(player.index + 1) % ORDER.length]);
     src.onended = () => {
       player.nodes = player.nodes.filter((n) => n !== node);
-      if (player.token !== token || src.loop) return;
+      if (player.token !== token || !player.active) return;
       player.index += 1;
       arm(token);
     };
   });
 }
 
-/** Starts the shared background track. Menu, stages, and bosses all keep the same loop. */
+/** Starts the background once. Wave changes do not restart it or jump back to the first track. */
 export function playMusic() {
-  const key = "background";
-  if (key === player.key) return;
-  fade(player.nodes);
-  player.nodes = [];
-  player.key = key;
-  player.list = BACKGROUND;
+  if (player.active) return;
+  player.active = true;
   player.index = 0;
+  player.skips = 0;
   const token = ++player.token;
   const start = () => {
     if (player.token !== token) return;
@@ -107,7 +113,6 @@ export function playMusic() {
       window.setTimeout(start, 150);
       return;
     }
-    load(a.ctx, OPENING);
     arm(token);
   };
   if (audio()) start();
@@ -116,8 +121,7 @@ export function playMusic() {
 
 export function stopMusic() {
   player.token += 1;
-  player.key = "";
-  player.list = [];
+  player.active = false;
   fade(player.nodes, 0.4);
   player.nodes = [];
 }

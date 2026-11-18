@@ -82,7 +82,7 @@ export const hudText = {
   maxPower: "حداکثر قدرت!",
   power: (n) => `قدرت سطح ${fa(n)}`,
   life: "سفینه‌ی اضافه!",
-  pickups: { power: "قدرت بیشتر", shield: "سپر", nova: "+۱ بمب", coolant: "خنک‌کننده", life: "+۱ سفینه" },
+  pickups: { power: "قدرت بیشتر", shield: "سپر", nova: "+۱ بمب", coolant: "خنک‌کننده", life: "+۱ سفینه", nugget: "سوخاری", burger: "همبرگر", pizza: "پیتزا" },
   combo: (n) => `ضریب ×${fa(n)}`,
   bomb: "+۱ بمب",
 };

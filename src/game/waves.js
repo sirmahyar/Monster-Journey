@@ -292,7 +292,7 @@ export function buildWave(api, info) {
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "rock" && e.kind !== "golden");
   const crates = arsenal(info.chapter).length > 1 ? (info.chapter >= 3 ? 2 : 1) : 0;
-  const powers = info.wave === 4 ? 1 : 0;
+  const powers = info.wave === 2 || info.wave === 4 || info.wave === 6 ? 1 : 0;
   for (let i = 0; i < crates + powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = i < crates ? "crate" : "power";

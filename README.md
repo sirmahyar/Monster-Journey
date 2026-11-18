@@ -6,7 +6,7 @@ Every text in the game is Persian. The UI is right-to-left, numbers use Persian 
 
 Scores are the only thing stored remotely. On the edge they live in `scoreboard.json` in the object-storage bucket. The browser never writes to that bucket itself.
 
-The ship, chickens, and effects are original art. The menu and the in-game background both play the boss-battle theme.
+The ship, chickens, and effects are original art. Background music starts with the boss-battle theme and moves to the next track only when that one ends.
 
 ## Play
 

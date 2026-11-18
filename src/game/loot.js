@@ -5,6 +5,9 @@ import { WEAPON_ORDER } from "./weapons.js";
 
 export const PICKUPS = Object.freeze({
   kernel: Object.freeze({ r: 9, food: 1, score: 25 }),
+  nugget: Object.freeze({ r: 13, food: 3, score: 75 }),
+  burger: Object.freeze({ r: 16, food: 6, score: 150 }),
+  pizza: Object.freeze({ r: 16, food: 8, score: 200 }),
   cob: Object.freeze({ r: 13, food: 5, score: 150 }),
   power: Object.freeze({ r: 14, food: 0, score: 500 }),
   crate: Object.freeze({ r: 17, food: 0, score: 300 }),
@@ -27,6 +30,15 @@ export function makePickup(kind, x, y, rng, extra = {}) {
     angle: 0,
     ...extra,
   };
+}
+
+/** A few chickens leave a meal worth several coins instead of one coin. */
+function foodKind(e, rng) {
+  const meal = rng();
+  if (meal < 0.06) return "pizza";
+  if (meal < 0.14) return "burger";
+  if (meal < 0.26) return "nugget";
+  return e.r >= 24 && rng() < 0.22 ? "cob" : "kernel";
 }
 
 function crateWeapon(rng, player) {
@@ -52,13 +64,13 @@ export function rollDrops(e, rng, player) {
     if (weapon) out.push({ kind: "crate", weapon });
   }
   if (e.carrier === "power") out.push({ kind: "power" });
-  if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: e.r >= 24 && rng() < 0.22 ? "cob" : "kernel" });
+  if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
   const roll = rng();
-  if (roll < 0.004) out.push({ kind: "power" });
-  else if (roll < 0.012) out.push({ kind: "coolant" });
-  else if (roll < 0.017) out.push({ kind: "shield" });
-  else if (roll < 0.021) out.push({ kind: "nova" });
-  else if (roll < 0.0225) out.push({ kind: "life" });
+  if (roll < 0.016) out.push({ kind: "power" });
+  else if (roll < 0.024) out.push({ kind: "coolant" });
+  else if (roll < 0.029) out.push({ kind: "shield" });
+  else if (roll < 0.033) out.push({ kind: "nova" });
+  else if (roll < 0.0345) out.push({ kind: "life" });
   return out;
 }
 

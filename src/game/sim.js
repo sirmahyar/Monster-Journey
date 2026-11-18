@@ -670,7 +670,7 @@ function updateBeams(state, dt) {
 function collect(state, k) {
   const p = state.player;
   state.score += PICKUPS[k.kind].score;
-  if (k.kind === "kernel" || k.kind === "cob") {
+  if (k.kind === "kernel" || k.kind === "cob" || k.kind === "nugget" || k.kind === "burger" || k.kind === "pizza") {
     p.food += PICKUPS[k.kind].food;
     state.stats.food += PICKUPS[k.kind].food;
     while (p.food >= FOOD_PER_BOMB) {

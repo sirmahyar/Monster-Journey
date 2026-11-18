@@ -195,7 +195,7 @@ export function fxEvent(fx, ev) {
       shells(fx, ev.x, ev.y - 4, ev.yolk ? 0 : 5);
       break;
     case "pickup": {
-      const color = ev.kind === "kernel" || ev.kind === "cob" ? "#ffd23f" : "#ffffff";
+      const color = ev.kind === "pizza" ? "#ff5a4a" : ev.kind === "burger" ? "#e07a2f" : ev.kind === "kernel" || ev.kind === "cob" || ev.kind === "nugget" ? "#ffd23f" : "#ffffff";
       burst(fx, ev.x, ev.y, { count: ev.kind === "kernel" ? 4 : 12, color, speed: 160, life: 0.4, size: 2 });
       const text = ev.kind === "crate" ? names.weapons[ev.weapon] : T.pickups[ev.kind];
       if (text) popup(fx, ev.x, ev.y - 20, text, { color: "#9ff0ff", size: 20, life: 1.1 });

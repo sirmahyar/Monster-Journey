@@ -364,7 +364,7 @@ export function drawEggs(ctx, eggs, time) {
   }
 }
 
-const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d" };
+const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d" };
 
 function pickupSprite(kind, weapon) {
   return cached(`pickup:${kind}:${weapon || ""}`, () =>
@@ -395,6 +395,54 @@ function pickupSprite(kind, weapon) {
         g.fill();
         g.fillStyle = "#ffe98a";
         for (let y = -12; y <= 8; y += 4) for (const x of [-3, 0, 3]) g.fillRect(x - 1, y, 2, 2);
+      } else if (kind === "nugget") {
+        g.beginPath();
+        g.moveTo(-8, 4);
+        g.quadraticCurveTo(-12, -2, -4, -8);
+        g.quadraticCurveTo(2, -12, 9, -5);
+        g.quadraticCurveTo(13, 2, 6, 8);
+        g.quadraticCurveTo(0, 12, -8, 4);
+        g.closePath();
+        g.fillStyle = radial(g, 0, 0, 12, [[0, "#ffe7a3"], [0.55, "#f0a318"], [1, "#b86a10"]], -2, -3);
+        g.fill();
+        g.fillStyle = "#c47a12";
+        for (const [x, y] of [[-3, -2], [3, 1], [0, 4], [-5, 3]]) g.fillRect(x, y, 2, 2);
+      } else if (kind === "burger") {
+        g.fillStyle = "#e7b15a";
+        g.beginPath();
+        g.ellipse(0, -6, 11, 5, 0, Math.PI, 0);
+        g.fill();
+        g.fillStyle = "#6fbf4a";
+        g.fillRect(-10, -7, 20, 3);
+        g.fillStyle = "#f2d15a";
+        g.fillRect(-10, -4, 20, 2);
+        g.fillStyle = "#8a3d22";
+        g.fillRect(-11, -2, 22, 5);
+        g.fillStyle = "#f0c27a";
+        g.beginPath();
+        g.ellipse(0, 5, 11, 4, 0, 0, TAU);
+        g.fill();
+      } else if (kind === "pizza") {
+        g.beginPath();
+        g.moveTo(0, -13);
+        g.lineTo(11, 9);
+        g.quadraticCurveTo(0, 13, -11, 9);
+        g.closePath();
+        g.fillStyle = "#f3c56b";
+        g.fill();
+        g.beginPath();
+        g.moveTo(0, -8);
+        g.lineTo(8, 8);
+        g.quadraticCurveTo(0, 11, -8, 8);
+        g.closePath();
+        g.fillStyle = "#e24b3b";
+        g.fill();
+        g.fillStyle = "#f6d7a8";
+        for (const [x, y] of [[-2, -1], [3, 3], [-1, 5]]) {
+          g.beginPath();
+          g.arc(x, y, 2, 0, TAU);
+          g.fill();
+        }
       } else if (kind === "crate") {
         const c = ACCENT[weapon] || "#ff7a3d";
         g.fillStyle = linear(g, 0, -12, 0, 13, [[0, shade(c, 0.35)], [1, shade(c, -0.3)]]);
