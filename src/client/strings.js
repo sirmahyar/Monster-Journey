@@ -97,7 +97,7 @@ export const hudText = {
   maxPower: "تیر شتاب گرفت",
   power: (n) => `قدرت سطح ${fa(n)}`,
   life: "یک سفینه‌ی دیگر از راه رسید",
-  pickups: { power: "قدرت بیشتر", shield: "سپر", nova: "+۱ بمب", coolant: "خنک‌کننده", life: "+۱ سفینه", nugget: "سوخاری", burger: "همبرگر", pizza: "پیتزا", gem: "جواهر", haste: "شتاب", magnet: "ربایش", mystery: "جعبه‌ی شانسی", feather: "پر یخی" },
+  pickups: { power: "قدرت بیشتر", shield: "سپر", nova: "+۱ بمب", coolant: "خنک‌کننده", life: "+۱ سفینه", nugget: "سوخاری", burger: "همبرگر", pizza: "پیتزا", gem: "جواهر", haste: "شتاب", magnet: "ربایش", rocket: "موشک", mystery: "جعبه‌ی شانسی", feather: "پر یخی" },
   combo: (n) => `ضریب ×${fa(n)}`,
   bomb: "بمب تازه تو جیب",
 };

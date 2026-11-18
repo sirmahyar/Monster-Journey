@@ -488,7 +488,7 @@ export function drawEggs(ctx, eggs, time) {
   }
 }
 
-const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8", mystery: "#d48cff", feather: "#b8f0ff" };
+const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8", rocket: "#ff9a3d", mystery: "#d48cff", feather: "#b8f0ff" };
 const FOOD_KINDS = new Set(["kernel", "cob", "nugget", "burger", "pizza"]);
 const FOOD_DRAW = 1.38;
 
@@ -568,6 +568,25 @@ function pickupSprite(kind, weapon) {
         g.fillStyle = linear(g, -8, -8, 8, 10, [[0, "#f8feff"], [0.5, "#a8e8ff"], [1, "#5eb8ff"]]);
         g.fill();
         g.strokeStyle = "#ffffff";
+        g.lineWidth = 1.2;
+        g.stroke();
+      } else if (kind === "rocket") {
+        g.fillStyle = linear(g, 0, 10, 0, 16, [[0, "rgba(255,170,40,0.95)"], [1, "rgba(255,60,20,0)"]]);
+        g.beginPath();
+        g.moveTo(-2.5, 8);
+        g.lineTo(0, 15);
+        g.lineTo(2.5, 8);
+        g.fill();
+        g.fillStyle = "#f7fbff";
+        g.beginPath();
+        g.moveTo(0, -12);
+        g.lineTo(5, -2);
+        g.lineTo(5, 8);
+        g.lineTo(-5, 8);
+        g.lineTo(-5, -2);
+        g.closePath();
+        g.fill();
+        g.strokeStyle = "#ff7a2e";
         g.lineWidth = 1.2;
         g.stroke();
       } else if (kind === "pizza") {
@@ -653,7 +672,7 @@ function pickupSprite(kind, weapon) {
 
 export function drawPickups(ctx, pickups, time) {
   for (const k of pickups) {
-    const color = k.kind === "crate" ? ACCENT[k.weapon] : PICKUP_COLOR[k.kind];
+    const color = (k.kind === "crate" ? ACCENT[k.weapon] : PICKUP_COLOR[k.kind]) || "#ffd95a";
     const bob = Math.sin(k.t * 4 + k.spin) * 2;
     ctx.globalCompositeOperation = "lighter";
     const food = FOOD_KINDS.has(k.kind);
@@ -662,7 +681,7 @@ export function drawPickups(ctx, pickups, time) {
     blit(ctx, glowDot(`pk:${color}`, glowR, color), k.x, k.y + bob, 0, 1, 1, food ? 0.62 + 0.28 * Math.sin(time * 6 + k.spin) : big ? 0.55 + 0.25 * Math.sin(time * 6 + k.spin) : 0.35);
     ctx.globalCompositeOperation = "source-over";
     const spr = pickupSprite(k.kind, k.weapon);
-  const drawScale = food ? FOOD_DRAW : 1;
+    const drawScale = food ? FOOD_DRAW : 1;
     if (k.kind === "kernel") blit(ctx, spr, k.x, k.y + bob, 0, Math.cos(k.angle * 2) * drawScale, drawScale);
     else if (k.kind === "cob") blit(ctx, spr, k.x, k.y + bob, k.angle * 0.5, drawScale, drawScale);
     else blit(ctx, spr, k.x, k.y + bob, 0, (1 + Math.sin(time * 5) * 0.05) * drawScale, drawScale);

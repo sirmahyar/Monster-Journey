@@ -107,12 +107,13 @@ export function ellipse(g, x, y, rx, ry, rot = 0) {
 }
 
 export function glowDot(key, radius, color, core = "#ffffff") {
-  return cached(`glow:${key}:${radius}`, () =>
+  const tint = typeof color === "string" && color.length === 7 ? color : "#ffffff";
+  return cached(`glow:${key}:${radius}:${tint}`, () =>
     sprite(radius * 2, radius * 2, (g) => {
       g.fillStyle = radial(g, 0, 0, radius, [
         [0, core],
-        [0.25, color],
-        [1, rgba(color.length === 7 ? color : "#ffffff", 0)],
+        [0.25, tint],
+        [1, rgba(tint, 0)],
       ]);
       g.fillRect(-radius, -radius, radius * 2, radius * 2);
     }),
