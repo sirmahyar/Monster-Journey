@@ -1,6 +1,8 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { connectionFromEdge } from "../src/server/scores/edge-db.js";
 import { passwordFromEdgeValue } from "../src/server/scores/mysql-wire.js";
+import { createBucketScoreStore } from "../src/server/scores/object-store.js";
 import { createMemoryScores } from "../src/server/scores/store.js";
 import { handleSiteRequest } from "../src/server/http/site.js";
 
@@ -74,5 +76,49 @@ describe("edge site", () => {
     expect(payload.scores[0].name).toBe("مهیار");
     const offline = await handleSiteRequest(new Request("https://monster.example/api/scores"), { assets });
     expect(offline.status).toBe(503);
+  });
+});
+
+describe("bucket scoreboard", () => {
+  const env = {
+    ARVANSTORAGE_BUCKET_NAME: '"game-assets22"',
+    ARVANSTORAGE_ACCESS_KEY: '"access-key"',
+    ARVANSTORAGE_SECRET_KEY: '"secret-key"',
+  };
+
+  it("merges a score into scoreboard.json and signs the upload", async () => {
+    let file = "";
+    /** @type {{ url: string, method: string, headers: Record<string, string>, bodyText: string }[]} */
+    const calls = [];
+    const fetchImpl = async (url, init) => {
+      const bodyText = init.body instanceof Uint8Array ? new TextDecoder().decode(init.body) : "";
+      calls.push({ url: String(url), method: init.method, headers: init.headers, bodyText });
+      if (init.method === "GET") {
+        if (!file) return new Response("<Error><Code>NoSuchKey</Code></Error>", { status: 404 });
+        return new Response(file, { status: 200 });
+      }
+      file = bodyText;
+      return new Response(null, { status: 200 });
+    };
+    const store = createBucketScoreStore(env, fetchImpl);
+    const saved = await store.insert({ name: "مهیار", score: 1200, chapter: 1, wave: 2 });
+    expect(saved.name).toBe("مهیار");
+    await store.insert({ name: "Ace", score: 50, chapter: 2, wave: 3 });
+    const top = await store.top();
+    expect(top.map((row) => row.name)).toEqual(["مهیار", "Ace"]);
+
+    const put = calls.find((call) => call.method === "PUT");
+    expect(put.url).toBe("https://game-assets22.s3.ir-thr-at1.arvanstorage.ir/scoreboard.json");
+    expect(put.headers["Content-Type"]).toBe("application/json");
+    expect(put.headers["Content-Length"]).toBe(String(new TextEncoder().encode(put.bodyText).length));
+    const stringToSign = `PUT\n\napplication/json\n${put.headers.Date}\n/game-assets22/scoreboard.json`;
+    const expected = createHmac("sha1", "secret-key").update(stringToSign).digest("base64");
+    expect(put.headers.Authorization).toBe(`AWS access-key:${expected}`);
+    expect(JSON.parse(file).scores[0].name).toBe("مهیار");
+  });
+
+  it("refuses to write when the storage keys are missing", async () => {
+    const store = createBucketScoreStore({}, async () => new Response(null, { status: 500 }));
+    await expect(store.top()).rejects.toThrow(/not configured/);
   });
 });

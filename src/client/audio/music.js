@@ -1,4 +1,4 @@
-import { audio, onAudioReady, unlockAudio } from "./engine.js";
+import { audio, onAudioReady } from "./engine.js";
 import { cdnPath, MUSIC_FILES } from "../../shared/assets.js";
 
 const FILES = Object.fromEntries(Object.entries(MUSIC_FILES).map(([id, name]) => [id, cdnPath(name)]));
@@ -9,15 +9,31 @@ const BACKGROUND = [OPENING];
 
 const buffers = new Map();
 const loading = new Map();
+let openingBytes = null;
+let openingFetch = null;
+
+/** Downloads the background track. Decoding waits for a click, so the page does not create an AudioContext on its own. */
+export function whenOpeningMusicReady() {
+  if (openingBytes) return Promise.resolve();
+  if (!openingFetch) {
+    openingFetch = fetch(FILES[OPENING]).then(async (response) => {
+      if (!response.ok) throw new Error(String(response.status));
+      openingBytes = await response.arrayBuffer();
+    });
+  }
+  return openingFetch;
+}
 
 function load(ctx, id) {
   if (buffers.has(id)) return Promise.resolve(buffers.get(id));
   if (loading.has(id)) return loading.get(id);
-  const job = fetch(FILES[id])
-    .then((response) => {
+  const bytes = id === OPENING
+    ? whenOpeningMusicReady().then(() => openingBytes.slice(0))
+    : fetch(FILES[id]).then((response) => {
       if (!response.ok) throw new Error(String(response.status));
       return response.arrayBuffer();
-    })
+    });
+  const job = bytes
     .then((data) => ctx.decodeAudioData(data))
     .then((buffer) => {
       buffers.set(id, buffer);
@@ -71,21 +87,6 @@ function arm(token) {
       player.index += 1;
       arm(token);
     };
-  });
-}
-
-/** Fetches and decodes the opening track. The menu stays behind the loading screen until this finishes. */
-export function whenOpeningMusicReady() {
-  if (buffers.has(OPENING)) return Promise.resolve(buffers.get(OPENING));
-  return fetch(FILES[OPENING]).then(async (response) => {
-    if (!response.ok) throw new Error(String(response.status));
-    const bytes = await response.arrayBuffer();
-    const ctx = unlockAudio();
-    if (!ctx) throw new Error("audio");
-    const buffer = await ctx.decodeAudioData(bytes.slice(0));
-    buffers.set(OPENING, buffer);
-    loading.delete(OPENING);
-    return buffer;
   });
 }
 

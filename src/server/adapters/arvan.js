@@ -1,4 +1,4 @@
-import { createEdgeScoreStore } from "../scores/edge-db.js";
+import { createBucketScoreStore } from "../scores/object-store.js";
 import { handleSiteRequest } from "../http/site.js";
 import { edgeConfigValue, readEdgeEnv } from "./edge-env.js";
 import { SITE_ASSETS } from "./site-assets.js";
@@ -22,7 +22,7 @@ export function handleEdgeRequest(request, envBinding) {
   return handleSiteRequest(request, {
     assets: SITE_ASSETS,
     allowedOrigin: edgeConfigValue(readEdgeEnv("FRONTEND_ORIGIN")) || "",
-    store: createEdgeScoreStore(envBinding),
+    store: createBucketScoreStore(envBinding),
   });
 }
 

@@ -1,5 +1,8 @@
 /** Public Arvan object storage bucket. Music is stored here, not inside the edge bundle. */
-export const ASSET_BUCKET = "https://game-assets22.s3.ir-central1.arvanstorage.ir";
+export const ASSET_BUCKET_NAME = "game-assets22";
+export const ASSET_STORAGE_HOST = "s3.ir-central1.arvanstorage.ir";
+export const ASSET_BUCKET = `https://${ASSET_BUCKET_NAME}.${ASSET_STORAGE_HOST}`;
+export const SCOREBOARD_KEY = "scoreboard.json";
 
 /** Object keys exactly as they appear in the bucket. */
 export const MUSIC_FILES = Object.freeze({

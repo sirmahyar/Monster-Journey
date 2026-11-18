@@ -4,7 +4,7 @@ Cluck Raid is a single-player vertical space shooter. Flocks of chickens hold th
 
 Every text in the game is Persian. The UI is right-to-left, numbers use Persian digits, and the [Vazirmatn](https://github.com/rastikerdar/vazirmatn) font (SIL Open Font License 1.1) is bundled from the `vazirmatn` npm package, so it works offline.
 
-Scores are the only thing stored on a server. A small Node API writes them to MySQL. The browser never opens the database itself.
+Scores are the only thing stored remotely. On the edge they live in `scoreboard.json` in the object-storage bucket. The browser never writes to that bucket itself.
 
 The ship, chickens, and effects are original art. The menu and the in-game background both play the boss-battle theme.
 
@@ -35,7 +35,7 @@ npm run build
 arvan ec deploy -f dist/edge/game-api.js monster
 ```
 
-The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The edge function reads the database password from `env.DB_PASSWORD.password` and opens a connection to the separate DBaaS MySQL server. Do not put that password in the bundle. Background music is streamed from the `game-assets22` bucket. The Vazirmatn font stays inside the game file.
+The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The edge function reads `ARVANSTORAGE_BUCKET_NAME`, `ARVANSTORAGE_ACCESS_KEY`, and `ARVANSTORAGE_SECRET_KEY` from the edge environment and updates `scoreboard.json` in that bucket. Do not put those keys in the bundle. Background music is streamed from the `game-assets22` bucket. The Vazirmatn font stays inside the game file.
 
 ## Sound
 
@@ -61,15 +61,13 @@ Four chapters each have eight waves, and the last wave of each chapter is a boss
 
 The game asks for a pilot name before the first wave and posts the current score at the end of every wave, and again when the run ends. `POST /api/scores` accepts `{ "name", "score", "chapter", "wave" }`. The name is 1 to 16 Persian or English letters, digits, spaces, or zero-width non-joiners. The score is an integer from 0 to 9999999. Chapter is 1 to 4. Wave is 1 to 8.
 
-The `scores` table uses `utf8mb4`. A table created by an older version is converted on startup so Persian names can be stored.
+On the edge, each accepted score is merged into `scoreboard.json` and that file is uploaded again. The bucket name and keys stay in the edge environment, not in the client bundle. The optional local Node server still writes to MySQL when `npm run dev` is used.
 
 The board does not prove a score was earned in the game. The battle is resolved in the browser, so a client can submit a number directly. The API only rejects malformed names and values outside those ranges. Do not treat the board as a prize ranking.
 
-Queries use parameters. The password stays in the environment, not in the client bundle.
+## Local database
 
-## Database
-
-The API reads:
+`npm run dev` reads:
 
 - `MYSQL_HOST`
 - `MYSQL_PORT`
@@ -77,4 +75,4 @@ The API reads:
 - `MYSQL_PASSWORD`
 - `MYSQL_DATABASE`
 
-Because the password was pasted into a chat while setting this up, rotate it in the database panel when you can.
+The deployed edge app does not use this database. Because a database password was pasted into a chat while setting this up, rotate it in the database panel when you can.
