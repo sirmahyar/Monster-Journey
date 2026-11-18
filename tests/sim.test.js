@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHAPTER_COUNT, H, HEAT, PLAYER, STEP, W, WAVES_PER_CHAPTER } from "../src/game/config.js";
 import { bossCircles, hitBoss, makeBoss } from "../src/game/bosses.js";
+import { makeEnemy } from "../src/game/enemies.js";
 import { makePickup, rollDrops } from "../src/game/loot.js";
 import { createGame, drainEvents, gameSummary, stepGame } from "../src/game/sim.js";
 import { CHAPTERS, waveInfo } from "../src/game/waves.js";
@@ -221,6 +222,13 @@ describe("simulation", () => {
     expect(late.player.rockets).toBe(true);
     const events = run(late, 1, { fire: true }, godMode);
     expect(events.some((e) => e.type === "rocket")).toBe(true);
+    const foe = makeEnemy(late.nextId, "hen", 4, { x: 360, y: 400, slotX: 360, slotY: 400, mode: "home", hidden: false });
+    late.nextId += 1;
+    late.enemies.push(foe);
+    late.shots.push({ kind: "rocket", x: 360, y: 400, vx: 0, vy: 0, dmg: 2.6, r: 12, pierce: 0, homing: 0, life: 2, level: 1 });
+    const impact = run(late, STEP);
+    expect(impact.some((e) => e.type === "rocket_hit")).toBe(true);
+    expect(foe.dead).toBe(true);
   });
 
   it("is deterministic for the same seed", () => {

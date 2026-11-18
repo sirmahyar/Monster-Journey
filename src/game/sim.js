@@ -460,7 +460,49 @@ function homeShot(state, s, dt) {
   else if (b && b.intro <= 0 && b.dying <= 0) steer(s, b.x, b.y, s.homing, dt);
 }
 
-function collideShot(state, s) {
+function detonateRocket(state, s, ox, oy) {
+  let direct = null;
+  const splashed = [];
+  const steps = 4;
+  for (const e of state.enemies) {
+    if (e.dead || e.hidden) continue;
+    let near = false;
+    let struck = false;
+    for (let i = 1; i <= steps; i += 1) {
+      const x = ox + (s.x - ox) * (i / steps);
+      const y = oy + (s.y - oy) * (i / steps);
+      const dist = Math.hypot(e.x - x, e.y - y);
+      if (dist <= s.r + e.r + 8) struck = true;
+      else if (dist <= 50 + e.r) near = true;
+    }
+    if (struck) direct = e;
+    else if (near) splashed.push(e);
+  }
+  let bossHit = null;
+  if (state.boss) {
+    for (let i = 1; i <= steps; i += 1) {
+      const x = ox + (s.x - ox) * (i / steps);
+      const y = oy + (s.y - oy) * (i / steps);
+      const result = hitBoss(state.boss, x, y, s.r + 6, 8);
+      if (result) {
+        bossHit = result;
+        break;
+      }
+    }
+  }
+  if (!direct && splashed.length === 0 && !bossHit) return false;
+  if (direct) damageEnemy(state, direct, 999, s);
+  for (const e of splashed) if (!e.dead) damageEnemy(state, e, 18, s);
+  if (bossHit) {
+    if (bossHit !== "immune") countHit(state, s);
+    bossResult(state, bossHit, s.x, s.y);
+  } else countHit(state, s);
+  emit(state, "rocket_hit", { x: s.x, y: s.y });
+  return true;
+}
+
+function collideShot(state, s, ox = s.x, oy = s.y) {
+  if (s.kind === "rocket") return detonateRocket(state, s, ox, oy);
   for (const e of state.enemies) {
     if (e.dead || e.hidden || (s.hit && s.hit.includes(e.id))) continue;
     if (!overlap(s.x, s.y, s.r, e.x, e.y, e.r)) continue;
@@ -483,11 +525,13 @@ function updateShots(state, dt) {
   let w = 0;
   for (const s of state.shots) {
     s.life -= dt;
+    const ox = s.x;
+    const oy = s.y;
     if (s.homing) homeShot(state, s, dt);
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     if (s.life <= 0 || s.y < -40 || s.y > H + 40 || s.x < -40 || s.x > W + 40) continue;
-    if (collideShot(state, s)) continue;
+    if (collideShot(state, s, ox, oy)) continue;
     state.shots[w] = s;
     w += 1;
   }

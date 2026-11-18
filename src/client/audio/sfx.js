@@ -221,6 +221,13 @@ export function playEvent(ev, extra = {}) {
         tone(a, { freq: 240, to: 90, dur: 0.18, gain: 0.045, pan });
       }
       break;
+    case "rocket_hit":
+      if ((a = ready("rockethit", 0.08))) {
+        tone(a, { freq: 180, to: 48, dur: 0.28, gain: 0.16, pan });
+        noise(a, { dur: 0.32, gain: 0.14, filter: "lowpass", freq: 1800, to: 180, pan, attack: 0.002 });
+        crackle(a, { count: 6, spread: 0.08, gain: 0.06, freq: 3200, pan });
+      }
+      break;
     case "hit":
       if (!(a = ready("hit", 0.035))) break;
       if (BIRDS.has(ev.kind)) {

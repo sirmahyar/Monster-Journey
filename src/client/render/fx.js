@@ -173,6 +173,12 @@ export function fxEvent(fx, ev) {
       shake(fx, ev.kind === "rock" ? 0.06 * ev.size : 0.04);
       break;
     }
+    case "rocket_hit":
+      explode(fx, ev.x, ev.y, 0.85, "#ff9a3d");
+      ring(fx, ev.x, ev.y, 70, "#ffe08a", 0.4, 3);
+      smoke(fx, ev.x, ev.y, 5, "#6f5f86", 16);
+      shake(fx, 0.22);
+      break;
     case "hit":
       burst(fx, ev.x, ev.y, { count: 3, color: "#fff1c2", speed: 180, life: 0.22, size: 2 });
       break;
