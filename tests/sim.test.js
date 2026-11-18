@@ -299,6 +299,31 @@ describe("simulation", () => {
     expect(events.some((e) => e.type === "poop_burst")).toBe(true);
   });
 
+  it("shows poop burst copy and burns one life in toxic gas", () => {
+    const state = createGame({ random: seeded(904), chapter: 4 });
+    state.stage = "active";
+    state.enemies = [];
+    state.eggs = [];
+    state.shots = [];
+    state.player.x = W / 2;
+    state.player.y = H - 140;
+    state.player.alive = true;
+    state.player.invuln = 0;
+    state.gases.push({ x: W / 2, y: H - 138, r0: 80, r1: 110, life: 4, age: 1.2, seared: false });
+    const livesBefore = state.player.lives;
+    stepGame(state, { fire: false });
+    const events = drainEvents(state);
+    expect(state.player.lives).toBe(livesBefore - 1);
+    expect(events.some((e) => e.type === "gas_burn")).toBe(true);
+    run(state, 2, { fire: false });
+    expect(state.player.lives).toBe(livesBefore - 1);
+  });
+
+  it("emits poop burst hud text key for renderer", async () => {
+    const { hudText } = await import("../src/client/strings.js");
+    expect(hudText.poopBurst).toBe("بو باقالی میده");
+  });
+
   it("blocks shots on iron chicken nets like a shield", () => {
     const state = createGame({ random: seeded(903), chapter: 5 });
     state.stage = "active";

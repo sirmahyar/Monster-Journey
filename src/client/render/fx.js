@@ -307,11 +307,16 @@ export function fxEvent(fx, ev) {
       smoke(fx, ev.x, ev.y, 16, "#a4e85a", 20);
       smoke(fx, ev.x, ev.y, 10, "#6fa83a", 14);
       puff(fx, ev.x, ev.y, "#c8ff7a", 24);
-      popup(fx, ev.x, ev.y - 18, T.poopGas, { color: "#b8ff6a", size: 17, life: 1.15 });
+      popup(fx, ev.x, ev.y - 18, T.poopBurst, { color: "#c4a35a", size: 17, life: 1.15 });
       shake(fx, 0.1);
       break;
     case "poop_gas":
       glow(fx, ev.x, ev.y, ev.r || 52, "#8bff4a", 0.45);
+      break;
+    case "gas_burn":
+      smoke(fx, ev.cx ?? ev.x, ev.cy ?? ev.y, 8, "#9adf5a", 16);
+      popup(fx, ev.x, ev.y - 24, T.gasBurn, { color: "#ff8a5a", size: 16, life: 1 });
+      shake(fx, 0.2);
       break;
     default:
       break;
