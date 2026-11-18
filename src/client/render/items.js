@@ -361,6 +361,41 @@ function eggSprite(kind, r) {
         g.fill();
       });
     }
+    if (kind === "net") {
+      return sprite(r * 4.2, r * 4.2, (g) => {
+        const R = r * 1.35;
+        g.fillStyle = radial(g, 0, 0, R, [[0, "rgba(255,210,120,0.25)"], [1, "rgba(255,160,60,0)"]]);
+        g.fillRect(-R, -R, R * 2, R * 2);
+        g.strokeStyle = "rgba(255, 220, 140, 0.95)";
+        g.lineWidth = Math.max(1.8, r * 0.08);
+        g.lineCap = "round";
+        for (let i = -3; i <= 3; i += 1) {
+          g.beginPath();
+          g.moveTo(-R, i * (R / 3.5));
+          g.lineTo(R, i * (R / 3.5));
+          g.stroke();
+          g.beginPath();
+          g.moveTo(i * (R / 3.5), -R);
+          g.lineTo(i * (R / 3.5), R);
+          g.stroke();
+        }
+        g.strokeStyle = "rgba(255, 255, 255, 0.85)";
+        g.lineWidth = Math.max(2.4, r * 0.1);
+        g.setLineDash([5, 4]);
+        g.beginPath();
+        g.arc(0, 0, R, 0, TAU);
+        g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = "rgba(255, 240, 200, 0.5)";
+        g.beginPath();
+        g.moveTo(-R * 0.55, -R * 0.1);
+        g.quadraticCurveTo(0, R * 0.55, R * 0.55, -R * 0.1);
+        g.lineTo(R * 0.35, -R * 0.65);
+        g.quadraticCurveTo(0, -R * 0.2, -R * 0.35, -R * 0.65);
+        g.closePath();
+        g.fill();
+      });
+    }
     if (kind === "goldenegg") {
       return sprite(r * 3.6, r * 3.8, (g) => {
         eggShape(g, r);
@@ -439,6 +474,7 @@ export function drawEggs(ctx, eggs, time) {
         blit(ctx, glowDot("warn", e.r * 2, "#ff3b1f"), e.x, e.y, 0, 1, 1, 0.3 + 0.3 * Math.sin(time * 14));
       }
     } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce" || e.kind === "goldenegg") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 7 + e.x) * 0.35);
+    else if (e.kind === "net") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 4 + e.x) * 0.35, 1 + Math.sin(e.t * 6) * 0.06);
     else blit(ctx, spr, e.x, e.y, e.kind === "spark" ? time * 8 : 0);
     if (e.kind === "mine" && e.t >= (e.arm || 0.85)) {
       ctx.globalCompositeOperation = "lighter";
@@ -697,23 +733,15 @@ export function drawHazard(ctx, e, time) {
     ctx.restore();
     return;
   }
+  const spr = eggSprite("net", e.r * 0.55);
+  const spin = Math.sin(time * 2.6 + e.id) * 0.25;
+  blit(ctx, spr, e.x, e.y, spin, 1.1 + Math.sin(time * 5) * 0.05);
   ctx.save();
-  ctx.translate(e.x, e.y);
-  ctx.rotate(Math.sin(time * 3 + e.id) * 0.2);
-  ctx.strokeStyle = "rgba(255,210,120,0.9)";
-  ctx.lineWidth = 2.2;
-  for (let i = 0; i < 4; i += 1) {
-    const a = (i / 4) * TAU + time * 0.8;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a) * e.r * 0.35, Math.sin(a) * e.r * 0.35);
-    ctx.lineTo(Math.cos(a) * e.r * 1.2, Math.sin(a) * e.r * 1.2);
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(255,255,255,0.75)";
-  ctx.setLineDash([4, 5]);
-  ctx.beginPath();
-  ctx.arc(0, 0, e.r * 1.05, 0, TAU);
-  ctx.stroke();
+  ctx.translate(e.x, e.y - e.r * 0.35);
+  ctx.fillStyle = "rgba(255, 245, 210, 0.92)";
+  ctx.font = `bold ${Math.round(11 + e.r * 0.08)}px Vazirmatn, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("تور", 0, 0);
   ctx.restore();
 }
 

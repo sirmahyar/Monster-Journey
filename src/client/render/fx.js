@@ -189,7 +189,9 @@ export function fxEvent(fx, ev) {
       burst(fx, ev.x, ev.y, { count: 2, color: "#8fa3b8", speed: 160, life: 0.2, size: 1.5 });
       break;
     case "shield_hit":
-      ring(fx, ev.ex, ev.ey, 40, "#6fe3ff", 0.25, 2);
+    case "boss_shield_hit":
+      ring(fx, ev.x ?? ev.ex, ev.y ?? ev.ey, ev.type === "boss_shield_hit" ? 58 : 40, "#6fe3ff", 0.3, ev.type === "boss_shield_hit" ? 3 : 2);
+      burst(fx, ev.x ?? ev.ex, ev.y ?? ev.ey, { count: ev.type === "boss_shield_hit" ? 10 : 4, color: "#b8f4ff", speed: 200, life: 0.28, size: 2 });
       break;
     case "shield_break":
       ring(fx, ev.ex, ev.ey, 56, "#9ff0ff", 0.4, 3);

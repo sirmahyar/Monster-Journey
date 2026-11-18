@@ -101,6 +101,8 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1, resume
     victory: false,
     events: [],
     checkpoint: null,
+    novaCap: 3,
+    novaDropped: 0,
   };
   if (resume && resume.chapter === chapter) {
     state.score = resume.score || 0;
@@ -114,8 +116,24 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1, resume
     p.weapons = resume.weapons || p.weapons;
     p.rockets = Boolean(resume.rockets);
   }
+  resetNovaBudget(state);
   startWave(state);
   return state;
+}
+
+function resetNovaBudget(state) {
+  if (state.wave !== 1) return;
+  state.novaCap = state.rng() < 0.45 ? 2 : 3;
+  state.novaDropped = 0;
+}
+
+function novaBudget(state) {
+  return {
+    canSpawn: () => state.novaDropped < state.novaCap,
+    note: () => {
+      state.novaDropped += 1;
+    },
+  };
 }
 
 function addEnemy(state, kind, fields) {
@@ -156,6 +174,7 @@ function spawnGolden(state) {
 }
 
 function startWave(state) {
+  resetNovaBudget(state);
   const info = waveInfo(state.chapter, state.wave);
   state.info = info;
   setStage(state, "intro");
@@ -187,6 +206,10 @@ function startWave(state) {
         setFormation: (sway) => Object.assign(state.formation, sway),
         spawnGolden: () => spawnGolden(state),
         drop: (spec) => addEgg(state, spec),
+        canNova: () => state.novaDropped < state.novaCap,
+        noteNova: () => {
+          state.novaDropped += 1;
+        },
       },
       info,
     );
@@ -478,13 +501,14 @@ function killEnemy(state, e) {
     }
     emit(state, "rock_split", { x: e.x, y: e.y, size: e.size });
   }
-  for (const drop of rollDrops(e, state.rng, state.player)) state.pickups.push(makePickup(drop.kind, e.x, e.y, state.rng, drop));
+  for (const drop of rollDrops(e, state.rng, state.player, novaBudget(state))) state.pickups.push(makePickup(drop.kind, e.x, e.y, state.rng, drop));
 }
 
 function bossResult(state, result, x, y) {
   const b = state.boss;
   if (!result || !b) return;
   if (result === "immune") emit(state, "boss_immune", { x, y });
+  else if (result === "shield_block") emit(state, "boss_shield_hit", { x, y });
   else if (result === "part_down") {
     state.score += 3000;
     emit(state, "part_down", { x, y, points: 3000 });
@@ -696,7 +720,12 @@ function updateBossState(state, dt) {
   state.boss = null;
   state.stats.bosses += 1;
   emit(state, "boss_dead", { x: b.x, y: b.y, kind: b.kind });
-  for (const drop of bossLoot(state.rng, state.player)) state.pickups.push(makePickup(drop.kind, b.x, b.y, state.rng, drop));
+  const budget = novaBudget(state);
+  for (const drop of bossLoot(state.rng, state.player)) {
+    if (drop.kind === "nova" && !budget.canSpawn()) continue;
+    if (drop.kind === "nova") budget.note();
+    state.pickups.push(makePickup(drop.kind, b.x, b.y, state.rng, drop));
+  }
   clearWave(state);
 }
 
@@ -742,6 +771,10 @@ function updateEggs(state, dt) {
     if (g.weave) g.vx += Math.cos(g.t * 8) * 140 * dt;
     if (g.bend) bendShot(g, p, dt);
     if (g.kind === "poop") g.vx += Math.sin(g.t * 5) * 50 * dt;
+    if (g.kind === "net") {
+      g.vy = Math.min(140, g.vy + 45 * dt);
+      g.vx += Math.sin(g.t * 4) * 35 * dt;
+    }
     if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce" || g.kind === "goldenegg" || g.kind === "poop") {
       g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * (g.gravity || 1) * dt);
     } else if (g.kind === "yolk") {

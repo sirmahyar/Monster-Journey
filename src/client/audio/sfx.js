@@ -370,6 +370,7 @@ export function playEvent(ev, extra = {}) {
       break;
     case "shield_hit":
     case "shield_block":
+    case "boss_shield_hit":
       if ((a = ready("shieldhit", 0.06))) {
         tone(a, { freq: 900, to: 700, dur: 0.08, gain: 0.04, pan });
         bell(a, 1400, { gain: 0.02, dur: 0.3, pan });

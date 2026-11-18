@@ -103,6 +103,9 @@ export function makeBoss(kind) {
     mark: null,
     shield: Math.round(spec.hp * 0.14),
     maxShield: Math.round(spec.hp * 0.14),
+    shieldActive: 0,
+    shieldRipple: 0,
+    shieldReady: 1.2,
     parts: (spec.parts || []).map(([dx, dy, r, hp], id) => ({ id, dx, dy, r, hp, maxHp: hp, alive: true, x: 0, y: 0, flash: 0 })),
   };
   syncParts(boss);
@@ -464,6 +467,15 @@ export function updateBoss(b, dt, api) {
     api.event("boss_phase", { phase, x: b.x, y: b.y });
   }
   b.armored = b.parts.some((p) => p.alive) || b.shield > 0;
+  b.shieldRipple = Math.max(0, (b.shieldRipple || 0) - dt);
+  if (b.shieldActive > 0) b.shieldActive = Math.max(0, b.shieldActive - dt);
+  else {
+    b.shieldReady = (b.shieldReady ?? 1.2) - dt;
+    if (b.shieldReady <= 0) {
+      if (rand(api.rng, 0, 1) < 0.58) b.shieldActive = rand(api.rng, 0.45, 1.05);
+      b.shieldReady = rand(api.rng, 1.4, 3.1);
+    }
+  }
   b.idle += dt;
   if (b.idle > 3.2 && b.hp < b.maxHp) b.hp = Math.min(b.maxHp, b.hp + b.maxHp * 0.05 * dt);
   if (b.idle > 3.2 && b.shield < b.maxShield) b.shield = Math.min(b.maxShield, b.shield + b.maxShield * 0.08 * dt);
@@ -514,6 +526,12 @@ export function hitBoss(b, x, y, r, dmg) {
 function damageCore(b, dmg) {
   b.idle = 0;
   const armored = b.parts.some((p) => p.alive);
+  if (!armored && b.shieldActive > 0) {
+    b.shield = Math.max(0, b.shield - Math.min(b.shield, dmg * 0.35));
+    b.shieldRipple = 0.35;
+    b.flash = 0.1;
+    return "shield_block";
+  }
   const hit = armored ? dmg * 0.2 : dmg;
   b.hp -= hit;
   b.flash = 0.06;

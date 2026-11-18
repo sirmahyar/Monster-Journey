@@ -580,11 +580,21 @@ export function drawBoss(ctx, b, time, player) {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     const k = b.shield / b.maxShield;
-    ctx.strokeStyle = rgba("#9ff0ff", 0.35 + 0.4 * k);
-    ctx.lineWidth = 4;
+    const active = b.shieldActive > 0;
+    const ripple = (b.shieldRipple || 0) / 0.35;
+    const swell = active ? 1.06 + 0.04 * Math.sin(time * 22) : 1;
+    ctx.strokeStyle = rgba(active ? "#d8fbff" : "#9ff0ff", (active ? 0.55 : 0.35) + 0.4 * k);
+    ctx.lineWidth = active ? 5 : 4;
     ctx.beginPath();
-    ctx.ellipse(x, y, 130, 100, time * 0.8, 0, TAU);
+    ctx.ellipse(x, y, (130 + ripple * 18) * swell, (100 + ripple * 14) * swell, time * 0.8, 0, TAU);
     ctx.stroke();
+    if (ripple > 0) {
+      ctx.strokeStyle = rgba("#ffffff", 0.35 * ripple);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 130 + ripple * 38, 100 + ripple * 30, time * 0.8, 0, TAU);
+      ctx.stroke();
+    }
     ctx.restore();
   }
   if (b.armored) {
