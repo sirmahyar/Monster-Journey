@@ -39,7 +39,7 @@ The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The ed
 
 ## Sound
 
-Background music plays from `src/client/audio/tracks`. Chicken voices are real recordings cut into `src/client/audio/chickens.mp3`. Shots, explosions, eggshell cracks, and chimes are synthesized with Web Audio.
+Background music is loaded from the `game-assets22` object bucket through `/cdn/`, so those files are not inside `dist/edge/game-api.js`. Chicken voices are real recordings cut into `src/client/audio/chickens.mp3`. Shots, explosions, eggshell cracks, and chimes are synthesized with Web Audio.
 
 | Recording | Author | License |
 | --- | --- | --- |

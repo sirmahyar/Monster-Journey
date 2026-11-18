@@ -33,6 +33,27 @@ describe("edge site", () => {
     expect(await script.text()).toContain("console.log");
   });
 
+  it("streams a bucket object and rejects a path escape", async () => {
+    const original = globalThis.fetch;
+    const seen = [];
+    globalThis.fetch = async (url) => {
+      seen.push(String(url));
+      return new Response("audio", { status: 200, headers: { "content-type": "audio/mpeg", "content-length": "5" } });
+    };
+    try {
+      const ok = await handleSiteRequest(new Request("https://game.example/cdn/05.%20C%20I3%20Ingame3.mp3"), { assets });
+      expect(ok.status).toBe(200);
+      expect(ok.headers.get("content-type")).toContain("audio/mpeg");
+      expect(await ok.text()).toBe("audio");
+      expect(seen[0]).toBe("https://game-assets22.s3.ir-central1.arvanstorage.ir/05.%20C%20I3%20Ingame3.mp3");
+      const bad = await handleSiteRequest(new Request("https://game.example/cdn/..%2Fsecret"), { assets });
+      expect(bad.status).toBe(404);
+      expect(seen).toHaveLength(1);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
   it("returns the page for a route and 404 for a missing file", async () => {
     const route = await handleSiteRequest(new Request("https://monster.example/play"), { assets });
     expect(await route.text()).toContain("یورش مرغی");

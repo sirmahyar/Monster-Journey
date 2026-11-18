@@ -1,23 +1,7 @@
-import bossUrl from "./tracks/boss.mp3?url";
-import ingame1Url from "./tracks/ingame1.mp3?url";
-import ingame2Url from "./tracks/ingame2.mp3?url";
-import ingame3Url from "./tracks/ingame3.mp3?url";
-import themeUrl from "./tracks/theme.mp3?url";
-import xmas1Url from "./tracks/xmas1.mp3?url";
-import xmas2Url from "./tracks/xmas2.mp3?url";
-import xmas3Url from "./tracks/xmas3.mp3?url";
+import { cdnPath, MUSIC_FILES } from "../../shared/assets.js";
 import { audio, onAudioReady } from "./engine.js";
 
-const FILES = {
-  boss: bossUrl,
-  ingame1: ingame1Url,
-  ingame2: ingame2Url,
-  ingame3: ingame3Url,
-  theme: themeUrl,
-  xmas1: xmas1Url,
-  xmas2: xmas2Url,
-  xmas3: xmas3Url,
-};
+const FILES = Object.fromEntries(Object.entries(MUSIC_FILES).map(([id, name]) => [id, cdnPath(name)]));
 
 /** One looping list per screen. Every supplied track is used. */
 const PLAYLIST = {
