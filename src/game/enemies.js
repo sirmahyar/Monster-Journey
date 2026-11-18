@@ -199,7 +199,7 @@ export function moveEnemy(e, dt, world) {
       if ((e.dir > 0 && e.x > W + 90) || (e.dir < 0 && e.x < -90)) e.gone = true;
       break;
     case "drift":
-      e.x += e.dx * dt;
+      e.x += e.dx * dt + (e.variant % 3 === 2 ? Math.cos(e.t * 1.6) * 70 * dt : 0);
       e.y += e.dy * dt;
       e.angle += e.spin * dt;
       if (e.t > 1 && (e.y > H + 80 || e.x < -110 || e.x > W + 110)) e.gone = true;
@@ -239,8 +239,17 @@ export function fireFrom(e, target, rng, chapter) {
   const x = e.x;
   const y = e.y + e.r * 0.55;
   switch (ENEMY_TYPES[e.kind].egg) {
-    case "egg":
-      return [{ kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90), r: e.kind === "chick" ? 10 : 13 }];
+    case "egg": {
+      const egg = { kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90), r: e.kind === "chick" ? 10 : 13 };
+      if (e.kind === "chick" && e.variant % 4 === 1) return [{ ...egg, weave: true, r: 9, vy: egg.vy + 35 }];
+      if (e.kind !== "chick" && e.variant % 4 === 3) {
+        return [
+          { ...egg, x: x - 12, vx: egg.vx - 45 },
+          { ...egg, x: x + 12, vx: egg.vx + 45 },
+        ];
+      }
+      return [egg];
+    }
     case "yolk":
       if (chapter >= 3 && rng() < 0.5) {
         return [{ kind: "bigyolk", x, y, vx: rand(rng, -20, 20), vy: 95, r: 17, splitY: rand(rng, 420, 640) }];

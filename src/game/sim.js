@@ -72,6 +72,7 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {})
       overheated: false,
       fireCd: 0,
       firing: false,
+      volley: 0,
     },
     shots: [],
     eggs: [],
@@ -146,6 +147,7 @@ function startWave(state) {
     template: info.template,
     bossKind: info.bossKind,
   });
+  if (info.wave === 1 && !info.boss) emit(state, "chapter_brief", { chapter: info.chapter });
   if (info.boss) {
     state.boss = makeBoss(info.bossKind);
     emit(state, "boss_intro", { name: state.boss.name, kind: info.bossKind });
@@ -267,7 +269,8 @@ function updatePlayer(state, input, dt) {
   p.rocketCd = Math.max(0, p.rocketCd - dt);
   p.firing = Boolean(input.fire) && !p.overheated && state.stage !== "warp" && state.stage !== "victory";
   if (p.firing && p.fireCd <= 0) {
-    const shots = volley(p.weapon, p.level, p.x, p.y);
+    p.volley += 1;
+    const shots = volley(p.weapon, p.level, p.x, p.y, p.volley);
     for (const s of shots) state.shots.push(s);
     state.stats.fired += shots.length;
     p.fireCd = weapon.rate;
@@ -281,7 +284,7 @@ function updatePlayer(state, input, dt) {
         kind: "rocket",
         x: p.x + side * 18,
         y: p.y - 8,
-        vx: side * 70,
+        vx: side * (p.volley % 2 === 0 ? 150 : 55),
         vy: -540,
         dmg: 2.6,
         r: 7,
@@ -593,6 +596,7 @@ function updateEggs(state, dt) {
   let w = 0;
   for (const g of state.eggs) {
     g.t += dt;
+    if (g.weave) g.vx += Math.cos(g.t * 8) * 140 * dt;
     if (g.kind === "egg") g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * g.gravity * dt);
     else if (g.kind === "yolk") {
       g.vy = Math.min(260, g.vy + 60 * dt);

@@ -237,6 +237,8 @@ function rocks(api, chapter) {
   for (let i = 0; i < count; i += 1) {
     api.later((i / count) * span + rand(api.rng, 0, 0.6), () => {
       const slant = chapter >= 2 ? 120 : 50;
+      const variant = randInt(api.rng, 0, 3);
+      const tumble = variant === 3;
       api.spawn("rock", {
         size: weighted(api.rng, [
           [3, 0.35],
@@ -246,11 +248,11 @@ function rocks(api, chapter) {
         mode: "drift",
         x: rand(api.rng, 40, W - 40),
         y: -50,
-        dx: rand(api.rng, -slant, slant),
-        dy: rand(api.rng, 110, 190) + chapter * 15,
-        spin: rand(api.rng, -2, 2),
+        dx: rand(api.rng, tumble ? -slant * 1.6 : -slant, tumble ? slant * 1.6 : slant),
+        dy: rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15,
+        spin: rand(api.rng, tumble ? -4.5 : -2, tumble ? 4.5 : 2),
         angle: rand(api.rng, 0, TAU),
-        variant: randInt(api.rng, 0, 3),
+        variant,
       });
     });
   }

@@ -188,6 +188,11 @@ describe("simulation", () => {
     expect(p.bombs).toBe(PLAYER.bombs);
   });
 
+  it("announces a chapter before its first wave", () => {
+    const state = createGame({ random: seeded(1) });
+    expect(drainEvents(state).some((event) => event.type === "chapter_brief" && event.chapter === 1)).toBe(true);
+  });
+
   it("lets some chickens drop a meal worth several coins", () => {
     let n = 0;
     const values = [0.1, 0.1, 0.9];

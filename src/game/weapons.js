@@ -65,8 +65,9 @@ function shot(kind, x, y, angleDeg, speed, dmg, r, extra) {
  * @param {"pulse"|"laser"|"ion"} type
  * @param {number} level 1..MAX_LEVEL
  */
-export function volley(type, level, x, y) {
+export function volley(type, level, x, y, phase = 0) {
   const lv = clamp(Math.round(level), 1, MAX_LEVEL);
+  const step = ((phase % 3) + 3) % 3;
   const out = [];
   if (type === "laser") {
     const dmg = 0.62 + 0.12 * lv;
@@ -82,25 +83,37 @@ export function volley(type, level, x, y) {
         out.push(shot("lance", x + side * 28, y - 6, side * 4, 1300, dmg * 0.7, 2.5 + lv * 0.4, { pierce, life: 0.9, level: lv }));
       }
     }
+    if (step === 1 && lv >= 2) {
+      for (const side of [-1, 1]) {
+        out.push(shot("lance", x + side * 8, y - 16, side * 8, 1520, dmg * 0.4, 2, { pierce: 1, life: 0.5, level: lv }));
+      }
+    }
     return out;
   }
   if (type === "ion") {
     const count = ION_COUNT[lv - 1];
     for (let i = 0; i < count; i += 1) {
       const t = count === 1 ? 0 : i / (count - 1) - 0.5;
-      out.push(
-        shot("ion", x + t * 34, y - 16, t * 34, 560, 1.7 + 0.15 * lv, 7 + lv * 0.5, {
-          homing: 3.2 + 0.4 * lv,
-          life: 2.4,
-          level: lv,
-        }),
-      );
+      const orb = shot("ion", x + t * 34, y - 16, t * 34, 560, 1.7 + 0.15 * lv, 7 + lv * 0.5, {
+        homing: 3.2 + 0.4 * lv,
+        life: 2.4,
+        level: lv,
+      });
+      if (step === 1) orb.vx += t * 220;
+      out.push(orb);
+    }
+    if (step === 2 && lv >= 3) {
+      out.push(shot("ion", x, y - 6, 0, 420, 1.1, 5.5, { homing: 6, life: 2.6, level: lv }));
     }
     return out;
   }
   const big = lv >= 4 ? 1 : 0;
+  const sweep = step === 2 ? 5 : 0;
   for (const angle of PULSE_FAN[lv - 1]) {
-    out.push(shot("pulse", x + angle * 1.6, y - 20, angle, 980, 1 + big * 0.15, 5 + big, { life: 1.2, level: lv }));
+    out.push(shot("pulse", x + angle * 1.6, y - 20, angle + sweep, 980, 1 + big * 0.15, 5 + big, { life: 1.2, level: lv }));
+  }
+  if (step === 1 && lv >= 2) {
+    out.push(shot("pulse", x, y - 24, 0, 720, 1.4, 8, { life: 1.4, level: lv }));
   }
   return out;
 }

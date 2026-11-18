@@ -5,7 +5,7 @@ import { audioSettings, setAudioSetting, unlockAudio } from "./audio/engine.js";
 import { whenOpeningMusicReady } from "./audio/music.js";
 import { playUi } from "./audio/sfx.js";
 import { GameCanvas } from "./components/GameCanvas.jsx";
-import { Board, GameOver, Help, Menu, NameGate, Pause } from "./components/Screens.jsx";
+import { Board, ChapterBrief, GameOver, Help, Menu, NameGate, Pause } from "./components/Screens.jsx";
 import { strings } from "./strings.js";
 
 const BEST_KEY = "cluck-raid-best";
@@ -43,6 +43,7 @@ export function App() {
   const [saveError, setSaveError] = useState("");
   const [savedId, setSavedId] = useState(null);
   const [booting, setBooting] = useState(true);
+  const [brief, setBrief] = useState(null);
   const nameRef = useRef(name);
   const posted = useRef(new Set());
   const inflight = useRef(new Set());
@@ -117,6 +118,7 @@ export function App() {
     setSaveError("");
     setPaused(false);
     setRunId((id) => id + 1);
+    setBrief(null);
     setScreen("play");
   };
 
@@ -168,7 +170,7 @@ export function App() {
   };
 
   const requestPause = (force) => {
-    if (screen !== "play") return;
+    if (screen !== "play" || brief) return;
     playUi("pause");
     setPaused((now) => (force ? true : !now));
   };
@@ -185,8 +187,8 @@ export function App() {
     <main className="app">
       <div className="backdrop" aria-hidden="true" />
       <div className={`stage screen-${screen}`}>
-        <GameCanvas mode={mode} runId={runId} paused={paused} onFinish={finish} onCheckpoint={record} onPause={requestPause} />
-        {screen === "play" && !paused && (
+        <GameCanvas mode={mode} runId={runId} paused={paused || brief != null} onFinish={finish} onCheckpoint={record} onPause={requestPause} onChapter={setBrief} />
+        {screen === "play" && !paused && !brief && (
           <button type="button" className="pause-btn" onClick={() => requestPause(true)} aria-label={strings.pause}>
             <span />
             <span />
@@ -202,7 +204,17 @@ export function App() {
             onHelp={() => go("help")}
           />
         )}
-        {screen === "play" && paused && (
+        {screen === "play" && brief && (
+          <ChapterBrief
+            chapter={brief}
+            onStart={() => {
+              unlockAudio();
+              playUi();
+              setBrief(null);
+            }}
+          />
+        )}
+        {screen === "play" && paused && !brief && (
           <Pause
             prefs={prefs}
             onToggle={toggle}
