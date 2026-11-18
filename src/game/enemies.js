@@ -359,8 +359,10 @@ export function fireFrom(e, target, rng, chapter) {
     }
     case "mine":
       return [{ kind: "mine", x, y, vx: rand(rng, -18, 18), vy: 48, r: 12, arm: 0.8, life: 2.15 }];
-    case "needle":
-      return [{ kind: "needle", x, y, ...aimed(x, y, target, 520 + 18 * chapter), r: 5 }];
+    case "needle": {
+      const speed = 395 + 11 * chapter;
+      return [{ kind: "needle", x, y, ...aimed(x, y, target, speed), r: 6 }];
+    }
     case "spiral":
       return [{ kind: "spiral", x, y, vx: rand(rng, -30, 30), vy: 70, r: 11, spin: rng() < 0.5 ? 5 : -5, orbit: chapter >= 7 ? 14 : 30 }];
     case "net":
