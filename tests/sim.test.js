@@ -193,7 +193,7 @@ describe("simulation", () => {
 
   it("lets some chickens drop a meal worth several coins", () => {
     let n = 0;
-    const values = [0.1, 0.1, 0.9];
+    const values = [0.1, 0.012, 0.9];
     const rng = () => values[n++] ?? 0.9;
     const drops = rollDrops({ kind: "hen", r: 24, carrier: null }, rng, { weapon: "pulse", weapons: ["pulse"] });
     expect(drops).toEqual([{ kind: "burger" }]);

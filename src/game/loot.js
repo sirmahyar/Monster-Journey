@@ -35,9 +35,9 @@ export function makePickup(kind, x, y, rng, extra = {}) {
 /** A few chickens leave a meal worth several coins instead of one coin. */
 function foodKind(e, rng) {
   const meal = rng();
-  if (meal < 0.06) return "pizza";
-  if (meal < 0.14) return "burger";
-  if (meal < 0.26) return "nugget";
+  if (meal < 0.008) return "pizza";
+  if (meal < 0.02) return "burger";
+  if (meal < 0.035) return "nugget";
   return e.r >= 24 && rng() < 0.22 ? "cob" : "kernel";
 }
 

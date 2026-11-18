@@ -39,7 +39,7 @@ The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The ed
 
 ## Sound
 
-Background music is loaded from the `game-assets22` object bucket through `/cdn/`, so those files are not inside `dist/edge/game-api.js`. Chicken voices are real recordings cut into `src/client/audio/chickens.mp3`. Collecting food plays one of `munch-sound-effect.mp3` or `eating-sound-effect_kG4sLLH.mp3`, chosen at random. Shots, explosions, eggshell cracks, and chimes are synthesized with Web Audio.
+Background music is loaded from the `game-assets22` object bucket through `/cdn/`, so those files are not inside `dist/edge/game-api.js`. Chicken voices are real recordings cut into `src/client/audio/chickens.mp3`. Collecting a nugget, burger, or pizza plays one of `munch-sound-effect.mp3` or `eating-sound-effect_kG4sLLH.mp3`, chosen at random. Coins do not use those clips. Shots, explosions, eggshell cracks, and chimes are synthesized with Web Audio.
 
 | Recording | Author | License |
 | --- | --- | --- |
