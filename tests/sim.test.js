@@ -299,6 +299,23 @@ describe("simulation", () => {
     expect(events.some((e) => e.type === "poop_burst")).toBe(true);
   });
 
+  it("blocks shots on iron chicken nets like a shield", () => {
+    const state = createGame({ random: seeded(903), chapter: 5 });
+    state.stage = "active";
+    const net = makeEnemy(77, "net", 5, { x: W / 2, y: 200, mode: "drift", hp: 9, maxHp: 9 });
+    state.enemies.push(net);
+    state.eggs.push({ kind: "net", x: W / 2 + 80, y: 260, vx: 0, vy: 50, r: 30, t: 0, gravity: 1 });
+    state.shots.push({ x: W / 2, y: 198, vx: 0, vy: -80, r: 8, dmg: 50, life: 1.5, kind: "pulse", pierce: 0, level: 1 });
+    state.shots.push({ x: W / 2 + 80, y: 258, vx: 0, vy: -80, r: 8, dmg: 50, life: 1.5, kind: "pulse", pierce: 0, level: 1 });
+    godMode(state);
+    stepGame(state, { fire: false });
+    const events = drainEvents(state);
+    expect(net.hp).toBe(9);
+    expect(state.eggs.length).toBe(1);
+    expect(events.filter((e) => e.type === "shield_hit").length).toBeGreaterThanOrEqual(2);
+    expect(events.some((e) => e.type === "kill" && e.kind === "net")).toBe(false);
+  });
+
   it("spreads toxic gas when a drifting poop hazard is destroyed", () => {
     const state = createGame({ random: seeded(902), chapter: 3 });
     state.stage = "active";

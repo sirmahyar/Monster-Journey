@@ -68,6 +68,17 @@ function updateGases(state, dt) {
   state.gases.length = w;
 }
 
+function shotHitsIronNet(state, s) {
+  if (s.kind === "rocket") return false;
+  for (const g of state.eggs) {
+    if (g.kind !== "net") continue;
+    if (!overlap(s.x, s.y, s.r, g.x, g.y, g.r * 0.85)) continue;
+    emit(state, "shield_hit", { x: s.x, y: s.y, ex: g.x, ey: g.y });
+    return true;
+  }
+  return false;
+}
+
 function shotHitsPoopEgg(state, s) {
   if (s.kind === "rocket") return false;
   for (let i = state.eggs.length - 1; i >= 0; i -= 1) {
@@ -485,6 +496,13 @@ function bombHit(state, e, dmg) {
 
 function damageEnemy(state, e, dmg, shot) {
   if (e.dead) return;
+  if (e.kind === "net") {
+    const x = shot ? shot.x : e.x;
+    const y = shot ? shot.y : e.y;
+    emit(state, "shield_hit", { x, y, ex: e.x, ey: e.y });
+    e.flash = 0.07;
+    return;
+  }
   const x = shot ? shot.x : e.x;
   const y = shot ? shot.y : e.y;
   let rest = dmg;
@@ -592,7 +610,7 @@ function detonateRocket(state, s, ox, oy) {
   const splashed = [];
   const steps = 4;
   for (const e of state.enemies) {
-    if (e.dead || e.hidden) continue;
+    if (e.dead || e.hidden || e.kind === "net") continue;
     let near = false;
     let struck = false;
     for (let i = 1; i <= steps; i += 1) {
@@ -604,6 +622,17 @@ function detonateRocket(state, s, ox, oy) {
     }
     if (struck) direct = e;
     else if (near) splashed.push(e);
+  }
+  for (const e of state.enemies) {
+    if (e.dead || e.hidden || e.kind !== "net") continue;
+    for (let i = 1; i <= steps; i += 1) {
+      const x = ox + (s.x - ox) * (i / steps);
+      const y = oy + (s.y - oy) * (i / steps);
+      if (Math.hypot(e.x - x, e.y - y) <= s.r + e.r + 8) {
+        emit(state, "shield_hit", { x: s.x, y: s.y, ex: e.x, ey: e.y });
+        return true;
+      }
+    }
   }
   let bossHit = null;
   if (state.boss) {
@@ -633,6 +662,10 @@ function collideShot(state, s, ox = s.x, oy = s.y) {
   for (const e of state.enemies) {
     if (e.dead || e.hidden || (s.hit && s.hit.includes(e.id))) continue;
     if (!overlap(s.x, s.y, s.r, e.x, e.y, e.r)) continue;
+    if (e.kind === "net") {
+      damageEnemy(state, e, s.dmg, s);
+      return true;
+    }
     countHit(state, s);
     damageEnemy(state, e, s.dmg, s);
     if (s.pierce <= 0) return true;
@@ -658,6 +691,7 @@ function updateShots(state, dt) {
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     if (s.life <= 0 || s.y < -40 || s.y > H + 40 || s.x < -40 || s.x > W + 40) continue;
+    if (shotHitsIronNet(state, s)) continue;
     if (shotHitsPoopEgg(state, s)) {
       if (s.pierce <= 0) continue;
       s.pierce -= 1;

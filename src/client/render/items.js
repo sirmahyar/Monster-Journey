@@ -764,6 +764,10 @@ function rockSprite(size, variant, r) {
   );
 }
 
+export function netIconSprite(r = 22) {
+  return eggSprite("net", r);
+}
+
 export function poopIconSprite(r = 22) {
   return cached(`poop-icon:${r}`, () =>
     sprite(r * 2.4, r * 2.6, (g) => {
