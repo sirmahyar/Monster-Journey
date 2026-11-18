@@ -158,11 +158,6 @@ function chime(a, notes, { step = 0.07, gain = 0.05, dur = 0.8, pan = 0 } = {}) 
 }
 
 /** Soft puff of feathers with a short wing flutter. */
-function feathers(a, pan, size = 1) {
-  noise(a, { dur: 0.2 * size, gain: 0.06 * size, filter: "bandpass", freq: 1500, to: 600, q: 0.7, pan, attack: 0.006 });
-  for (let i = 0; i < 3; i += 1) noise(a, { dur: 0.05, gain: 0.025 * size, filter: "bandpass", freq: 900, q: 1.4, delay: 0.05 + i * 0.045, pan });
-}
-
 function boom(a, size = 1, pan = 0) {
   tone(a, { freq: 120, to: 34, dur: 0.42 * size, gain: 0.36 * Math.min(1.4, size), pan });
   noise(a, { dur: 0.5 * size, gain: 0.26 * Math.min(1.4, size), filter: "lowpass", freq: 2400, to: 160, pan, attack: 0.002 });
@@ -263,8 +258,6 @@ export function playEvent(ev, extra = {}) {
         if (free(a, "call", 0.06)) voice(a, "peep", { rate: jitter(1.12, 0.05), gain: 0.42, pan, delay: 0.05 });
         break;
       }
-      tone(a, { freq: jitter(320), to: 90, dur: 0.1, gain: 0.08, pan });
-      feathers(a, pan, ev.kind === "chick" ? 0.6 : ev.kind === "rooster" ? 1.25 : 1);
       if (free(a, "call", 0.06)) {
         if (ev.kind === "chick") voice(a, "peep", { rate: jitter(1.04, 0.07), gain: 0.42, pan });
         else voice(a, "bawk", { rate: jitter(CALL_RATE[ev.kind] || 1, 0.06), gain: ev.kind === "rooster" ? 0.55 : 0.46, pan, maxLength: 0.42 });
