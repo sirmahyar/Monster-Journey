@@ -72,11 +72,11 @@ export function rollDrops(e, rng, player) {
   }
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
   const roll = rng();
-  if (roll < 0.0141) out.push({ kind: "power" });
-  else if (roll < 0.0221) out.push({ kind: "coolant" });
-  else if (roll < 0.0271) out.push({ kind: "shield" });
-  else if (roll < 0.0311) out.push({ kind: "nova" });
-  else if (roll < 0.0326) out.push({ kind: "life" });
+  if (roll < 0.0127) out.push({ kind: "power" });
+  else if (roll < 0.0207) out.push({ kind: "coolant" });
+  else if (roll < 0.0257) out.push({ kind: "shield" });
+  else if (roll < 0.0297) out.push({ kind: "nova" });
+  else if (roll < 0.0312) out.push({ kind: "life" });
   return out;
 }
 

@@ -80,6 +80,18 @@ export function wavePacing(info) {
   };
 }
 
+/** Power is ten percent less likely than the other gifts in this list. */
+function pickGift(gifts, rng) {
+  const weights = gifts.map((gift) => (gift === "power" ? 0.9 * (gifts.length - 1) / (gifts.length - 0.1) : 1));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  let roll = rng() * total;
+  for (let i = 0; i < gifts.length; i += 1) {
+    roll -= weights[i];
+    if (roll <= 0) return gifts[i];
+  }
+  return gifts[gifts.length - 1];
+}
+
 /** Twenty percent fewer than `full`, rounded at random so the average holds. */
 function scaledCount(full, rng) {
   const want = full * 0.8;
@@ -302,7 +314,7 @@ export function buildWave(api, info) {
   const pool = spawned.filter((e) => e.kind !== "golden");
   const gifts = ["power", "shield", "coolant", "nova"];
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
-  const powers = info.wave === 2 || info.wave === 4 || info.wave === 6 ? 1 : 0;
+  const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < 0.9 ? 1 : 0;
   for (let i = 0; i < powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = "power";
@@ -311,12 +323,12 @@ export function buildWave(api, info) {
   const marked = scaledCount(info.chapter >= 3 ? 3 : 2, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
-    pool[index].carrier = gifts[randInt(api.rng, 0, gifts.length - 1)];
+    pool[index].carrier = pickGift(gifts, api.rng);
     pool.splice(index, 1);
   }
   for (const enemy of pool) {
     if (api.rng() >= 0.035) continue;
-    enemy.carrier = gifts[randInt(api.rng, 0, gifts.length - 1)];
+    enemy.carrier = pickGift(gifts, api.rng);
   }
   return spawned;
 }
