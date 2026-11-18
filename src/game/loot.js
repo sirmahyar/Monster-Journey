@@ -50,6 +50,25 @@ function crateWeapon(rng, player) {
   return pick(rng, choices);
 }
 
+function dropCuts(chapter) {
+  const early = chapter <= 3 ? 0.9 : 1;
+  const widths = [
+    0.012065 * early,
+    0.0076 * early,
+    0.0038 * early,
+    0.0038 * 0.9,
+    0.001425,
+    0.00151,
+    0.0012,
+    0.001,
+  ];
+  let cursor = 0;
+  return widths.map((width) => {
+    cursor += width;
+    return cursor;
+  });
+}
+
 /** What a destroyed enemy leaves behind. */
 export function rollDrops(e, rng, player) {
   const out = [];
@@ -74,15 +93,16 @@ export function rollDrops(e, rng, player) {
     if (weapon) out.push({ kind: "crate", weapon });
   }
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
+  const [power, coolant, shield, nova, life, gem, haste, magnet] = dropCuts(e.chapter || 1);
   const roll = rng();
-  if (roll < 0.012065) out.push({ kind: "power" });
-  else if (roll < 0.019665) out.push({ kind: "coolant" });
-  else if (roll < 0.023465) out.push({ kind: "shield" });
-  else if (roll < 0.027265) out.push({ kind: "nova" });
-  else if (roll < 0.02869) out.push({ kind: "life" });
-  else if (roll < 0.0302) out.push({ kind: "gem" });
-  else if (roll < 0.0314) out.push({ kind: "haste" });
-  else if (roll < 0.0324) out.push({ kind: "magnet" });
+  if (roll < power) out.push({ kind: "power" });
+  else if (roll < coolant) out.push({ kind: "coolant" });
+  else if (roll < shield) out.push({ kind: "shield" });
+  else if (roll < nova) out.push({ kind: "nova" });
+  else if (roll < life) out.push({ kind: "life" });
+  else if (roll < gem) out.push({ kind: "gem" });
+  else if (roll < haste) out.push({ kind: "haste" });
+  else if (roll < magnet) out.push({ kind: "magnet" });
   return out;
 }
 

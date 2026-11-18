@@ -59,6 +59,7 @@ function store(key, value) {
 export function App() {
   const [screen, setScreen] = useState("menu");
   const [runId, setRunId] = useState(0);
+  const [start, setStart] = useState(null);
   const [paused, setPaused] = useState(false);
   const [result, setResult] = useState(null);
   const [best, setBest] = useState(() => Number(load(BEST_KEY, 0)) || 0);
@@ -140,6 +141,7 @@ export function App() {
     posted.current = new Set();
     inflight.current = new Set();
     failed.current = new Map();
+    setStart(null);
     unlockAudio();
     playUi("start");
     setResult(null);
@@ -214,6 +216,19 @@ export function App() {
     submitScoreOnLeave(saved);
   };
 
+  const continueChapter = () => {
+    if (!result?.checkpoint) return;
+    unlockAudio();
+    playUi("start");
+    setStart(result.checkpoint);
+    setResult(null);
+    setSavedId(null);
+    setSaveError("");
+    setPaused(false);
+    setRunId((id) => id + 1);
+    setScreen("play");
+  };
+
   const quit = () => {
     if (screen === "play" && live.current) record(live.current);
     go("menu");
@@ -237,7 +252,7 @@ export function App() {
     <main className="app">
       <div className="backdrop" aria-hidden="true" />
       <div className={`stage screen-${screen}`}>
-        <GameCanvas mode={mode} runId={runId} paused={paused} onFinish={finish} onLeave={leaveRun} onSnapshot={(summary) => { live.current = summary; }} onPause={requestPause} />
+        <GameCanvas mode={mode} runId={runId} paused={paused} start={start} onFinish={finish} onLeave={leaveRun} onSnapshot={(summary) => { live.current = summary; }} onPause={requestPause} />
         {screen === "play" && !paused && (
           <button type="button" className="pause-btn" onClick={() => requestPause(true)} aria-label={strings.pause}>
             <span />
@@ -290,6 +305,7 @@ export function App() {
             error={boardError}
             loading={loading}
             onAgain={askName}
+            onContinue={continueChapter}
             onMenu={() => go("menu")}
           />
         )}

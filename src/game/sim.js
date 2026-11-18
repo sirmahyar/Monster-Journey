@@ -39,7 +39,7 @@ function setStage(state, stage) {
   state.stageTime = 0;
 }
 
-export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {}) {
+export function createGame({ random = Math.random, chapter = 1, wave = 1, resume = null } = {}) {
   const state = {
     rng: random,
     time: 0,
@@ -100,7 +100,20 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {})
     over: false,
     victory: false,
     events: [],
+    checkpoint: null,
   };
+  if (resume && resume.chapter === chapter) {
+    state.score = resume.score || 0;
+    state.stats = { ...state.stats, ...resume.stats };
+    const p = state.player;
+    p.lives = resume.lives;
+    p.bombs = resume.bombs;
+    p.food = resume.food || 0;
+    p.level = resume.level || 1;
+    p.weapon = resume.weapon || p.weapon;
+    p.weapons = resume.weapons || p.weapons;
+    p.rockets = Boolean(resume.rockets);
+  }
   startWave(state);
   return state;
 }
@@ -112,8 +125,19 @@ function addEnemy(state, kind, fields) {
   return enemy;
 }
 
+function shotPace(chapter) {
+  return 0.68 + 0.07 * (chapter - 1);
+}
+
 function addEgg(state, spec) {
-  state.eggs.push({ t: 0, gravity: 1, ...spec });
+  const pace = shotPace(state.chapter);
+  state.eggs.push({
+    t: 0,
+    gravity: 1,
+    ...spec,
+    vx: (spec.vx || 0) * pace,
+    vy: (spec.vy || 0) * pace,
+  });
 }
 
 function spawnGolden(state) {
@@ -170,6 +194,21 @@ function startWave(state) {
     }
   }
   state.waveSize = Math.max(1, state.enemies.filter((e) => ENEMY_TYPES[e.kind].egg).length);
+  if (state.wave === 1) {
+    const p = state.player;
+    state.checkpoint = {
+      chapter: state.chapter,
+      score: state.score,
+      lives: p.lives,
+      bombs: p.bombs,
+      food: p.food,
+      level: p.level,
+      weapon: p.weapon,
+      weapons: p.weapons.slice(),
+      rockets: p.rockets,
+      stats: { ...state.stats },
+    };
+  }
 }
 
 function advance(state) {
@@ -934,5 +973,6 @@ export function gameSummary(state) {
     bosses: s.bosses,
     deaths: s.deaths,
     victory: state.victory,
+    checkpoint: state.checkpoint,
   };
 }

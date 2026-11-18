@@ -154,6 +154,12 @@ function giftWeight(gift, count) {
   return 1;
 }
 
+function keptGift(gift, chapter, rng) {
+  if (gift === "nova" && rng() < 0.1) return "";
+  if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant") && rng() < 0.1) return "";
+  return gift;
+}
+
 function pickGift(gifts, rng) {
   const weights = gifts.map((gift) => giftWeight(gift, gifts.length));
   const total = weights.reduce((sum, weight) => sum + weight, 0);
@@ -547,7 +553,8 @@ export function buildWave(api, info) {
   const pool = spawned.filter((e) => e.kind !== "golden");
   const gifts = ["power", "shield", "coolant", "nova"];
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
-  const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < 0.9 ? 1 : 0;
+  const powerChance = info.chapter <= 3 ? 0.81 : 0.9;
+  const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < powerChance ? 1 : 0;
   for (let i = 0; i < powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = "power";
@@ -556,12 +563,14 @@ export function buildWave(api, info) {
   const marked = scaledCount((info.chapter >= 3 ? 3 : 2) * 0.95, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
-    pool[index].carrier = pickGift(gifts, api.rng);
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
+    if (gift) pool[index].carrier = gift;
     pool.splice(index, 1);
   }
   for (const enemy of pool) {
     if (api.rng() >= 0.03325) continue;
-    enemy.carrier = pickGift(gifts, api.rng);
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
+    if (gift) enemy.carrier = gift;
   }
   return spawned;
 }

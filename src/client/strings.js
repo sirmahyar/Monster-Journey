@@ -111,6 +111,7 @@ export const strings = {
   back: "بازگشت",
   menu: "منوی اصلی",
   again: "دوباره پرواز کن",
+  continueChapter: "از اول همین فصل",
   paused: "توقف",
   resume: "ادامه",
   restart: "شروع دوباره",
