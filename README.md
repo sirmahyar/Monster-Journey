@@ -29,7 +29,7 @@ npm test
 npm run build
 ```
 
-`npm run build` writes the static client to `dist/client`. `npm run build:edge` also writes `dist/edge/game-api.js`, one file that serves that client on ArvanCloud Edge Computing.
+`npm run build` writes the static client to `dist/client`. `npm run build:edge` rebuilds `dist/edge/game-api.js`. That built file is committed, and it is the file to upload to the edge app.
 
 ```bash
 arvan ec deploy -f dist/edge/game-api.js monster
