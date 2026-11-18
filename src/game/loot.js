@@ -74,9 +74,9 @@ export function rollDrops(e, rng, player) {
   const roll = rng();
   if (roll < 0.012065) out.push({ kind: "power" });
   else if (roll < 0.019665) out.push({ kind: "coolant" });
-  else if (roll < 0.024415) out.push({ kind: "shield" });
-  else if (roll < 0.028215) out.push({ kind: "nova" });
-  else if (roll < 0.02964) out.push({ kind: "life" });
+  else if (roll < 0.023465) out.push({ kind: "shield" });
+  else if (roll < 0.027265) out.push({ kind: "nova" });
+  else if (roll < 0.02869) out.push({ kind: "life" });
   return out;
 }
 

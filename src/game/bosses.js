@@ -51,7 +51,7 @@ const ATTACKS = Object.freeze({
   carrier: [["twin", "hatch", "ring"], ["beams", "spiral", "missiles", "hatch", "bombs"], ["beams", "spiral2", "missiles", "hatch", "ring"]],
   barnowl: [["mines", "fan", "summon"], ["mines", "needles", "rain", "ring"], ["mines", "spirals", "needles", "summon"]],
   plume: [["needles", "missiles", "fan"], ["needles", "sweep", "bounce", "missiles"], ["needles", "beams", "bounce", "fan"]],
-  cyclone: [["spirals", "ring", "bombs"], ["spirals", "spiral", "bombs", "beams"], ["spirals", "spiral2", "bounce", "ring"]],
+  cyclone: [["gust", "swoop", "fan"], ["needles", "swoop", "bounce"], ["gust", "fan", "swoop"]],
   king: [["bounce", "twin", "hatch"], ["mines", "beams", "missiles", "hatch"], ["bounce", "spirals", "needles", "ring"]],
 });
 
@@ -336,6 +336,20 @@ function runAttack(b, a, dt, api) {
         api.event("boss_shoot", {});
       }
       return a.t >= 2.1;
+    case "gust":
+      while (a.n < 4 && a.t >= 0.4 + a.n * 0.5) {
+        const side = a.n % 2 ? 1 : -1;
+        api.egg({ kind: "spiral", x: b.x + side * 36, y: b.y + 24, vx: side * 22, vy: 62, r: 11, spin: side * 3, orbit: 16 });
+        a.n += 1;
+        api.event("boss_shoot", {});
+      }
+      return a.t >= 2.5;
+    case "swoop":
+      while (a.n < 2 && a.t >= 0.3 + a.n * 0.75) {
+        api.summon("diver", b.x + (a.n % 2 ? 70 : -70), b.y + 36, "loop");
+        a.n += 1;
+      }
+      return a.t >= 1.9;
     case "spirals":
       a.acc += dt;
       while (a.acc >= 0.35) {

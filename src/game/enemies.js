@@ -226,12 +226,13 @@ export function startDive(e, target, rng, style = "swoop") {
   const sy = e.y;
   const side = rng() < 0.5 ? -1 : 1;
   const tx = clamp(target.x + rand(rng, -50, 50), 40, W - 40);
+  const fast = e.chapter >= 7 ? 0.68 : 1;
   if (style === "loop") {
     e.path = [sx, sy, sx + side * 280, sy + 300, sx - side * 260, sy + 330, tx, H + 100];
-    e.pathDur = rand(rng, 2.4, 2.9);
+    e.pathDur = rand(rng, 2.4, 2.9) * fast;
   } else {
     e.path = [sx, sy, sx + side * rand(rng, 60, 170), sy - 80, tx - side * 90, target.y - 150, tx + side * rand(rng, 40, 150), H + 100];
-    e.pathDur = rand(rng, 1.8, 2.3);
+    e.pathDur = rand(rng, 1.8, 2.3) * fast;
   }
   e.mode = "dive";
   e.pathT = 0;
@@ -248,29 +249,32 @@ export function fireFrom(e, target, rng, chapter) {
   const y = e.y + e.r * 0.55;
   switch (ENEMY_TYPES[e.kind].egg) {
     case "egg": {
-      const rush = chapter >= 3 ? 32 * (chapter - 2) : 0;
+      const rushChapter = Math.min(chapter, 5);
+      const rush = rushChapter >= 3 ? 32 * (rushChapter - 2) : 0;
       const egg = { kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90) + rush, r: e.kind === "chick" ? 10 : 13 };
       if (e.kind === "chick" && e.variant % 4 === 1) return [{ ...egg, weave: true, r: 9, vy: egg.vy + 35 }];
-      if (e.kind !== "chick" && e.variant % 4 === 3) {
+      if (chapter < 7 && e.kind !== "chick" && e.variant % 4 === 3) {
         return [
           { ...egg, x: x - 12, vx: egg.vx - 45 },
           { ...egg, x: x + 12, vx: egg.vx + 45 },
         ];
       }
-      if (chapter >= 5 && e.kind === "hen" && rng() < 0.22) {
+      if (chapter >= 5 && e.kind === "hen" && rng() < (chapter >= 7 ? 0.08 : 0.22)) {
         return [{ kind: "cluster", x, y, vx: egg.vx, vy: egg.vy, r: 14, splitY: rand(rng, 380, 560), gravity: 1 }];
       }
       return [egg];
     }
     case "yolk":
-      if (chapter >= 7 && rng() < 0.28) {
-        return [{ kind: "spiral", x, y, vx: rand(rng, -25, 25), vy: 80, r: 11, spin: rng() < 0.5 ? 4.2 : -4.2, orbit: 26 }];
+      if (chapter >= 7) {
+        if (rng() < 0.12) return [{ kind: "bigyolk", x, y, vx: rand(rng, -16, 16), vy: 90, r: 15, splitY: rand(rng, 460, 620), splitCount: 4 }];
+        return [{ kind: "yolk", x, y, vx: rand(rng, -24, 24), vy: 110, r: 13 }];
       }
       if (chapter >= 3 && rng() < 0.5) {
         return [{ kind: "bigyolk", x, y, vx: rand(rng, -20, 20), vy: 95, r: 17, splitY: rand(rng, 420, 640) }];
       }
       return [{ kind: "yolk", x, y, vx: rand(rng, -30, 30), vy: 120, r: 13 }];
     case "quill": {
+      if (chapter >= 7) return [{ kind: "quill", x, y, ...aimed(x, y, target, 470, 0), r: 7, bend: 0.35 }];
       const speed = 290 + 25 * chapter + (chapter >= 3 ? 45 * (chapter - 2) : 0);
       const offsets = chapter >= 3 ? [-14, 0, 14] : [0];
       return offsets.map((off) => ({
@@ -283,10 +287,9 @@ export function fireFrom(e, target, rng, chapter) {
       }));
     }
     case "spark": {
-      const speed = 330 + 30 * chapter + (chapter >= 3 ? 40 * (chapter - 2) : 0);
+      const speed = chapter >= 7 ? 460 : 330 + 30 * chapter + (chapter >= 3 ? 40 * (chapter - 2) : 0);
       const shots = [{ kind: "spark", x, y, ...aimed(x, y, target, speed), r: 8 }];
-      if (chapter >= 7) shots[0].weave = true;
-      if (chapter >= 2) shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed * 0.82, 0), r: 8 });
+      if (chapter >= 2 && chapter < 7) shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed * 0.82, 0), r: 8 });
       return shots;
     }
     case "mine":
@@ -294,7 +297,7 @@ export function fireFrom(e, target, rng, chapter) {
     case "needle":
       return [{ kind: "needle", x, y, ...aimed(x, y, target, 520 + 18 * chapter), r: 5 }];
     case "spiral":
-      return [{ kind: "spiral", x, y, vx: rand(rng, -30, 30), vy: 70, r: 11, spin: rng() < 0.5 ? 5 : -5, orbit: 30 }];
+      return [{ kind: "spiral", x, y, vx: rand(rng, -30, 30), vy: 70, r: 11, spin: rng() < 0.5 ? 5 : -5, orbit: chapter >= 7 ? 14 : 30 }];
     case "bounce": {
       let vx = rand(rng, -110, 110);
       if (Math.abs(vx) < 40) vx = vx < 0 ? -70 : 70;

@@ -16,8 +16,8 @@ export const PLAYER = Object.freeze({
   invuln: 2.6,
   lives: 3,
   bombs: 1,
-  maxLives: 7,
-  maxBombs: 10,
+  maxLives: 5,
+  maxBombs: 5,
 });
 
 export const HEAT = Object.freeze({

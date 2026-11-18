@@ -43,7 +43,7 @@ export const CHAPTERS = Object.freeze([
     name: "Yolk Gale",
     boss: "cyclone",
     bossName: "Yolk Cyclone",
-    waves: ["cyclone", "bombers", "flock", "ring", "snake", "rocks", "saucers"],
+    waves: ["reflex", "mix", "dive", "snipers", "shells", "cyclone", "ambush"],
   }),
   Object.freeze({
     name: "Galaxy Crown",
@@ -67,6 +67,9 @@ export const WAVE_NAMES = Object.freeze({
   snipers: "Sniper Perch",
   cyclone: "Yolk Cyclone",
   shells: "Shell Wall",
+  reflex: "Sudden Dive",
+  mix: "Mixed Flock",
+  ambush: "Quick Ambush",
 });
 
 const PACING = Object.freeze({
@@ -82,7 +85,10 @@ const PACING = Object.freeze({
   mines: { egg: 2.0, dive: 0.08 },
   snipers: { egg: 1.6, dive: 0.12 },
   cyclone: { egg: 1.4, dive: 0.2 },
-  shells: { egg: 2.3, dive: 0.1 },
+  shells: { egg: 1.15, dive: 0.55 },
+  reflex: { egg: 0.85, dive: 1.2 },
+  mix: { egg: 1.05, dive: 0.9 },
+  ambush: { egg: 0.8, dive: 1.3 },
   boss: { egg: 0, dive: 0.2 },
 });
 
@@ -109,17 +115,28 @@ export function waveInfo(chapter, wave) {
 export function wavePacing(info) {
   const base = PACING[info.template];
   const throughFour = info.chapter < 3 ? 1 + 0.2 * (info.chapter - 1) : 1.7 + 0.55 * (Math.min(info.chapter, 4) - 3);
-  const pressure = info.chapter <= 4 ? throughFour : throughFour + 0.22 * (info.chapter - 4);
+  const climbed = info.chapter <= 4 ? throughFour : throughFour + 0.22 * (info.chapter - 4);
+  const pressure = info.chapter >= 7 ? 1.55 : climbed;
   return {
     eggRate: base.egg * pressure * (1 + 0.04 * (info.wave - 1)),
-    diveRate: base.dive * pressure,
-    diveLoop: info.chapter >= 4 ? 0.75 : info.chapter >= 3 ? 0.58 : info.chapter === 2 ? 0.2 : 0,
+    diveRate: base.dive * (info.chapter >= 7 ? climbed * 1.7 : climbed),
+    diveLoop: info.chapter >= 7 ? 0.95 : info.chapter >= 4 ? 0.75 : info.chapter >= 3 ? 0.58 : info.chapter === 2 ? 0.2 : 0,
   };
 }
 
-/** Power is ten percent less likely than the other gifts in this list. */
+/** Power is ten percent less likely, and a shield twenty percent less likely, than an even share. */
+function giftWeight(gift, count) {
+  if (gift === "power") return 0.9 * (count - 1) / (count - 0.1);
+  if (gift === "shield") {
+    const power = 0.9 * (count - 1) / (count - 0.1);
+    const total = power + (count - 1);
+    return 0.8 * (total - 1) / (total - 0.8);
+  }
+  return 1;
+}
+
 function pickGift(gifts, rng) {
-  const weights = gifts.map((gift) => (gift === "power" ? 0.9 * (gifts.length - 1) / (gifts.length - 0.1) : 1));
+  const weights = gifts.map((gift) => giftWeight(gift, gifts.length));
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   let roll = rng() * total;
   for (let i = 0; i < gifts.length; i += 1) {
@@ -305,7 +322,7 @@ function saucers(api, chapter) {
 }
 
 function rocks(api, chapter) {
-  const count = 16 + chapter * 5;
+  const count = chapter >= 7 ? 22 : 16 + chapter * 5;
   const span = 20 + chapter * 2;
   for (let i = 0; i < count; i += 1) {
     api.later((i / count) * span + rand(api.rng, 0, 0.6), () => {
@@ -322,7 +339,7 @@ function rocks(api, chapter) {
         x: rand(api.rng, 40, W - 40),
         y: -50,
         dx: rand(api.rng, tumble ? -slant * 1.6 : -slant, tumble ? slant * 1.6 : slant),
-        dy: rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15,
+        dy: rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15 + (chapter >= 7 ? 50 : 0),
         spin: rand(api.rng, tumble ? -4.5 : -2, tumble ? 4.5 : 2),
         angle: rand(api.rng, 0, TAU),
         variant,
@@ -332,7 +349,11 @@ function rocks(api, chapter) {
   api.later(span * 0.45, () => api.spawnGolden());
 }
 
-function mines(api) {
+function mines(api, chapter) {
+  if (chapter >= 7) {
+    grid(api, ["miner", "diver", "hen"], 5, "drop");
+    return;
+  }
   grid(api, ["miner", "miner", "hen", "chick"], 7, "drop");
 }
 
@@ -355,18 +376,20 @@ function snipers(api, chapter) {
 }
 
 function cyclone(api, chapter) {
-  const n = 14;
+  const late = chapter >= 7;
+  const n = late ? 8 : 14;
+  const mixed = ["spinner", "diver", "sniper", "bomber"];
   for (let i = 0; i < n; i += 1) {
     const angle0 = (i / n) * TAU;
     const radius = i % 2 ? 180 : 100;
-    api.spawn(i % 3 === 0 ? "bomber" : "spinner", {
+    api.spawn(late ? mixed[i % mixed.length] : i % 3 === 0 ? "bomber" : "spinner", {
       mode: "enter",
       home: "orbit",
       cx: W / 2,
       cy: 260,
       radius,
       angle0,
-      orbitSpin: (i % 2 ? 1.1 : -1.6) * (1 + 0.05 * Math.max(0, chapter - 7)),
+      orbitSpin: (i % 2 ? 1.1 : -1.6) * (late ? 1.35 : 1 + 0.05 * Math.max(0, chapter - 7)),
       pulse: 20,
       squash: 0.8,
       path: [W / 2, -80, W / 2 + Math.cos(angle0) * 220, 90, W / 2, 200, W / 2, 260],
@@ -378,8 +401,37 @@ function cyclone(api, chapter) {
   }
 }
 
-function shells(api) {
+function shells(api, chapter) {
+  if (chapter >= 7) {
+    grid(api, ["shell", "diver"], 4, "swoop");
+    return;
+  }
   grid(api, ["shell", "miner", "shell", "hen"], 6, "swoop");
+}
+
+function reflex(api) {
+  grid(api, ["diver", "diver"], 6, "spiral");
+  for (let i = 0; i < 3; i += 1) {
+    const slotX = [140, 360, 580][i];
+    api.spawn("sniper", {
+      mode: "enter",
+      home: "formation",
+      slotX,
+      slotY: 110,
+      path: entryPath("drop", i % 2 ? 1 : -1, slotX, 110, api.rng),
+      pathDur: 1.4,
+      delay: 0.35 + i * 0.15,
+      variant: i,
+    });
+  }
+}
+
+function mix(api) {
+  grid(api, ["diver", "sniper", "spinner", "shell", "miner"], 4, "swoop");
+}
+
+function ambush(api) {
+  grid(api, ["sniper", "shell", "diver", "miner"], 5, "spiral");
 }
 
 const BUILDERS = {
@@ -387,11 +439,20 @@ const BUILDERS = {
   flock,
   snake,
   ring,
-  dive: (api, ch) => grid(api, ch >= 3 ? ["diver", "diver", "diver", "hen"] : ["diver", "diver", "hen"], 7, "spiral"),
+  dive: (api, ch) => grid(
+    api,
+    ch >= 7 ? ["diver", "diver", "sniper"] : ch >= 3 ? ["diver", "diver", "diver", "hen"] : ["diver", "diver", "hen"],
+    ch >= 7 ? 5 : 7,
+    "spiral",
+  ),
   saucers,
   rocks,
   bombers: (api) => grid(api, ["bomber", "bomber", "hen", "chick"], 7, "swoop"),
   gauntlet: (api, ch) => {
+    if (ch >= 7) {
+      grid(api, ["rooster", "diver", "sniper", "shell"], 5, "drop");
+      return;
+    }
     grid(api, ["rooster", "bomber", "diver", "hen", "chick"], 9, "drop");
     if (ch >= 4) saucers(api, 0);
   },
@@ -399,6 +460,9 @@ const BUILDERS = {
   snipers,
   cyclone,
   shells,
+  reflex,
+  mix,
+  ambush,
 };
 
 const SWAY = {
@@ -408,6 +472,9 @@ const SWAY = {
   snipers: { ax: 20, ay: 6, fx: 0.25, fy: 0.6 },
   cyclone: { ax: 50, ay: 16, fx: 0.7, fy: 1.3 },
   shells: { ax: 24, ay: 8, fx: 0.3, fy: 0.7 },
+  reflex: { ax: 70, ay: 16, fx: 0.8, fy: 1.4 },
+  mix: { ax: 36, ay: 10, fx: 0.45, fy: 1 },
+  ambush: { ax: 28, ay: 8, fx: 0.35, fy: 0.8 },
 };
 
 /**

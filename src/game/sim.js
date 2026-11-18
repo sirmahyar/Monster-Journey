@@ -704,7 +704,7 @@ function updateEggs(state, dt) {
       }
     }
     if (g.kind === "bigyolk" && g.y >= g.splitY) {
-      burstRing(spawned, g, 8, 170, 8);
+      burstRing(spawned, g, g.splitCount || 8, 170, 8);
       emit(state, "yolk_split", { x: g.x, y: g.y });
       continue;
     }
