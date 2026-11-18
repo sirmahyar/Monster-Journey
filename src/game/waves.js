@@ -1,4 +1,4 @@
-import { W, WAVES_PER_CHAPTER } from "./config.js";
+import { PLAYER, W, WAVES_PER_CHAPTER, playerPity } from "./config.js";
 import { arsenal } from "./weapons.js";
 import { TAU, rand, randInt, weighted } from "./math.js";
 
@@ -113,7 +113,7 @@ const GRID_ROWS = [
   ["bomber", "hen", "hen", "chick"],
   ["rooster", "hen", "diver", "hen", "chick"],
   ["rooster", "bomber", "diver", "hen", "hen"],
-  ["miner", "hen", "miner", "chick", "hen"],
+  ["miner", "warden", "miner", "chick", "hen"],
   ["sniper", "hen", "diver", "hen", "chick"],
   ["spinner", "bomber", "spinner", "hen", "chick"],
   ["shell", "rooster", "miner", "sniper", "hen"],
@@ -154,9 +154,17 @@ function giftWeight(gift, count) {
   return 1;
 }
 
-function keptGift(gift, chapter, rng) {
-  if (gift === "nova" && rng() < 0.1) return "";
-  if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant") && rng() < 0.1) return "";
+function keptGift(gift, chapter, rng, player) {
+  let keep = 1;
+  if (gift === "nova") keep *= 0.36;
+  if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant")) keep *= 0.9;
+  if (gift === "nova" || gift === "shield" || gift === "coolant" || gift === "crate") keep *= 0.85;
+  if (gift && gift !== "life") keep *= 0.5;
+  const scale = playerPity(player, chapter);
+  if (scale.gift !== 1 && (gift === "power" || gift === "shield" || gift === "coolant" || gift === "life" || gift === "crate")) {
+    keep *= scale.gift;
+  }
+  if (rng() >= keep) return "";
   return gift;
 }
 
@@ -212,7 +220,7 @@ function grid(api, rows, cols, style) {
 
 function flock(api, chapter) {
   const perRibbon = 14 + chapter * 3;
-  const flockExtra = [null, "bomber", "diver", "rooster", "miner", "sniper", "spinner", "shell", "diver", "sniper"];
+  const flockExtra = [null, "bomber", "diver", "rooster", "warden", "sniper", "spinner", "shell", "warden", "sniper"];
   const extra = flockExtra[(chapter - 1) % flockExtra.length];
   for (let ribbon = 0; ribbon < 2; ribbon += 1) {
     const side = ribbon === 0 ? -1 : 1;
@@ -349,29 +357,37 @@ function saucers(api, chapter) {
   grid(api, chapter >= 3 ? ["hen", "chick"] : ["chick"], 8, "drop");
 }
 
+function spawnDriftRock(api, chapter, opts = {}) {
+  const slant = chapter >= 2 ? 120 : 50;
+  const variant = opts.variant ?? randInt(api.rng, 0, 3);
+  const tumble = variant === 3;
+  const roll = api.rng();
+  const kind = roll < 0.18 ? "poop" : roll < 0.32 ? "net" : "rock";
+  const pattern = opts.pattern || "straight";
+  api.spawn(kind, {
+    size: kind === "rock" ? weighted(api.rng, [[3, 0.35], [2, 0.4], [1, 0.25]]) : 2,
+    mode: "drift",
+    pattern,
+    x: opts.x ?? rand(api.rng, 40, W - 40),
+    y: opts.y ?? -50,
+    dx: opts.dx ?? rand(api.rng, tumble ? -slant * 1.6 : -slant, tumble ? slant * 1.6 : slant),
+    dy: opts.dy ?? rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15 + (chapter >= 7 ? 50 : 0),
+    spin: opts.spin ?? rand(api.rng, tumble ? -4.5 : -2, tumble ? 4.5 : 2),
+    angle: opts.angle ?? rand(api.rng, 0, TAU),
+    variant,
+  });
+}
+
 function rocks(api, chapter) {
   const count = chapter >= 7 ? 22 : 16 + chapter * 5;
   const span = 20 + chapter * 2;
+  const early = Math.min(4, count);
+  for (let i = 0; i < early; i += 1) {
+    spawnDriftRock(api, chapter, { y: -35 - i * 28 });
+  }
   for (let i = 0; i < count; i += 1) {
     api.later((i / count) * span + rand(api.rng, 0, 0.6), () => {
-      const slant = chapter >= 2 ? 120 : 50;
-      const variant = randInt(api.rng, 0, 3);
-      const tumble = variant === 3;
-      api.spawn("rock", {
-        size: weighted(api.rng, [
-          [3, 0.35],
-          [2, 0.4],
-          [1, 0.25],
-        ]),
-        mode: "drift",
-        x: rand(api.rng, 40, W - 40),
-        y: -50,
-        dx: rand(api.rng, tumble ? -slant * 1.6 : -slant, tumble ? slant * 1.6 : slant),
-        dy: rand(api.rng, tumble ? 70 : 110, tumble ? 130 : 190) + chapter * 15 + (chapter >= 7 ? 50 : 0),
-        spin: rand(api.rng, tumble ? -4.5 : -2, tumble ? 4.5 : 2),
-        angle: rand(api.rng, 0, TAU),
-        variant,
-      });
+      spawnDriftRock(api, chapter);
     });
   }
   api.later(span * 0.45, () => api.spawnGolden());
@@ -551,25 +567,33 @@ export function buildWave(api, info) {
   api.setFormation(SWAY[info.template] || { ax: 60, ay: 12, fx: 0.5, fy: 1.2 });
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "golden");
-  const gifts = ["power", "shield", "coolant", "nova"];
+  const player = api.player;
+  const scale = playerPity(player, info.chapter);
+  const gifts = ["power", "shield", "coolant"];
+  if (player.lives <= 2 && player.lives < PLAYER.maxLives) gifts.push("life");
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
-  const powerChance = info.chapter <= 3 ? 0.81 : 0.9;
+  if (info.chapter >= 3) gifts.push("feather");
+  if (info.chapter >= 4) gifts.push("rocket");
+  let powerChance = info.chapter <= 3 ? 0.405 : 0.45;
+  if (scale.powerWave !== 1) powerChance = Math.max(0.18, Math.min(0.75, powerChance * scale.powerWave));
   const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < powerChance ? 1 : 0;
   for (let i = 0; i < powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = "power";
     pool.splice(index, 1);
   }
-  const marked = scaledCount((info.chapter >= 3 ? 3 : 2) * 0.95, api.rng);
+  const markedBase = (info.chapter >= 3 ? 3 : 2) * 0.475 * scale.marked;
+  const marked = scaledCount(markedBase, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
-    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng, player);
     if (gift) pool[index].carrier = gift;
     pool.splice(index, 1);
   }
+  const rareCarrier = 0.016625 * scale.carrierRare;
   for (const enemy of pool) {
-    if (api.rng() >= 0.03325) continue;
-    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
+    if (api.rng() >= rareCarrier) continue;
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng, player);
     if (gift) enemy.carrier = gift;
   }
   return spawned;

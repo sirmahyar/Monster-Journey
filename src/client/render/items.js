@@ -361,6 +361,41 @@ function eggSprite(kind, r) {
         g.fill();
       });
     }
+    if (kind === "net") {
+      return sprite(r * 4.2, r * 4.2, (g) => {
+        const R = r * 1.35;
+        g.fillStyle = radial(g, 0, 0, R, [[0, "rgba(255,210,120,0.25)"], [1, "rgba(255,160,60,0)"]]);
+        g.fillRect(-R, -R, R * 2, R * 2);
+        g.strokeStyle = "rgba(255, 220, 140, 0.95)";
+        g.lineWidth = Math.max(1.8, r * 0.08);
+        g.lineCap = "round";
+        for (let i = -3; i <= 3; i += 1) {
+          g.beginPath();
+          g.moveTo(-R, i * (R / 3.5));
+          g.lineTo(R, i * (R / 3.5));
+          g.stroke();
+          g.beginPath();
+          g.moveTo(i * (R / 3.5), -R);
+          g.lineTo(i * (R / 3.5), R);
+          g.stroke();
+        }
+        g.strokeStyle = "rgba(255, 255, 255, 0.85)";
+        g.lineWidth = Math.max(2.4, r * 0.1);
+        g.setLineDash([5, 4]);
+        g.beginPath();
+        g.arc(0, 0, R, 0, TAU);
+        g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = "rgba(255, 240, 200, 0.5)";
+        g.beginPath();
+        g.moveTo(-R * 0.55, -R * 0.1);
+        g.quadraticCurveTo(0, R * 0.55, R * 0.55, -R * 0.1);
+        g.lineTo(R * 0.35, -R * 0.65);
+        g.quadraticCurveTo(0, -R * 0.2, -R * 0.35, -R * 0.65);
+        g.closePath();
+        g.fill();
+      });
+    }
     if (kind === "goldenegg") {
       return sprite(r * 3.6, r * 3.8, (g) => {
         eggShape(g, r);
@@ -438,7 +473,8 @@ export function drawEggs(ctx, eggs, time) {
         ctx.globalCompositeOperation = "lighter";
         blit(ctx, glowDot("warn", e.r * 2, "#ff3b1f"), e.x, e.y, 0, 1, 1, 0.3 + 0.3 * Math.sin(time * 14));
       }
-    } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce" || e.kind === "goldenegg") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 7 + e.x) * 0.35);
+    } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce" || e.kind === "goldenegg") blit(ctx, spr, e.x, e.y);
+    else if (e.kind === "net") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 4 + e.x) * 0.35, 1 + Math.sin(e.t * 6) * 0.06);
     else blit(ctx, spr, e.x, e.y, e.kind === "spark" ? time * 8 : 0);
     if (e.kind === "mine" && e.t >= (e.arm || 0.85)) {
       ctx.globalCompositeOperation = "lighter";
@@ -452,8 +488,7 @@ export function drawEggs(ctx, eggs, time) {
   }
 }
 
-const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8" };
-
+const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8", rocket: "#ff9a3d", feather: "#b8f0ff" };
 function pickupSprite(kind, weapon) {
   return cached(`pickup:${kind}:${weapon || ""}`, () =>
     sprite(44, 44, (g) => {
@@ -510,6 +545,35 @@ function pickupSprite(kind, weapon) {
         g.beginPath();
         g.ellipse(0, 5, 11, 4, 0, 0, TAU);
         g.fill();
+      } else if (kind === "feather") {
+        g.beginPath();
+        g.moveTo(-10, 10);
+        g.quadraticCurveTo(0, -14, 11, 8);
+        g.quadraticCurveTo(6, 2, -10, 10);
+        g.fillStyle = linear(g, -8, -8, 8, 10, [[0, "#f8feff"], [0.5, "#a8e8ff"], [1, "#5eb8ff"]]);
+        g.fill();
+        g.strokeStyle = "#ffffff";
+        g.lineWidth = 1.2;
+        g.stroke();
+      } else if (kind === "rocket") {
+        g.fillStyle = linear(g, 0, 10, 0, 16, [[0, "rgba(255,170,40,0.95)"], [1, "rgba(255,60,20,0)"]]);
+        g.beginPath();
+        g.moveTo(-2.5, 8);
+        g.lineTo(0, 15);
+        g.lineTo(2.5, 8);
+        g.fill();
+        g.fillStyle = "#f7fbff";
+        g.beginPath();
+        g.moveTo(0, -12);
+        g.lineTo(5, -2);
+        g.lineTo(5, 8);
+        g.lineTo(-5, 8);
+        g.lineTo(-5, -2);
+        g.closePath();
+        g.fill();
+        g.strokeStyle = "#ff7a2e";
+        g.lineWidth = 1.2;
+        g.stroke();
       } else if (kind === "pizza") {
         g.beginPath();
         g.moveTo(0, -13);
@@ -593,7 +657,7 @@ function pickupSprite(kind, weapon) {
 
 export function drawPickups(ctx, pickups, time) {
   for (const k of pickups) {
-    const color = k.kind === "crate" ? ACCENT[k.weapon] : PICKUP_COLOR[k.kind];
+    const color = (k.kind === "crate" ? ACCENT[k.weapon] : PICKUP_COLOR[k.kind]) || "#ffd95a";
     const bob = Math.sin(k.t * 4 + k.spin) * 2;
     ctx.globalCompositeOperation = "lighter";
     const big = k.kind !== "kernel" && k.kind !== "cob";
@@ -680,6 +744,33 @@ function rockSprite(size, variant, r) {
       g.stroke(outline);
     }),
   );
+}
+
+export function drawHazard(ctx, e, time) {
+  if (e.kind === "poop") {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.angle || 0);
+    ctx.fillStyle = radial(ctx, 0, 0, e.r, [[0, "#c48a3a"], [0.55, "#7a4a18"], [1, "#3a2208"]], -4, -6);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, e.r * 0.9, e.r * 1.1, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(40,24,8,0.85)";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  const spr = eggSprite("net", e.r * 0.55);
+  const spin = Math.sin(time * 2.6 + e.id) * 0.25;
+  blit(ctx, spr, e.x, e.y, spin, 1.1 + Math.sin(time * 5) * 0.05);
+  ctx.save();
+  ctx.translate(e.x, e.y - e.r * 0.35);
+  ctx.fillStyle = "rgba(255, 245, 210, 0.92)";
+  ctx.font = `bold ${Math.round(11 + e.r * 0.08)}px Vazirmatn, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("تور", 0, 0);
+  ctx.restore();
 }
 
 export function drawRock(ctx, e, time) {

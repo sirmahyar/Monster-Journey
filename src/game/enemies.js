@@ -5,13 +5,16 @@ export const ENEMY_TYPES = Object.freeze({
   chick: Object.freeze({ r: 16, hp: 2, score: 100, egg: "egg", eggWeight: 0.45, food: 0.3, dive: 0.4 }),
   hen: Object.freeze({ r: 24, hp: 5, score: 200, egg: "egg", eggWeight: 1, food: 0.55, dive: 0.25 }),
   diver: Object.freeze({ r: 24, hp: 5, score: 300, egg: "egg", eggWeight: 0.55, food: 0.55, dive: 3 }),
-  bomber: Object.freeze({ r: 26, hp: 8, score: 350, egg: "yolk", eggWeight: 0.75, food: 0.7, dive: 0.15 }),
-  rooster: Object.freeze({ r: 30, hp: 14, score: 500, egg: "quill", eggWeight: 0.9, food: 0.85, dive: 0.6 }),
-  saucer: Object.freeze({ r: 30, hp: 7, score: 650, egg: "spark", eggWeight: 1.3, food: 0.8, dive: 0, shield: 8 }),
-  miner: Object.freeze({ r: 24, hp: 7, score: 400, egg: "mine", eggWeight: 0.7, food: 0.6, dive: 0.2 }),
-  sniper: Object.freeze({ r: 24, hp: 6, score: 450, egg: "needle", eggWeight: 0.85, food: 0.5, dive: 0.1 }),
+  bomber: Object.freeze({ r: 26, hp: 8, score: 350, egg: "yolk", eggWeight: 0.75, food: 0.7, dive: 0.15, bombLayers: 2 }),
+  rooster: Object.freeze({ r: 30, hp: 14, score: 500, egg: "quill", eggWeight: 0.9, food: 0.85, dive: 0.6, bombLayers: 2 }),
+  saucer: Object.freeze({ r: 30, hp: 7, score: 650, egg: "spark", eggWeight: 1.3, food: 0.8, dive: 0, shield: 8, bombLayers: 2 }),
+  miner: Object.freeze({ r: 24, hp: 7, score: 400, egg: "mine", eggWeight: 0.7, food: 0.6, dive: 0.2, bombLayers: 2 }),
+  sniper: Object.freeze({ r: 24, hp: 6, score: 450, egg: "needle", eggWeight: 0.85, food: 0.5, dive: 0.1, bombLayers: 2 }),
   spinner: Object.freeze({ r: 18, hp: 4, score: 280, egg: "spiral", eggWeight: 0.9, food: 0.4, dive: 0.35 }),
-  shell: Object.freeze({ r: 28, hp: 12, score: 600, egg: "bounce", eggWeight: 0.8, food: 0.65, dive: 0.15, shield: 10 }),
+  shell: Object.freeze({ r: 28, hp: 12, score: 600, egg: "bounce", eggWeight: 0.8, food: 0.65, dive: 0.15, shield: 10, bombLayers: 2 }),
+  warden: Object.freeze({ r: 28, hp: 18, score: 750, egg: "net", eggWeight: 0.85, food: 0.35, dive: 0.12, shield: 14, bombLayers: 2 }),
+  poop: Object.freeze({ r: 18, hp: 4, score: 70, egg: null, eggWeight: 0, food: 0, dive: 0 }),
+  net: Object.freeze({ r: 34, hp: 9, score: 160, egg: null, eggWeight: 0, food: 0, dive: 0 }),
   golden: Object.freeze({ r: 26, hp: 30, score: 2500, egg: "goldenegg", eggWeight: 1.15, food: 1, dive: 0 }),
   rock: Object.freeze({ r: 38, hp: 16, score: 150, egg: null, eggWeight: 0, food: 0.12, dive: 0 }),
 });
@@ -42,6 +45,7 @@ export function makeEnemy(id, kind, chapter, fields = {}) {
   const base = kind === "rock" ? ROCK_SIZES[fields.size || 3] : ENEMY_TYPES[kind];
   const hp = Math.round(base.hp * hpScale(chapter) * 10) / 10;
   const shield = ENEMY_TYPES[kind].shield ? Math.round(ENEMY_TYPES[kind].shield * hpScale(chapter)) : 0;
+  const bombLayers = ENEMY_TYPES[kind].bombLayers ?? 0;
   const enemy = {
     id,
     kind,
@@ -52,6 +56,8 @@ export function makeEnemy(id, kind, chapter, fields = {}) {
     score: base.score,
     shield,
     maxShield: shield,
+    bombShield: bombLayers,
+    maxBombShield: bombLayers,
     x: -200,
     y: -200,
     vx: 0,
@@ -180,11 +186,21 @@ export function moveEnemy(e, dt, world) {
           e.gone = true;
           break;
         }
-        e.mode = "home";
-        const a = anchor(e, world);
-        e.x = a.x;
-        e.y = a.y;
+        e.mode = "return";
+        e.returnT = 0;
+        e.returnX = e.x;
+        e.returnY = e.y;
+        e.returnDur = 1.7;
       }
+      break;
+    }
+    case "return": {
+      const a = anchor(e, world);
+      e.returnT = Math.min(1, e.returnT + dt / (e.returnDur || 1.7));
+      const k = e.returnT * e.returnT * (3 - 2 * e.returnT);
+      e.x = lerp(e.returnX, a.x, k);
+      e.y = lerp(e.returnY, a.y, k);
+      if (e.returnT >= 1) e.mode = "home";
       break;
     }
     case "roam": {
@@ -222,12 +238,13 @@ export function moveEnemy(e, dt, world) {
       }
       if ((e.dir > 0 && e.x > W + 90) || (e.dir < 0 && e.x < -90)) e.gone = true;
       break;
-    case "drift":
-      e.x += e.dx * dt + (e.variant % 3 === 2 ? Math.cos(e.t * 1.6) * 70 * dt : 0);
+    case "drift": {
+      e.x += e.dx * dt;
       e.y += e.dy * dt;
-      e.angle += e.spin * dt;
+      e.angle += (e.spin || 0) * dt;
       if (e.t > 1 && (e.y > H + 80 || e.x < -110 || e.x > W + 110)) e.gone = true;
       break;
+    }
     default:
       break;
   }
@@ -241,24 +258,24 @@ export function startDive(e, target, rng, style = "swoop") {
   const sx = e.x;
   const sy = e.y;
   const side = rng() < 0.5 ? -1 : 1;
-  const tx = clamp(target.x + rand(rng, -50, 50), 40, W - 40);
+  const aimX = clamp(target.x + rand(rng, -24, 24), 52, W - 52);
+  const aimY = clamp(target.y + rand(rng, -16, 32), 105, H - 82);
   const fast = e.chapter >= 10 ? 0.42 : e.chapter >= 7 ? 0.68 : 1;
   const homeX = e.slotX || sx;
   const homeY = e.slotY || sy;
-  const low = clamp(target.y - 80, 160, H - 150);
   if (e.once) {
     if (style === "loop") {
-      e.path = [sx, sy, sx + side * 280, sy + 300, sx - side * 260, sy + 330, tx, H + 100];
+      e.path = [sx, sy, sx + side * 180, sy + 160, aimX - side * 90, aimY - 70, aimX, aimY, aimX + side * 30, H + 90];
       e.pathDur = rand(rng, 2.4, 2.9) * fast;
     } else {
-      e.path = [sx, sy, sx + side * rand(rng, 60, 170), sy - 80, tx - side * 90, target.y - 150, tx + side * rand(rng, 40, 150), H + 100];
+      e.path = [sx, sy, sx + side * rand(rng, 50, 120), sy - 40, aimX - side * 70, aimY - 90, aimX, aimY, aimX, H + 100];
       e.pathDur = rand(rng, 1.8, 2.3) * fast;
     }
   } else if (style === "loop") {
-    e.path = [sx, sy, sx + side * 150, Math.min(sy + 120, low), tx, low, homeX, homeY];
+    e.path = [sx, sy, sx + side * 120, lerp(sy, aimY, 0.45), aimX - side * 40, aimY - 50, aimX, aimY, homeX, homeY];
     e.pathDur = rand(rng, 1.7, 2.1) * fast;
   } else {
-    e.path = [sx, sy, sx + side * 80, sy - 20, tx, low, homeX, homeY];
+    e.path = [sx, sy, sx + side * 70, sy - 10, aimX - side * 35, aimY - 45, aimX, aimY, homeX, homeY];
     e.pathDur = rand(rng, 1.25, 1.6) * fast;
   }
   e.mode = "dive";
@@ -291,13 +308,15 @@ export function fireFrom(e, target, rng, chapter) {
       }
       const rushChapter = Math.min(chapter, 5);
       const rush = rushChapter >= 3 ? 32 * (rushChapter - 2) : 0;
-      const egg = { kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90) + rush, r: e.kind === "chick" ? 10 : 13 };
-      if (e.kind === "chick" && e.variant % 4 === 1) return [{ ...egg, weave: true, r: 9, vy: egg.vy + 35 }];
+      const egg = { kind: "egg", x, y, vx: rand(rng, -10, 10) + e.vx * 0.08, vy: rand(rng, 55, 95) + rush, r: e.kind === "chick" ? 10 : 13 };
       if (chapter < 7 && e.kind !== "chick" && e.variant % 4 === 3) {
         return [
           { ...egg, x: x - 12, vx: egg.vx - 45 },
           { ...egg, x: x + 12, vx: egg.vx + 45 },
         ];
+      }
+      if (chapter >= 4 && e.kind === "hen" && rng() < 0.16) {
+        return [{ kind: "poop", x, y, vx: rand(rng, -18, 18), vy: 55, r: 15, gravity: 0.8, wobble: true }];
       }
       if (chapter >= 5 && e.kind === "hen" && rng() < (chapter >= 7 ? 0.08 : 0.22)) {
         return [{ kind: "cluster", x, y, vx: egg.vx, vy: egg.vy, r: 14, splitY: rand(rng, 380, 560), gravity: 1 }];
@@ -340,10 +359,14 @@ export function fireFrom(e, target, rng, chapter) {
     }
     case "mine":
       return [{ kind: "mine", x, y, vx: rand(rng, -18, 18), vy: 48, r: 12, arm: 0.8, life: 2.15 }];
-    case "needle":
-      return [{ kind: "needle", x, y, ...aimed(x, y, target, 520 + 18 * chapter), r: 5 }];
+    case "needle": {
+      const speed = 395 + 11 * chapter;
+      return [{ kind: "needle", x, y, ...aimed(x, y, target, speed), r: 6 }];
+    }
     case "spiral":
       return [{ kind: "spiral", x, y, vx: rand(rng, -30, 30), vy: 70, r: 11, spin: rng() < 0.5 ? 5 : -5, orbit: chapter >= 7 ? 14 : 30 }];
+    case "net":
+      return [{ kind: "net", x, y, vx: rand(rng, -16, 16), vy: 62, r: 30, gravity: 0.12 }];
     case "bounce": {
       let vx = rand(rng, -110, 110);
       if (Math.abs(vx) < 40) vx = vx < 0 ? -70 : 70;

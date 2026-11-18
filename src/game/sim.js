@@ -126,10 +126,14 @@ function addEnemy(state, kind, fields) {
 }
 
 function shotPace(chapter) {
+  if (chapter >= 10) return 2.6;
   return 0.68 + 0.07 * (chapter - 1);
 }
 
+const MAX_EGGS = 160;
+
 function addEgg(state, spec) {
+  if (state.eggs.length >= MAX_EGGS) return;
   const pace = shotPace(state.chapter);
   state.eggs.push({
     t: 0,
@@ -181,6 +185,7 @@ function startWave(state) {
     buildWave(
       {
         rng: state.rng,
+        player: state.player,
         spawn: (kind, fields) => addEnemy(state, kind, fields),
         later: (at, fn) => state.timers.push({ at, fn, optional: false }),
         setFormation: (sway) => Object.assign(state.formation, sway),
@@ -318,7 +323,7 @@ function updatePlayer(state, input, dt) {
     for (const s of shots) state.shots.push(s);
     state.stats.fired += shots.length;
     p.fireCd = weapon.rate * (p.haste > 0 ? 0.55 : 1);
-    if (p.frost <= 0) p.heat += weapon.heat * 1.21;
+    if (p.frost <= 0) p.heat += weapon.heat * HEAT.fireGain;
     emit(state, "shot", { weapon: p.weapon, level: p.level, x: p.x, y: p.y });
     if (p.rockets && p.rocketCd <= 0) {
       p.rocketCd = 0.85;
@@ -362,6 +367,10 @@ function killPlayer(state) {
   p.overheated = false;
   p.shield = 0;
   p.frost = 0;
+  if (p.rockets) {
+    p.rockets = false;
+    emit(state, "rocket_lost", { x: p.x, y: p.y });
+  }
   state.waveDeaths += 1;
   state.stats.deaths += 1;
   state.combo = 0;
@@ -403,10 +412,20 @@ function updateNova(state, dt) {
   state.eggs.length = 0;
   state.beams.length = 0;
   const dmg = 30 + 12 * state.chapter;
-  for (const e of state.enemies) if (!e.dead && !e.hidden && e.y > -30 && e.y < H) damageEnemy(state, e, dmg, null);
+  for (const e of state.enemies) if (!e.dead && !e.hidden && e.y > -30 && e.y < H) bombHit(state, e, dmg);
   if (state.boss) bossResult(state, bombBoss(state.boss), state.boss.x, state.boss.y);
   state.player.invuln = Math.max(state.player.invuln, 0.8);
   state.enemies = state.enemies.filter((e) => !e.dead);
+}
+
+function bombHit(state, e, dmg) {
+  if ((e.maxBombShield ?? 0) > 0 && (e.bombShield ?? 0) > 0) {
+    e.bombShield -= 1;
+    e.flash = 0.14;
+    emit(state, e.bombShield > 0 ? "shield_hit" : "shield_break", { x: e.x, y: e.y, ex: e.x, ey: e.y });
+    if (e.bombShield > 0) return;
+  }
+  damageEnemy(state, e, dmg, null);
 }
 
 function damageEnemy(state, e, dmg, shot) {
@@ -423,8 +442,10 @@ function damageEnemy(state, e, dmg, shot) {
   }
   e.hp -= rest;
   e.flash = 0.09;
-  if (e.hp > 0) emit(state, "hit", { x, y, kind: e.kind });
-  else killEnemy(state, e);
+  if (e.hp > 0) {
+    if (e.kind === "rock") emit(state, "stone_chip", { x, y, size: e.size || 1 });
+    else emit(state, "hit", { x, y, kind: e.kind });
+  } else killEnemy(state, e);
 }
 
 function killEnemy(state, e) {
@@ -463,6 +484,7 @@ function bossResult(state, result, x, y) {
   const b = state.boss;
   if (!result || !b) return;
   if (result === "immune") emit(state, "boss_immune", { x, y });
+  else if (result === "shield_block") emit(state, "boss_shield_hit", { x, y });
   else if (result === "part_down") {
     state.score += 3000;
     emit(state, "part_down", { x, y, points: 3000 });
@@ -595,6 +617,8 @@ function pickWeighted(rng, list, weightOf) {
   return list[list.length - 1];
 }
 
+const PACER_BURST = 10;
+
 function eggPacer(state, dt) {
   if (!state.player.alive) return;
   const shooters = state.enemies.filter(
@@ -602,26 +626,32 @@ function eggPacer(state, dt) {
   );
   if (shooters.length === 0) return;
   state.eggClock += dt * state.pacing.eggRate * (0.35 + 0.65 * Math.min(1, shooters.length / state.waveSize));
-  while (state.eggClock >= 1) {
+  let burst = PACER_BURST;
+  while (state.eggClock >= 1 && burst > 0) {
     state.eggClock -= 1;
+    burst -= 1;
     const e = pickWeighted(state.rng, shooters, (s) => ENEMY_TYPES[s.kind].eggWeight);
     for (const spec of fireFrom(e, state.player, state.rng, state.chapter)) addEgg(state, spec);
     e.lay = 0.35;
     emit(state, "egg", { x: e.x, y: e.y, kind: e.kind, egg: ENEMY_TYPES[e.kind].egg });
   }
+  if (burst <= 0 && state.eggClock >= 1) state.eggClock = Math.min(state.eggClock, 3);
 }
 
 function divePacer(state, dt) {
   if (!state.pacing.diveRate || !state.player.alive) return;
   state.diveClock += dt * state.pacing.diveRate;
-  while (state.diveClock >= 1) {
+  let burst = PACER_BURST;
+  while (state.diveClock >= 1 && burst > 0) {
     state.diveClock -= 1;
+    burst -= 1;
     const ready = state.enemies.filter((e) => !e.hidden && e.mode === "home" && e.home !== "snake" && ENEMY_TYPES[e.kind].dive > 0);
     if (ready.length === 0) return;
     const e = pickWeighted(state.rng, ready, (c) => ENEMY_TYPES[c.kind].dive);
     startDive(e, state.player, state.rng, state.rng() < state.pacing.diveLoop ? "loop" : "swoop");
     emit(state, "dive", { x: e.x, y: e.y, kind: e.kind });
   }
+  if (burst <= 0 && state.diveClock >= 1) state.diveClock = Math.min(state.diveClock, 3);
 }
 
 function updateEnemies(state, dt) {
@@ -711,16 +741,25 @@ function stepSpiral(g, dt) {
   g.y = g.oy + Math.sin(g.phase) * orbit * 0.55;
 }
 
+const FALLING_EGGS = new Set(["egg", "cluster", "bounce", "goldenegg"]);
+
 function updateEggs(state, dt) {
   const p = state.player;
   const spawned = [];
   let w = 0;
   for (const g of state.eggs) {
     g.t += dt;
-    if (g.weave) g.vx += Math.cos(g.t * 8) * 140 * dt;
     if (g.bend) bendShot(g, p, dt);
-    if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce" || g.kind === "goldenegg") {
+    if (g.kind === "poop") g.vx += Math.sin(g.t * 5) * 50 * dt;
+    if (g.kind === "net") {
+      g.vy = Math.min(140, g.vy + 45 * dt);
+      g.vx += Math.sin(g.t * 4) * 35 * dt;
+    }
+    if (FALLING_EGGS.has(g.kind) || g.kind === "poop") {
       g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * (g.gravity || 1) * dt);
+    }
+    if (FALLING_EGGS.has(g.kind)) {
+      g.vx *= Math.max(0, 1 - dt * 1.25);
     } else if (g.kind === "yolk") {
       g.vy = Math.min(260, g.vy + 60 * dt);
       g.vx += Math.sin(g.t * 6) * 40 * dt;
@@ -774,7 +813,7 @@ function updateEggs(state, dt) {
       g.bounces -= 1;
     }
     const depth = g.oy == null ? g.y : g.oy;
-    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster" || g.kind === "goldenegg") && g.y >= FLOOR_Y) {
+    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster" || g.kind === "goldenegg" || g.kind === "poop") && g.y >= FLOOR_Y) {
       emit(state, "splat", { x: g.x, y: FLOOR_Y, big: g.r > 11, yolk: g.kind === "yolk" });
       continue;
     }
@@ -858,6 +897,14 @@ function collect(state, k) {
   } else if (k.kind === "magnet") {
     p.magnet = 8;
     emit(state, "shield_on", { x: p.x, y: p.y });
+  } else if (k.kind === "rocket" && state.chapter >= 4) {
+    p.rockets = true;
+    emit(state, "weapon", { weapon: p.weapon, x: p.x, y: p.y });
+  } else if (k.kind === "feather") {
+    p.frost = Math.max(p.frost, 4.5);
+    p.heat = Math.max(0, p.heat - 35);
+    p.overheated = false;
+    emit(state, "coolant", { x: p.x, y: p.y });
   }
   emit(state, "pickup", { kind: k.kind, weapon: k.weapon, x: k.x, y: k.y, points: PICKUPS[k.kind].score });
 }
@@ -887,7 +934,7 @@ function updateTimers(state, dt) {
     due.push(t);
     return false;
   });
-  for (const t of due) t.fn();
+  for (const t of due.slice(0, 24)) t.fn();
 }
 
 function updateCombo(state, dt) {

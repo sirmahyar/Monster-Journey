@@ -548,26 +548,54 @@ export function drawBoss(ctx, b, time, player) {
     x += Math.sin(time * 90) * 4;
     y += Math.cos(time * 77) * 4;
   }
-  if (b.aim != null) {
+  const mark = b.mark || (b.aim != null ? { x: b.aim, y: 600 } : null);
+  if (mark) {
     ctx.save();
-    ctx.strokeStyle = rgba("#ff3b3b", 0.5 + 0.4 * Math.sin(time * 20));
+    const pulse = 0.55 + 0.45 * Math.sin(time * 18);
+    ctx.strokeStyle = `rgba(255, 70, 70, ${pulse})`;
     ctx.lineWidth = 3;
     ctx.setLineDash([10, 8]);
     ctx.beginPath();
-    ctx.arc(b.aim, 600, 46, 0, TAU);
+    ctx.arc(mark.x, mark.y, 28 + pulse * 18, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(mark.x, mark.y, 6, 0, TAU);
     ctx.stroke();
     ctx.restore();
   }
   ctx.save();
   ctx.translate(x, y);
   if (b.dying > 0) ctx.globalAlpha = Math.max(0.3, b.dying / 2.4);
-  PAINT[b.kind](ctx, b, time);
+  const paintBoss = PAINT[b.kind];
+  if (paintBoss) paintBoss(ctx, b, time);
   ctx.restore();
   for (const part of b.parts) turret(ctx, part, player, time);
   if (b.flash > 0) {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     blit(ctx, glowDot("bossflash", 64, "#ffffff"), x, y, 0, SIZE[b.kind] / 50, SIZE[b.kind] / 60, (b.flash / 0.06) * 0.45);
+    ctx.restore();
+  }
+  if (b.shield > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const k = b.shield / b.maxShield;
+    const active = b.shieldActive > 0;
+    const ripple = (b.shieldRipple || 0) / 0.35;
+    const swell = active ? 1.06 + 0.04 * Math.sin(time * 22) : 1;
+    ctx.strokeStyle = rgba(active ? "#d8fbff" : "#9ff0ff", (active ? 0.55 : 0.35) + 0.4 * k);
+    ctx.lineWidth = active ? 5 : 4;
+    ctx.beginPath();
+    ctx.ellipse(x, y, (130 + ripple * 18) * swell, (100 + ripple * 14) * swell, time * 0.8, 0, TAU);
+    ctx.stroke();
+    if (ripple > 0) {
+      ctx.strokeStyle = rgba("#ffffff", 0.35 * ripple);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 130 + ripple * 38, 100 + ripple * 30, time * 0.8, 0, TAU);
+      ctx.stroke();
+    }
     ctx.restore();
   }
   if (b.armored) {

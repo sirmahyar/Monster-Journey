@@ -27,7 +27,7 @@ export function hudEvent(hud, ev) {
           };
       break;
     case "clear":
-      hud.banner = { kind: "clear", title: ev.boss ? T.bossDown : T.waveClear, bonus: ev.bonus, extra: ev.flawless ? T.flawless : "", t: 0, dur: 2.1 };
+      hud.banner = { kind: "clear", title: ev.boss ? T.bossDown : T.waveClear(ev.wave), bonus: ev.bonus, extra: ev.flawless ? T.flawless : "", t: 0, dur: 2.1 };
       break;
     case "warp":
       hud.banner = {

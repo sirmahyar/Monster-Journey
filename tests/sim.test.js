@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHAPTER_COUNT, H, HEAT, PLAYER, STEP, W, WAVES_PER_CHAPTER } from "../src/game/config.js";
+import { CHAPTER_COUNT, H, HEAT, PLAYER, STEP, W, WAVES_PER_CHAPTER, playerPity } from "../src/game/config.js";
 import { bossCircles, hitBoss, makeBoss } from "../src/game/bosses.js";
 import { makeEnemy } from "../src/game/enemies.js";
 import { makePickup, rollDrops } from "../src/game/loot.js";
@@ -180,7 +180,7 @@ describe("simulation", () => {
     drop("crate", { weapon: "laser" });
     run(state, STEP);
     expect(p.weapon).toBe("laser");
-    for (let i = 0; i < 8; i += 1) drop("cob");
+    for (let i = 0; i < 24; i += 1) drop("cob");
     run(state, STEP);
     expect(p.bombs).toBe(PLAYER.bombs + 1);
     state.eggs.push({ kind: "egg", x: 100, y: 300, vx: 0, vy: 0, r: 7, t: 0, gravity: 1 });
@@ -190,6 +190,51 @@ describe("simulation", () => {
     expect(events.some((e) => e.type === "nova")).toBe(true);
     expect(state.enemies.length).toBeLessThan(before);
     expect(p.bombs).toBe(PLAYER.bombs);
+  });
+
+  it("kills common birds with one bomb in chapter 6", () => {
+    const state = createGame({ random: seeded(11), chapter: 6, wave: 1 });
+    const hen = makeEnemy(state.nextId, "hen", 6, { x: 360, y: 400, mode: "home", hidden: false, slotX: 360, slotY: 200 });
+    state.nextId += 1;
+    state.enemies = [hen];
+    state.player.bombs = 1;
+    state.nova = { x: 360, y: 300, sx: 360, sy: 300, t: 0.49 };
+    run(state, STEP);
+    expect(hen.dead).toBe(true);
+  });
+
+  it("needs two bombs to kill a sniper", () => {
+    const state = createGame({ random: seeded(12), chapter: 6, wave: 1 });
+    const sniper = makeEnemy(state.nextId, "sniper", 6, { x: 360, y: 400, mode: "home", hidden: false });
+    state.nextId += 1;
+    state.enemies = [sniper];
+    state.player.bombs = 2;
+    state.nova = { x: 360, y: 300, sx: 360, sy: 300, t: 0.49 };
+    run(state, STEP);
+    expect(sniper.dead).toBeFalsy();
+    expect(sniper.bombShield).toBe(1);
+    state.nova = { x: 360, y: 300, sx: 360, sy: 300, t: 0.49 };
+    run(state, STEP);
+    expect(sniper.dead || !state.enemies.includes(sniper)).toBe(true);
+  });
+
+  it("raises survival drops when only one or two ships remain (not in final chapters)", () => {
+    expect(playerPity({ lives: 1 }, 5).drop).toBeGreaterThan(1);
+    expect(playerPity({ lives: 3 }, 5).drop).toBe(1);
+    expect(playerPity({ lives: 5 }, 5).drop).toBeLessThan(1);
+    expect(playerPity({ lives: 1 }, CHAPTER_COUNT - 1).drop).toBe(1);
+    const enemy = { kind: "hen", r: 24, carrier: null, chapter: 5 };
+    const helpKinds = new Set(["life", "shield", "power", "coolant"]);
+    function helpfulCount(lives, chapter, seed) {
+      let n = 0;
+      for (let i = 0; i < 2400; i += 1) {
+        const drops = rollDrops(enemy, seeded(seed + i), { weapon: "pulse", weapons: ["pulse", "laser"], level: 3, lives });
+        if (drops.some((d) => helpKinds.has(d.kind))) n += 1;
+      }
+      return n;
+    }
+    expect(helpfulCount(1, 5, 900)).toBeGreaterThan(helpfulCount(3, 5, 900));
+    expect(helpfulCount(5, 5, 1200)).toBeLessThan(helpfulCount(3, 5, 1200));
   });
 
   it("lets some chickens drop a meal worth several coins", () => {
