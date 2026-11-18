@@ -159,6 +159,7 @@ function keptGift(gift, chapter, rng) {
   if (gift === "nova") keep *= 0.36;
   if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant")) keep *= 0.9;
   if (gift === "nova" || gift === "shield" || gift === "coolant" || gift === "crate") keep *= 0.85;
+  if (gift && gift !== "life") keep *= 0.5;
   if (rng() >= keep) return "";
   return gift;
 }
@@ -565,14 +566,14 @@ export function buildWave(api, info) {
   const gifts = ["power", "shield", "coolant"];
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
   if (info.chapter >= 4) gifts.push("rocket");
-  const powerChance = info.chapter <= 3 ? 0.81 : 0.9;
+  const powerChance = info.chapter <= 3 ? 0.405 : 0.45;
   const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < powerChance ? 1 : 0;
   for (let i = 0; i < powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = "power";
     pool.splice(index, 1);
   }
-  const marked = scaledCount((info.chapter >= 3 ? 3 : 2) * 0.95, api.rng);
+  const marked = scaledCount((info.chapter >= 3 ? 3 : 2) * 0.475, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
@@ -580,7 +581,7 @@ export function buildWave(api, info) {
     pool.splice(index, 1);
   }
   for (const enemy of pool) {
-    if (api.rng() >= 0.03325) continue;
+    if (api.rng() >= 0.016625) continue;
     const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
     if (gift) enemy.carrier = gift;
   }

@@ -28,7 +28,7 @@ export const HEAT = Object.freeze({
   unlockAt: 28,
 });
 
-export const FOOD_PER_BOMB = 40;
+export const FOOD_PER_BOMB = 120;
 export const COMBO_WINDOW = 1.5;
 export const MAX_COMBO_MULT = 10;
 export const EGG_GRAVITY = 320;

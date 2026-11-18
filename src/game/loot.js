@@ -53,16 +53,17 @@ function crateWeapon(rng, player) {
 
 function dropCuts(chapter) {
   const early = chapter <= 3 ? 0.9 : 1;
+  const gift = 0.5;
   const widths = [
-    0.012065 * early,
-    0.0076 * early * 0.85,
-    0.0038 * early * 0.85,
+    0.012065 * early * gift,
+    0.0076 * early * 0.85 * gift,
+    0.0038 * early * 0.85 * gift,
     0,
     0.001425,
-    0.00151,
-    0.0012,
-    0.001,
-    0.0016,
+    0.00151 * gift,
+    0.0012 * gift,
+    0.001 * gift,
+    0.0016 * gift,
   ];
   let cursor = 0;
   return widths.map((width) => {
@@ -90,7 +91,7 @@ export function rollDrops(e, rng, player) {
   if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "rocket") {
     out.push({ kind: e.carrier });
   }
-  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.0323) {
+  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.01615) {
     const weapon = crateWeapon(rng, player);
     if (weapon) out.push({ kind: "crate", weapon });
   }

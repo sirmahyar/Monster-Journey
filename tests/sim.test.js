@@ -180,7 +180,7 @@ describe("simulation", () => {
     drop("crate", { weapon: "laser" });
     run(state, STEP);
     expect(p.weapon).toBe("laser");
-    for (let i = 0; i < 8; i += 1) drop("cob");
+    for (let i = 0; i < 24; i += 1) drop("cob");
     run(state, STEP);
     expect(p.bombs).toBe(PLAYER.bombs + 1);
     state.eggs.push({ kind: "egg", x: 100, y: 300, vx: 0, vy: 0, r: 7, t: 0, gravity: 1 });

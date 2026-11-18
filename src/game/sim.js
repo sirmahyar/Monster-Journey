@@ -130,7 +130,10 @@ function shotPace(chapter) {
   return 0.68 + 0.07 * (chapter - 1);
 }
 
+const MAX_EGGS = 160;
+
 function addEgg(state, spec) {
+  if (state.eggs.length >= MAX_EGGS) return;
   const pace = shotPace(state.chapter);
   state.eggs.push({
     t: 0,
@@ -319,7 +322,7 @@ function updatePlayer(state, input, dt) {
     for (const s of shots) state.shots.push(s);
     state.stats.fired += shots.length;
     p.fireCd = weapon.rate * (p.haste > 0 ? 0.55 : 1);
-    if (p.frost <= 0) p.heat += weapon.heat * 1.331;
+    if (p.frost <= 0) p.heat += weapon.heat * 2.662;
     emit(state, "shot", { weapon: p.weapon, level: p.level, x: p.x, y: p.y });
     if (p.rockets && p.rocketCd <= 0) {
       p.rocketCd = 0.85;
@@ -618,6 +621,8 @@ function pickWeighted(rng, list, weightOf) {
   return list[list.length - 1];
 }
 
+const PACER_BURST = 10;
+
 function eggPacer(state, dt) {
   if (!state.player.alive) return;
   const shooters = state.enemies.filter(
@@ -625,26 +630,32 @@ function eggPacer(state, dt) {
   );
   if (shooters.length === 0) return;
   state.eggClock += dt * state.pacing.eggRate * (0.35 + 0.65 * Math.min(1, shooters.length / state.waveSize));
-  while (state.eggClock >= 1) {
+  let burst = PACER_BURST;
+  while (state.eggClock >= 1 && burst > 0) {
     state.eggClock -= 1;
+    burst -= 1;
     const e = pickWeighted(state.rng, shooters, (s) => ENEMY_TYPES[s.kind].eggWeight);
     for (const spec of fireFrom(e, state.player, state.rng, state.chapter)) addEgg(state, spec);
     e.lay = 0.35;
     emit(state, "egg", { x: e.x, y: e.y, kind: e.kind, egg: ENEMY_TYPES[e.kind].egg });
   }
+  if (burst <= 0 && state.eggClock >= 1) state.eggClock = Math.min(state.eggClock, 3);
 }
 
 function divePacer(state, dt) {
   if (!state.pacing.diveRate || !state.player.alive) return;
   state.diveClock += dt * state.pacing.diveRate;
-  while (state.diveClock >= 1) {
+  let burst = PACER_BURST;
+  while (state.diveClock >= 1 && burst > 0) {
     state.diveClock -= 1;
+    burst -= 1;
     const ready = state.enemies.filter((e) => !e.hidden && e.mode === "home" && e.home !== "snake" && ENEMY_TYPES[e.kind].dive > 0);
     if (ready.length === 0) return;
     const e = pickWeighted(state.rng, ready, (c) => ENEMY_TYPES[c.kind].dive);
     startDive(e, state.player, state.rng, state.rng() < state.pacing.diveLoop ? "loop" : "swoop");
     emit(state, "dive", { x: e.x, y: e.y, kind: e.kind });
   }
+  if (burst <= 0 && state.diveClock >= 1) state.diveClock = Math.min(state.diveClock, 3);
 }
 
 function updateEnemies(state, dt) {
@@ -918,7 +929,7 @@ function updateTimers(state, dt) {
     due.push(t);
     return false;
   });
-  for (const t of due) t.fn();
+  for (const t of due.slice(0, 24)) t.fn();
 }
 
 function updateCombo(state, dt) {
