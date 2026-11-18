@@ -419,19 +419,11 @@ function updateNova(state, dt) {
 }
 
 function bombHit(state, e, dmg) {
-  if (e.bombProof) {
-    e.bombShield = Math.max(0, (e.bombShield ?? e.maxBombShield) - 1);
+  if ((e.maxBombShield ?? 0) > 0 && (e.bombShield ?? 0) > 0) {
+    e.bombShield -= 1;
     e.flash = 0.14;
     emit(state, e.bombShield > 0 ? "shield_hit" : "shield_break", { x: e.x, y: e.y, ex: e.x, ey: e.y });
-    return;
-  }
-  if ((e.chapter || 1) >= 5 && e.kind !== "rock" && e.kind !== "golden" && e.kind !== "poop" && e.kind !== "net") {
-    const floor = Math.max(1, e.maxHp * 0.4);
-    e.hp = Math.max(floor, e.hp - dmg * 0.45);
-    e.flash = 0.09;
-    if (e.kind === "rock") emit(state, "stone_chip", { x: e.x, y: e.y, size: e.size || 1 });
-    else emit(state, "hit", { x: e.x, y: e.y, kind: e.kind });
-    return;
+    if (e.bombShield > 0) return;
   }
   damageEnemy(state, e, dmg, null);
 }

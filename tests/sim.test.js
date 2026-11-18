@@ -192,6 +192,32 @@ describe("simulation", () => {
     expect(p.bombs).toBe(PLAYER.bombs);
   });
 
+  it("kills common birds with one bomb in chapter 6", () => {
+    const state = createGame({ random: seeded(11), chapter: 6, wave: 1 });
+    const hen = makeEnemy(state.nextId, "hen", 6, { x: 360, y: 400, mode: "home", hidden: false, slotX: 360, slotY: 200 });
+    state.nextId += 1;
+    state.enemies = [hen];
+    state.player.bombs = 1;
+    state.nova = { x: 360, y: 300, sx: 360, sy: 300, t: 0.49 };
+    run(state, STEP);
+    expect(hen.dead).toBe(true);
+  });
+
+  it("needs two bombs to kill a sniper", () => {
+    const state = createGame({ random: seeded(12), chapter: 6, wave: 1 });
+    const sniper = makeEnemy(state.nextId, "sniper", 6, { x: 360, y: 400, mode: "home", hidden: false });
+    state.nextId += 1;
+    state.enemies = [sniper];
+    state.player.bombs = 2;
+    state.nova = { x: 360, y: 300, sx: 360, sy: 300, t: 0.49 };
+    run(state, STEP);
+    expect(sniper.dead).toBeFalsy();
+    expect(sniper.bombShield).toBe(1);
+    state.nova = { x: 360, y: 300, sx: 360, sy: 300, t: 0.49 };
+    run(state, STEP);
+    expect(sniper.dead || !state.enemies.includes(sniper)).toBe(true);
+  });
+
   it("raises survival drops when only one or two ships remain (not in final chapters)", () => {
     expect(playerPity({ lives: 1 }, 5).drop).toBeGreaterThan(1);
     expect(playerPity({ lives: 3 }, 5).drop).toBe(1);

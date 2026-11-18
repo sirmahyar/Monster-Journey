@@ -71,7 +71,7 @@ function drawEnemies(ctx, enemies, time) {
     const lay = e.lay > 0 ? Math.sin((e.lay / 0.35) * Math.PI) * 0.14 : 0;
     blit(ctx, s, e.x, e.y + bob, rot, 1 + lay, 1 - lay);
     if (e.flash > 0) blit(ctx, creatureFlash(e.kind, e.variant, frame, blink, e.r), e.x, e.y + bob, rot, 1 + lay, 1 - lay, Math.min(1, e.flash / 0.09));
-    if (e.bombProof && e.bombShield > 0) {
+    if (e.maxBombShield > 0 && e.bombShield > 0) {
       ctx.save();
       ctx.strokeStyle = rgba("#ff4fd8", 0.45 + 0.35 * (e.bombShield / e.maxBombShield));
       ctx.lineWidth = 3;

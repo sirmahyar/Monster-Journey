@@ -5,14 +5,14 @@ export const ENEMY_TYPES = Object.freeze({
   chick: Object.freeze({ r: 16, hp: 2, score: 100, egg: "egg", eggWeight: 0.45, food: 0.3, dive: 0.4 }),
   hen: Object.freeze({ r: 24, hp: 5, score: 200, egg: "egg", eggWeight: 1, food: 0.55, dive: 0.25 }),
   diver: Object.freeze({ r: 24, hp: 5, score: 300, egg: "egg", eggWeight: 0.55, food: 0.55, dive: 3 }),
-  bomber: Object.freeze({ r: 26, hp: 8, score: 350, egg: "yolk", eggWeight: 0.75, food: 0.7, dive: 0.15 }),
-  rooster: Object.freeze({ r: 30, hp: 14, score: 500, egg: "quill", eggWeight: 0.9, food: 0.85, dive: 0.6 }),
-  saucer: Object.freeze({ r: 30, hp: 7, score: 650, egg: "spark", eggWeight: 1.3, food: 0.8, dive: 0, shield: 8 }),
-  miner: Object.freeze({ r: 24, hp: 7, score: 400, egg: "mine", eggWeight: 0.7, food: 0.6, dive: 0.2 }),
-  sniper: Object.freeze({ r: 24, hp: 6, score: 450, egg: "needle", eggWeight: 0.85, food: 0.5, dive: 0.1 }),
+  bomber: Object.freeze({ r: 26, hp: 8, score: 350, egg: "yolk", eggWeight: 0.75, food: 0.7, dive: 0.15, bombLayers: 2 }),
+  rooster: Object.freeze({ r: 30, hp: 14, score: 500, egg: "quill", eggWeight: 0.9, food: 0.85, dive: 0.6, bombLayers: 2 }),
+  saucer: Object.freeze({ r: 30, hp: 7, score: 650, egg: "spark", eggWeight: 1.3, food: 0.8, dive: 0, shield: 8, bombLayers: 2 }),
+  miner: Object.freeze({ r: 24, hp: 7, score: 400, egg: "mine", eggWeight: 0.7, food: 0.6, dive: 0.2, bombLayers: 2 }),
+  sniper: Object.freeze({ r: 24, hp: 6, score: 450, egg: "needle", eggWeight: 0.85, food: 0.5, dive: 0.1, bombLayers: 2 }),
   spinner: Object.freeze({ r: 18, hp: 4, score: 280, egg: "spiral", eggWeight: 0.9, food: 0.4, dive: 0.35 }),
-  shell: Object.freeze({ r: 28, hp: 12, score: 600, egg: "bounce", eggWeight: 0.8, food: 0.65, dive: 0.15, shield: 10 }),
-  warden: Object.freeze({ r: 28, hp: 18, score: 750, egg: "net", eggWeight: 0.85, food: 0.35, dive: 0.12, shield: 14, bombProof: true }),
+  shell: Object.freeze({ r: 28, hp: 12, score: 600, egg: "bounce", eggWeight: 0.8, food: 0.65, dive: 0.15, shield: 10, bombLayers: 2 }),
+  warden: Object.freeze({ r: 28, hp: 18, score: 750, egg: "net", eggWeight: 0.85, food: 0.35, dive: 0.12, shield: 14, bombLayers: 2 }),
   poop: Object.freeze({ r: 18, hp: 4, score: 70, egg: null, eggWeight: 0, food: 0, dive: 0 }),
   net: Object.freeze({ r: 34, hp: 9, score: 160, egg: null, eggWeight: 0, food: 0, dive: 0 }),
   golden: Object.freeze({ r: 26, hp: 30, score: 2500, egg: "goldenegg", eggWeight: 1.15, food: 1, dive: 0 }),
@@ -45,7 +45,7 @@ export function makeEnemy(id, kind, chapter, fields = {}) {
   const base = kind === "rock" ? ROCK_SIZES[fields.size || 3] : ENEMY_TYPES[kind];
   const hp = Math.round(base.hp * hpScale(chapter) * 10) / 10;
   const shield = ENEMY_TYPES[kind].shield ? Math.round(ENEMY_TYPES[kind].shield * hpScale(chapter)) : 0;
-  const bombProof = Boolean(ENEMY_TYPES[kind].bombProof);
+  const bombLayers = ENEMY_TYPES[kind].bombLayers ?? 0;
   const enemy = {
     id,
     kind,
@@ -56,9 +56,8 @@ export function makeEnemy(id, kind, chapter, fields = {}) {
     score: base.score,
     shield,
     maxShield: shield,
-    bombProof,
-    bombShield: bombProof ? 2 : 0,
-    maxBombShield: bombProof ? 2 : 0,
+    bombShield: bombLayers,
+    maxBombShield: bombLayers,
     x: -200,
     y: -200,
     vx: 0,
