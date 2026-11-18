@@ -1,16 +1,17 @@
+import { audio, onAudioReady, unlockAudio } from "./engine.js";
 import { cdnPath, MUSIC_FILES } from "../../shared/assets.js";
-import { audio, onAudioReady } from "./engine.js";
 
 const FILES = Object.fromEntries(Object.entries(MUSIC_FILES).map(([id, name]) => [id, cdnPath(name)]));
+const OPENING = "boss";
 
-/** One looping list per screen. Every supplied track is used. */
+/** One looping list per screen. The first thing heard is always the boss-battle theme. */
 const PLAYLIST = {
-  menu: ["theme", "xmas2"],
+  menu: [OPENING, "theme", "xmas2"],
   stage1: ["ingame1"],
   stage2: ["ingame2"],
   stage3: ["ingame3"],
   stage4: ["xmas1", "xmas3"],
-  boss: ["boss"],
+  boss: [OPENING],
 };
 
 const buffers = new Map();
@@ -83,6 +84,21 @@ function arm(token) {
       player.index += 1;
       arm(token);
     };
+  });
+}
+
+/** Fetches and decodes the opening track. The menu stays behind the loading screen until this finishes. */
+export function whenOpeningMusicReady() {
+  if (buffers.has(OPENING)) return Promise.resolve(buffers.get(OPENING));
+  return fetch(FILES[OPENING]).then(async (response) => {
+    if (!response.ok) throw new Error(String(response.status));
+    const bytes = await response.arrayBuffer();
+    const ctx = unlockAudio();
+    if (!ctx) throw new Error("audio");
+    const buffer = await ctx.decodeAudioData(bytes.slice(0));
+    buffers.set(OPENING, buffer);
+    loading.delete(OPENING);
+    return buffer;
   });
 }
 

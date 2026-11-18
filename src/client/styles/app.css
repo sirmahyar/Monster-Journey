@@ -110,6 +110,21 @@ button, input { font: inherit; }
   background: linear-gradient(180deg, rgba(8, 3, 24, 0.82) 0%, rgba(8, 3, 24, 0.1) 46%, rgba(8, 3, 24, 0.86) 100%);
 }
 
+.boot {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 6cqw;
+  text-align: center;
+  color: #fff6c2;
+  font-weight: 800;
+  font-size: clamp(18px, 4.5cqw, 32px);
+  background: rgba(8, 3, 24, 0.88);
+}
+
 .card {
   width: min(100%, 88cqw);
   max-height: 100%;

@@ -35,7 +35,7 @@ npm run build
 arvan ec deploy -f dist/edge/game-api.js monster
 ```
 
-The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The edge function reads the database password from `env.DB_PASSWORD.password` and writes scores to the DBaaS MySQL database. Do not put that password in the bundle. Music, chicken voices, and the Vazirmatn font files are loaded from the `game-assets22` bucket through `/cdn/`.
+The existing application is `https://monster.mahyarrrba3r.arvanedge.ir/`. The edge function reads the database password from `env.DB_PASSWORD.password` and opens a connection to the separate DBaaS MySQL server. Do not put that password in the bundle. Background music is streamed from the `game-assets22` bucket. The Vazirmatn font stays inside the game file.
 
 ## Sound
 

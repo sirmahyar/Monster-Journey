@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { isValidName, normalizeName } from "../shared/pilot-name.js";
 import { fetchScores, submitScore } from "./api.js";
 import { audioSettings, setAudioSetting, unlockAudio } from "./audio/engine.js";
+import { whenOpeningMusicReady } from "./audio/music.js";
 import { playUi } from "./audio/sfx.js";
 import { GameCanvas } from "./components/GameCanvas.jsx";
 import { Board, GameOver, Help, Menu, NameGate, Pause } from "./components/Screens.jsx";
@@ -41,6 +42,7 @@ export function App() {
   const [pending, setPending] = useState(0);
   const [saveError, setSaveError] = useState("");
   const [savedId, setSavedId] = useState(null);
+  const [booting, setBooting] = useState(true);
   const nameRef = useRef(name);
   const posted = useRef(new Set());
   const inflight = useRef(new Set());
@@ -48,6 +50,16 @@ export function App() {
   nameRef.current = name;
 
   const mode = screen === "play" || screen === "over" ? "play" : "demo";
+
+  useEffect(() => {
+    let cancel = false;
+    whenOpeningMusicReady().catch(() => {}).finally(() => {
+      if (!cancel) setBooting(false);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (screen !== "board" && screen !== "over") return undefined;
@@ -233,6 +245,7 @@ export function App() {
           <Board scores={scores} error={boardError} loading={loading} highlight={savedId} onBack={() => go("menu")} />
         )}
         {screen === "help" && <Help onBack={() => go("menu")} />}
+        {booting && <p className="boot" role="status">{strings.musicLoading}</p>}
       </div>
     </main>
   );

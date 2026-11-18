@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
+import "vazirmatn/Vazirmatn-font-face.css";
 import { App } from "./App.jsx";
-import "./styles/fonts.css";
 import "./styles/app.css";
 
 // Canvas text falls back to a system font until the face has loaded, so fetch the HUD weights up front.

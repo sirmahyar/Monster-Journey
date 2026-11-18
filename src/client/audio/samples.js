@@ -1,7 +1,5 @@
-import { cdnPath } from "../../shared/assets.js";
-
-const spriteUrl = cdnPath("chickens.mp3");
 import { onAudioReady, output } from "./engine.js";
+import spriteUrl from "./chickens.mp3?url";
 
 /**
  * [start, length] in seconds inside chickens.mp3 (see README for the recordings).

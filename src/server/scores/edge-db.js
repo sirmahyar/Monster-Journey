@@ -40,7 +40,10 @@ async function withDatabase(envBinding, run, openSocket) {
     new Promise((_, reject) => {
       setTimeout(() => reject(new GameError("SERVICE_UNAVAILABLE", "Scoreboard database did not respond.", 503)), 8000);
     }),
-  ]);
+  ]).catch((error) => {
+    if (error instanceof GameError) throw error;
+    throw new GameError("SERVICE_UNAVAILABLE", "Scoreboard database did not respond.", 503);
+  });
   const db = await openMysql(socket, config);
   try {
     await db.query(CREATE_TABLE);
@@ -149,18 +152,56 @@ async function openScoreSocket(host, port) {
 
 async function tryConnect(host, port) {
   const address = { hostname: host, port: Number(port) };
-  try {
-    if (globalThis.Deno?.connect) return wrapDeno(await globalThis.Deno.connect(address));
-  } catch {
-    return null;
-  }
-  try {
-    if (typeof globalThis.connect === "function") {
-      return wrapWeb(await globalThis.connect(address, { secureTransport: "off" }));
+  const attempts = [
+    async () => {
+      const deno = denoConnect();
+      return deno ? wrapDeno(await deno(address)) : null;
+    },
+    async () => {
+      const web = webConnect();
+      return web ? wrapWeb(await web(address, { secureTransport: "off" })) : null;
+    },
+    async () => {
+      let mod;
+      try {
+        mod = await import("cloudflare:sockets");
+      } catch {
+        return null;
+      }
+      if (typeof mod.connect !== "function") return null;
+      return wrapWeb(await mod.connect(address, { secureTransport: "off" }));
+    },
+  ];
+  let failure = null;
+  for (const attempt of attempts) {
+    try {
+      const socket = await attempt();
+      if (socket) return socket;
+    } catch (error) {
+      failure = error;
     }
-  } catch {
-    return null;
   }
+  if (failure) throw failure;
+  return null;
+}
+
+function denoConnect() {
+  try {
+    if (typeof Deno === "object" && Deno && typeof Deno.connect === "function") return Deno.connect.bind(Deno);
+  } catch {
+    /* Deno is not a lexical binding here */
+  }
+  if (globalThis.Deno && typeof globalThis.Deno.connect === "function") return globalThis.Deno.connect.bind(globalThis.Deno);
+  return null;
+}
+
+function webConnect() {
+  try {
+    if (typeof connect === "function") return connect;
+  } catch {
+    /* connect is not a lexical binding here */
+  }
+  if (typeof globalThis.connect === "function") return globalThis.connect;
   return null;
 }
 
