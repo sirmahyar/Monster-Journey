@@ -160,9 +160,9 @@ function keptGift(gift, chapter, rng, player) {
   if (chapter <= 3 && (gift === "power" || gift === "shield" || gift === "coolant")) keep *= 0.9;
   if (gift === "nova" || gift === "shield" || gift === "coolant" || gift === "crate") keep *= 0.85;
   if (gift && gift !== "life") keep *= 0.5;
-  const pity = playerPity(player, chapter);
-  if (pity && (gift === "power" || gift === "shield" || gift === "coolant" || gift === "life" || gift === "crate")) {
-    keep *= pity.gift;
+  const scale = playerPity(player, chapter);
+  if (scale.gift !== 1 && (gift === "power" || gift === "shield" || gift === "coolant" || gift === "life" || gift === "crate")) {
+    keep *= scale.gift;
   }
   if (rng() >= keep) return "";
   return gift;
@@ -568,21 +568,21 @@ export function buildWave(api, info) {
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "golden");
   const player = api.player;
-  const pity = playerPity(player, info.chapter);
+  const scale = playerPity(player, info.chapter);
   const gifts = ["power", "shield", "coolant"];
-  if (pity && player.lives < PLAYER.maxLives) gifts.push("life");
+  if (player.lives <= 2 && player.lives < PLAYER.maxLives) gifts.push("life");
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
   if (info.chapter >= 3) gifts.push("feather");
   if (info.chapter >= 4) gifts.push("rocket");
   let powerChance = info.chapter <= 3 ? 0.405 : 0.45;
-  if (pity) powerChance = Math.min(0.75, powerChance * pity.powerWave);
+  if (scale.powerWave !== 1) powerChance = Math.max(0.18, Math.min(0.75, powerChance * scale.powerWave));
   const powers = (info.wave === 2 || info.wave === 4 || info.wave === 6) && api.rng() < powerChance ? 1 : 0;
   for (let i = 0; i < powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = "power";
     pool.splice(index, 1);
   }
-  const markedBase = (info.chapter >= 3 ? 3 : 2) * 0.475 * (pity?.marked ?? 1);
+  const markedBase = (info.chapter >= 3 ? 3 : 2) * 0.475 * scale.marked;
   const marked = scaledCount(markedBase, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
@@ -590,7 +590,7 @@ export function buildWave(api, info) {
     if (gift) pool[index].carrier = gift;
     pool.splice(index, 1);
   }
-  const rareCarrier = 0.016625 * (pity?.carrierRare ?? 1);
+  const rareCarrier = 0.016625 * scale.carrierRare;
   for (const enemy of pool) {
     if (api.rng() >= rareCarrier) continue;
     const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng, player);

@@ -193,10 +193,10 @@ describe("simulation", () => {
   });
 
   it("raises survival drops when only one or two ships remain (not in final chapters)", () => {
-    expect(playerPity({ lives: 1 }, 5)?.drop).toBeGreaterThan(1);
-    expect(playerPity({ lives: 3 }, 5)).toBeNull();
-    expect(playerPity({ lives: 1 }, CHAPTER_COUNT - 1)).toBeNull();
-    expect(playerPity({ lives: 1 }, CHAPTER_COUNT)).toBeNull();
+    expect(playerPity({ lives: 1 }, 5).drop).toBeGreaterThan(1);
+    expect(playerPity({ lives: 3 }, 5).drop).toBe(1);
+    expect(playerPity({ lives: 5 }, 5).drop).toBeLessThan(1);
+    expect(playerPity({ lives: 1 }, CHAPTER_COUNT - 1).drop).toBe(1);
     const enemy = { kind: "hen", r: 24, carrier: null, chapter: 5 };
     const helpKinds = new Set(["life", "shield", "power", "coolant"]);
     function helpfulCount(lives, chapter, seed) {
@@ -208,6 +208,7 @@ describe("simulation", () => {
       return n;
     }
     expect(helpfulCount(1, 5, 900)).toBeGreaterThan(helpfulCount(3, 5, 900));
+    expect(helpfulCount(5, 5, 1200)).toBeLessThan(helpfulCount(3, 5, 1200));
   });
 
   it("lets some chickens drop a meal worth several coins", () => {

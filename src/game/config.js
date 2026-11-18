@@ -3,14 +3,6 @@ export const H = 960;
 export const STEP = 1 / 60;
 
 export const CHAPTER_COUNT = 10;
-
-/** Extra help when the run is on its last ship(s); off in the final two chapters. */
-export function playerPity(player, chapter) {
-  if (chapter >= CHAPTER_COUNT - 1 || !player || player.lives > 2) return null;
-  return player.lives === 1
-    ? { drop: 2.45, gift: 2.15, carrierRare: 2.6, powerWave: 1.7, marked: 1.8, goldenLife: 0.55, crateBonus: 0.038 }
-    : { drop: 1.72, gift: 1.52, carrierRare: 1.9, powerWave: 1.38, marked: 1.42, goldenLife: 0.42, crateBonus: 0.024 };
-}
 export const WAVES_PER_CHAPTER = 8;
 
 export const PLAYER = Object.freeze({
@@ -27,6 +19,32 @@ export const PLAYER = Object.freeze({
   maxLives: 5,
   maxBombs: 5,
 });
+
+const LOOT_NEUTRAL = Object.freeze({
+  drop: 1,
+  gift: 1,
+  carrierRare: 1,
+  powerWave: 1,
+  marked: 1,
+  goldenLife: 0.3,
+  crateBonus: 0,
+});
+
+/** Pendulum loot: more help at 1–2 ships, less at 4–5; unchanged in the last two chapters. */
+export function playerPity(player, chapter) {
+  if (chapter >= CHAPTER_COUNT - 1 || !player) return LOOT_NEUTRAL;
+  if (player.lives <= 2) {
+    return player.lives === 1
+      ? { drop: 2.45, gift: 2.15, carrierRare: 2.6, powerWave: 1.7, marked: 1.8, goldenLife: 0.55, crateBonus: 0.038 }
+      : { drop: 1.72, gift: 1.52, carrierRare: 1.9, powerWave: 1.38, marked: 1.42, goldenLife: 0.42, crateBonus: 0.024 };
+  }
+  if (player.lives >= 4) {
+    return player.lives >= PLAYER.maxLives
+      ? { drop: 0.5, gift: 0.56, carrierRare: 0.46, powerWave: 0.68, marked: 0.6, goldenLife: 0.09, crateBonus: -0.01 }
+      : { drop: 0.68, gift: 0.73, carrierRare: 0.64, powerWave: 0.78, marked: 0.72, goldenLife: 0.15, crateBonus: -0.005 };
+  }
+  return LOOT_NEUTRAL;
+}
 
 export const HEAT = Object.freeze({
   max: 100,

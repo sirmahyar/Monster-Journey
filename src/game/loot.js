@@ -55,8 +55,8 @@ function crateWeapon(rng, player) {
 function dropCuts(chapter, player) {
   const early = chapter <= 3 ? 0.9 : 1;
   const gift = 0.5;
-  const pity = playerPity(player, chapter);
-  const help = pity?.drop ?? 1;
+  const scale = playerPity(player, chapter);
+  const help = scale.drop;
   const widths = [
     0.012065 * early * gift * help,
     0.0076 * early * 0.85 * gift * help,
@@ -85,7 +85,7 @@ export function rollDrops(e, rng, player) {
     if (weapon) out.push({ kind: "crate", weapon });
     out.push({ kind: "cob" }, { kind: "cob" });
     for (let i = 0; i < 6; i += 1) out.push({ kind: "kernel" });
-    const goldenLife = playerPity(player, e.chapter || 1)?.goldenLife ?? 0.3;
+    const goldenLife = playerPity(player, e.chapter || 1).goldenLife;
     if (rng() < goldenLife) out.push({ kind: "life" });
     return out;
   }
@@ -96,8 +96,8 @@ export function rollDrops(e, rng, player) {
   if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "rocket" || e.carrier === "feather") {
     out.push({ kind: e.carrier });
   }
-  const pity = playerPity(player, e.chapter || 1);
-  const crateChance = 0.01615 + (pity?.crateBonus ?? 0);
+  const scale = playerPity(player, e.chapter || 1);
+  const crateChance = Math.max(0.004, 0.01615 + scale.crateBonus);
   if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < crateChance) {
     const weapon = crateWeapon(rng, player);
     if (weapon) out.push({ kind: "crate", weapon });
