@@ -40,12 +40,12 @@ function typing(event) {
 
 /**
  * The playfield. In "demo" mode an autopilot flies behind the menu; in "play" mode the player does.
- * @param {{ mode: "demo"|"play", runId: number, paused: boolean, onFinish: (summary: object) => void, onLeave: (entry: { score: number, chapter: number, wave: number }) => void, onPause: (force?: boolean) => void }} props
+ * @param {{ mode: "demo"|"play", runId: number, paused: boolean, onFinish: (summary: object) => void, onLeave: (entry: { score: number, chapter: number, wave: number }) => void, onSnapshot: (entry: object) => void, onPause: (force?: boolean) => void }} props
  */
-export function GameCanvas({ mode, runId, paused, onFinish, onLeave, onPause }) {
+export function GameCanvas({ mode, runId, paused, onFinish, onLeave, onSnapshot, onPause }) {
   const canvasRef = useRef(null);
-  const props = useRef({ mode, paused, onFinish, onLeave, onPause });
-  props.current = { mode, paused, onFinish, onLeave, onPause };
+  const props = useRef({ mode, paused, onFinish, onLeave, onSnapshot, onPause });
+  props.current = { mode, paused, onFinish, onLeave, onSnapshot, onPause };
   const control = useRef({ reset: null, bomb: null, mode: null });
   const [touch, setTouch] = useState(false);
 
@@ -200,6 +200,7 @@ export function GameCanvas({ mode, runId, paused, onFinish, onLeave, onPause }) 
         }
         if (steps === 6) acc = 0;
         react(drainEvents(game));
+        if (!demo) props.current.onSnapshot?.(gameSummary(game));
         if (demo) {
           demoClock += real;
           if (game.over || demoClock > 70) reset();

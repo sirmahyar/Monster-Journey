@@ -481,6 +481,40 @@ function king(ctx, b, time) {
   if (b.phase >= 1) eyeGlow(ctx, r, "#ffd24a", 0.4 + 0.3 * Math.sin(time * 10));
 }
 
+function matron(ctx, b, time) {
+  const r = 78;
+  parts.wing(ctx, r, -1, Math.sin(time * 3) * 0.4, "#3a2458", "#140818", 1.15);
+  parts.wing(ctx, r, 1, Math.sin(time * 3) * 0.4, "#3a2458", "#140818", 1.15);
+  parts.body(ctx, r, { body: "#1a1028", shade: "#07040f" }, 1.05, 1);
+  ctx.save();
+  ctx.translate(0, -r * 0.2);
+  ctx.scale(1.2, 1.2);
+  parts.crown(ctx, r * 0.55);
+  ctx.restore();
+  parts.eyes(ctx, r, time % 5 < 0.08, { angry: true, size: 0.24 });
+  parts.beak(ctx, r, b.mouth > 0.2);
+  eyeGlow(ctx, r, "#b388ff", 0.55 + 0.3 * Math.sin(time * 8));
+}
+
+function eternity(ctx, b, time) {
+  const r = 88;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  blit(ctx, glowDot("eternal", 70, "#fff1a8"), 0, 0, 0, 1.6, 1.6, 0.35 + 0.15 * Math.sin(time * 6));
+  ctx.restore();
+  parts.wing(ctx, r, -1, Math.sin(time * 2) * 0.25, "#fff6d0", "#e0b44a", 1.2);
+  parts.wing(ctx, r, 1, Math.sin(time * 2) * 0.25, "#fff6d0", "#e0b44a", 1.2);
+  parts.body(ctx, r, { body: "#fffaf0", shade: "#f0d48a" }, 1.08, 1.02);
+  ctx.save();
+  ctx.translate(0, -r * 0.22);
+  ctx.scale(1.7, 1.7);
+  parts.crown(ctx, r * 0.5);
+  ctx.restore();
+  parts.eyes(ctx, r, false, { angry: b.phase >= 1, size: 0.22 });
+  parts.beak(ctx, r, true);
+  eyeGlow(ctx, r, "#ff4a4a", 0.7);
+}
+
 const PAINT = {
   grandhen: grandHen,
   reactor,
@@ -490,6 +524,8 @@ const PAINT = {
   plume,
   cyclone: cycloneBoss,
   king,
+  matron,
+  eternity,
 };
 const SIZE = {
   grandhen: 110,
@@ -500,6 +536,8 @@ const SIZE = {
   plume: 150,
   cyclone: 120,
   king: 150,
+  matron: 140,
+  eternity: 170,
 };
 
 export function drawBoss(ctx, b, time, player) {

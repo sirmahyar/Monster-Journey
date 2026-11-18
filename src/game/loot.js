@@ -15,6 +15,9 @@ export const PICKUPS = Object.freeze({
   nova: Object.freeze({ r: 14, food: 0, score: 300 }),
   coolant: Object.freeze({ r: 13, food: 0, score: 200 }),
   life: Object.freeze({ r: 15, food: 0, score: 1000 }),
+  gem: Object.freeze({ r: 13, food: 0, score: 1800 }),
+  haste: Object.freeze({ r: 13, food: 0, score: 250 }),
+  magnet: Object.freeze({ r: 13, food: 0, score: 250 }),
 });
 
 export function makePickup(kind, x, y, rng, extra = {}) {
@@ -77,6 +80,9 @@ export function rollDrops(e, rng, player) {
   else if (roll < 0.023465) out.push({ kind: "shield" });
   else if (roll < 0.027265) out.push({ kind: "nova" });
   else if (roll < 0.02869) out.push({ kind: "life" });
+  else if (roll < 0.0302) out.push({ kind: "gem" });
+  else if (roll < 0.0314) out.push({ kind: "haste" });
+  else if (roll < 0.0324) out.push({ kind: "magnet" });
   return out;
 }
 
@@ -96,7 +102,7 @@ export function updatePickup(k, dt, player) {
   const dx = player.x - k.x;
   const dy = player.y - k.y;
   const dist = Math.hypot(dx, dy) || 1;
-  if (player.alive && dist < 120) {
+  if (player.alive && dist < (player.magnet > 0 ? 280 : 120)) {
     const speed = 440;
     const blend = Math.min(1, dt * 7);
     k.vx = lerp(k.vx, (dx / dist) * speed, blend);

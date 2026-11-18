@@ -53,13 +53,13 @@ Background music is loaded from the `game-assets22` object bucket through `/cdn/
 
 Arrows or WASD move. Hold the mouse or a finger on the playfield to steer and fire. Space, J, or Z also fires. B, K, X, or Shift uses a bomb; on touch screens there is a bomb button. P or Esc pauses.
 
-Eight chapters each have eight waves, and the last wave of each chapter is a boss. Finishing the first chapters unlocks the next weapon: the photon lance, then the ion seeker, then wing missiles that home while you fire. Later chapters add new chickens and new enemy shots. Weapon levels come only from rare power cores, and a destroyed ship drops one level. Other gifts add a shield, a bomb, coolant, or a life. Chained kills raise a score multiplier. Clearing a wave without being hit doubles its bonus.
+Ten chapters each have eight waves, and the last wave of each chapter is a boss. Chapter 10 is meant to be beyond a human clear. Finishing the first chapters unlocks the next weapon: the photon lance, then the ion seeker, then wing missiles that home while you fire. Later chapters add new chickens and new enemy shots. Weapon levels come only from rare power cores, and a destroyed ship drops one level. Other gifts add a shield, a bomb, coolant, or a life. Chained kills raise a score multiplier. Clearing a wave without being hit doubles its bonus.
 
 ## Scoreboard
 
 `GET /api/scores` returns the top 20 scores. Only those 20 are kept in `scoreboard.json`.
 
-The game asks for a pilot name before the first wave. It posts that score when the player loses, and when the browser tab closes during a run. Closing the tab after a win posts that score too. A finished chapter does not post by itself. `POST /api/scores` accepts `{ "name", "score", "chapter", "wave" }`. The name is 1 to 16 Persian or English letters, digits, spaces, or zero-width non-joiners. The score is an integer from 0 to 9999999. Chapter is 1 to 8. Wave is 1 to 8.
+The game asks for a pilot name before the first wave. It posts that score when the run is won or lost, when the player quits to the menu, and when the browser tab closes. The same result posted twice within two minutes is stored once. A finished chapter does not post by itself. `POST /api/scores` accepts `{ "name", "score", "chapter", "wave" }`. The name is 1 to 16 Persian or English letters, digits, spaces, or zero-width non-joiners. The score is an integer from 0 to 9999999. Chapter is 1 to 10. Wave is 1 to 8.
 
 On the edge, each accepted score is merged into `scoreboard.json` and that file is uploaded again. The bucket name and keys stay in the edge environment, not in the client bundle. The optional local Node server still writes to MySQL when `npm run dev` is used.
 

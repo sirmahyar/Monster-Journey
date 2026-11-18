@@ -12,7 +12,7 @@ export const ENEMY_TYPES = Object.freeze({
   sniper: Object.freeze({ r: 24, hp: 6, score: 450, egg: "needle", eggWeight: 0.85, food: 0.5, dive: 0.1 }),
   spinner: Object.freeze({ r: 18, hp: 4, score: 280, egg: "spiral", eggWeight: 0.9, food: 0.4, dive: 0.35 }),
   shell: Object.freeze({ r: 28, hp: 12, score: 600, egg: "bounce", eggWeight: 0.8, food: 0.65, dive: 0.15, shield: 10 }),
-  golden: Object.freeze({ r: 26, hp: 30, score: 2500, egg: null, eggWeight: 0, food: 1, dive: 0 }),
+  golden: Object.freeze({ r: 26, hp: 30, score: 2500, egg: "goldenegg", eggWeight: 1.15, food: 1, dive: 0 }),
   rock: Object.freeze({ r: 38, hp: 16, score: 150, egg: null, eggWeight: 0, food: 0.12, dive: 0 }),
 });
 
@@ -27,7 +27,9 @@ export function hpScale(chapter) {
   const steady = 1 + 0.4 * (capped - 1);
   const early = capped < 3 ? steady : steady + 0.7 * (capped - 2);
   if (chapter <= 4) return early;
-  return early + 0.45 * (chapter - 4);
+  if (chapter <= 8) return early + 0.45 * (chapter - 4);
+  if (chapter === 9) return early + 2.8;
+  return early + 7.4;
 }
 
 /**
@@ -81,13 +83,13 @@ export function makeEnemy(id, kind, chapter, fields = {}) {
 
 function snakePoint(e) {
   const s = (e.clock - e.lag) * e.speed;
-  if (s < 0) return { x: e.dir > 0 ? -90 : W + 90, y: e.top, hidden: true };
-  const lane = W + 180;
+  if (s < 0) return { x: e.dir > 0 ? 40 : W - 40, y: e.top, hidden: true };
+  const lane = W - 80;
   const row = Math.floor(s / lane) % e.rows;
   const f = s % lane;
   const right = (row % 2 === 0) === e.dir > 0;
   return {
-    x: right ? -90 + f : W + 90 - f,
+    x: right ? 40 + f : W - 40 - f,
     y: e.top + row * e.rowGap + Math.sin(s * 0.025 + e.phase) * 16,
     hidden: false,
   };
@@ -166,20 +168,22 @@ export function moveEnemy(e, dt, world) {
       e.pathT = Math.min(1, e.pathT + dt / e.pathDur);
       const k = e.pathT * (0.55 + 0.45 * e.pathT);
       const p = bezier(e.path, k);
-      e.x = p.x;
-      e.y = p.y;
+      if (e.once) {
+        e.x = p.x;
+        e.y = p.y;
+      } else {
+        e.x = clamp(p.x, 28, W - 28);
+        e.y = clamp(p.y, 48, H - 80);
+      }
       if (e.pathT >= 1) {
         if (e.once) {
           e.gone = true;
           break;
         }
+        e.mode = "home";
         const a = anchor(e, world);
-        e.x = clamp(a.x + rand(world.rng, -120, 120), 30, W - 30);
-        e.y = -70;
-        e.mode = "enter";
-        e.path = [e.x, -70, e.x, 60, a.x, a.y - 90, a.x, a.y];
-        e.pathT = 0;
-        e.pathDur = 1.5;
+        e.x = a.x;
+        e.y = a.y;
       }
       break;
     }
@@ -203,7 +207,19 @@ export function moveEnemy(e, dt, world) {
     }
     case "flyby":
       e.x += e.dir * e.speed * dt;
-      e.y = e.baseY + Math.sin(e.clock * 2.4) * 36;
+      e.y = e.baseY + Math.sin(e.clock * (e.kind === "golden" ? 1.5 : 2.4)) * (e.kind === "golden" ? 26 : 36);
+      if (e.kind === "golden") {
+        const edge = e.dir > 0 ? e.x > W - 36 : e.x < 36;
+        if (edge) {
+          e.passes = (e.passes || 0) + 1;
+          if (e.passes >= 5) e.gone = true;
+          else {
+            e.dir *= -1;
+            e.x = e.dir > 0 ? 40 : W - 40;
+          }
+        }
+        break;
+      }
       if ((e.dir > 0 && e.x > W + 90) || (e.dir < 0 && e.x < -90)) e.gone = true;
       break;
     case "drift":
@@ -226,13 +242,24 @@ export function startDive(e, target, rng, style = "swoop") {
   const sy = e.y;
   const side = rng() < 0.5 ? -1 : 1;
   const tx = clamp(target.x + rand(rng, -50, 50), 40, W - 40);
-  const fast = e.chapter >= 7 ? 0.68 : 1;
-  if (style === "loop") {
-    e.path = [sx, sy, sx + side * 280, sy + 300, sx - side * 260, sy + 330, tx, H + 100];
-    e.pathDur = rand(rng, 2.4, 2.9) * fast;
+  const fast = e.chapter >= 10 ? 0.42 : e.chapter >= 7 ? 0.68 : 1;
+  const homeX = e.slotX || sx;
+  const homeY = e.slotY || sy;
+  const low = clamp(target.y - 80, 160, H - 150);
+  if (e.once) {
+    if (style === "loop") {
+      e.path = [sx, sy, sx + side * 280, sy + 300, sx - side * 260, sy + 330, tx, H + 100];
+      e.pathDur = rand(rng, 2.4, 2.9) * fast;
+    } else {
+      e.path = [sx, sy, sx + side * rand(rng, 60, 170), sy - 80, tx - side * 90, target.y - 150, tx + side * rand(rng, 40, 150), H + 100];
+      e.pathDur = rand(rng, 1.8, 2.3) * fast;
+    }
+  } else if (style === "loop") {
+    e.path = [sx, sy, sx + side * 150, Math.min(sy + 120, low), tx, low, homeX, homeY];
+    e.pathDur = rand(rng, 1.7, 2.1) * fast;
   } else {
-    e.path = [sx, sy, sx + side * rand(rng, 60, 170), sy - 80, tx - side * 90, target.y - 150, tx + side * rand(rng, 40, 150), H + 100];
-    e.pathDur = rand(rng, 1.8, 2.3) * fast;
+    e.path = [sx, sy, sx + side * 80, sy - 20, tx, low, homeX, homeY];
+    e.pathDur = rand(rng, 1.25, 1.6) * fast;
   }
   e.mode = "dive";
   e.pathT = 0;
@@ -248,7 +275,20 @@ export function fireFrom(e, target, rng, chapter) {
   const x = e.x;
   const y = e.y + e.r * 0.55;
   switch (ENEMY_TYPES[e.kind].egg) {
+    case "goldenegg":
+      return [{ kind: "goldenegg", x, y, ...aimed(x, y, target, 230), r: 12, gravity: 0.35 }];
     case "egg": {
+      if (chapter >= 10 && e.kind !== "chick") {
+        return [-1, 1].map((side) => ({
+          kind: "egg",
+          x: x + side * 10,
+          y,
+          vx: side * 70,
+          vy: 150,
+          r: 11,
+          gravity: 1,
+        }));
+      }
       const rushChapter = Math.min(chapter, 5);
       const rush = rushChapter >= 3 ? 32 * (rushChapter - 2) : 0;
       const egg = { kind: "egg", x, y, vx: rand(rng, -25, 25) + e.vx * 0.2, vy: rand(rng, 40, 90) + rush, r: e.kind === "chick" ? 10 : 13 };
@@ -274,6 +314,9 @@ export function fireFrom(e, target, rng, chapter) {
       }
       return [{ kind: "yolk", x, y, vx: rand(rng, -30, 30), vy: 120, r: 13 }];
     case "quill": {
+      if (chapter >= 10) {
+        return [-16, 0, 16].map((off) => ({ kind: "quill", x, y, ...aimed(x, y, target, 640, off), r: 7, bend: off === 0 ? 1.1 : 0 }));
+      }
       if (chapter >= 7) return [{ kind: "quill", x, y, ...aimed(x, y, target, 470, 0), r: 7, bend: 0.35 }];
       const speed = 290 + 25 * chapter + (chapter >= 3 ? 45 * (chapter - 2) : 0);
       const offsets = chapter >= 3 ? [-14, 0, 14] : [0];
@@ -287,9 +330,12 @@ export function fireFrom(e, target, rng, chapter) {
       }));
     }
     case "spark": {
-      const speed = chapter >= 7 ? 460 : 330 + 30 * chapter + (chapter >= 3 ? 40 * (chapter - 2) : 0);
+      const speed = chapter >= 10 ? 700 : chapter >= 7 ? 460 : 330 + 30 * chapter + (chapter >= 3 ? 40 * (chapter - 2) : 0);
       const shots = [{ kind: "spark", x, y, ...aimed(x, y, target, speed), r: 8 }];
-      if (chapter >= 2 && chapter < 7) shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed * 0.82, 0), r: 8 });
+      if (chapter >= 10) {
+        shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed, -12), r: 7 });
+        shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed, 12), r: 7 });
+      } else if (chapter >= 2 && chapter < 7) shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed * 0.82, 0), r: 8 });
       return shots;
     }
     case "mine":

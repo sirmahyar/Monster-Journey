@@ -361,6 +361,24 @@ function eggSprite(kind, r) {
         g.fill();
       });
     }
+    if (kind === "goldenegg") {
+      return sprite(r * 3.6, r * 3.8, (g) => {
+        eggShape(g, r);
+        g.fillStyle = radial(g, 0, 0, r * 1.3, [[0, "#fff6c2"], [0.45, "#ffd24a"], [1, "#c98412"]], -r * 0.3, -r * 0.45);
+        g.fill();
+        g.strokeStyle = "#8a5a00";
+        g.lineWidth = Math.max(1.6, r * 0.16);
+        g.stroke();
+        g.fillStyle = "#fffbe6";
+        g.beginPath();
+        g.moveTo(0, -r * 0.2);
+        g.lineTo(r * 0.16, r * 0.05);
+        g.lineTo(0, r * 0.35);
+        g.lineTo(-r * 0.16, r * 0.05);
+        g.closePath();
+        g.fill();
+      });
+    }
     if (kind === "cluster" || kind === "bounce") {
       return sprite(r * 3.6, r * 3.8, (g) => {
         eggShape(g, r);
@@ -420,7 +438,7 @@ export function drawEggs(ctx, eggs, time) {
         ctx.globalCompositeOperation = "lighter";
         blit(ctx, glowDot("warn", e.r * 2, "#ff3b1f"), e.x, e.y, 0, 1, 1, 0.3 + 0.3 * Math.sin(time * 14));
       }
-    } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 7 + e.x) * 0.35);
+    } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce" || e.kind === "goldenegg") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 7 + e.x) * 0.35);
     else blit(ctx, spr, e.x, e.y, e.kind === "spark" ? time * 8 : 0);
     if (e.kind === "mine" && e.t >= (e.arm || 0.85)) {
       ctx.globalCompositeOperation = "lighter";
@@ -434,7 +452,7 @@ export function drawEggs(ctx, eggs, time) {
   }
 }
 
-const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d" };
+const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8" };
 
 function pickupSprite(kind, weapon) {
   return cached(`pickup:${kind}:${weapon || ""}`, () =>

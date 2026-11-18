@@ -51,6 +51,18 @@ export const CHAPTERS = Object.freeze([
     bossName: "The Coop King",
     waves: ["shells", "gauntlet", "mines", "snipers", "cyclone", "dive", "rocks"],
   }),
+  Object.freeze({
+    name: "Black Roost",
+    boss: "matron",
+    bossName: "The Night Matron",
+    waves: ["feathers", "reflex", "comets", "mix", "snipers", "dive", "ambush"],
+  }),
+  Object.freeze({
+    name: "Last Dawn",
+    boss: "eternity",
+    bossName: "The Eternal Hen",
+    waves: ["comets", "feathers", "ambush", "dive", "shells", "gauntlet", "cyclone"],
+  }),
 ]);
 
 export const WAVE_NAMES = Object.freeze({
@@ -70,6 +82,8 @@ export const WAVE_NAMES = Object.freeze({
   reflex: "Sudden Dive",
   mix: "Mixed Flock",
   ambush: "Quick Ambush",
+  feathers: "Feather Rain",
+  comets: "Yolk Comets",
 });
 
 const PACING = Object.freeze({
@@ -89,6 +103,8 @@ const PACING = Object.freeze({
   reflex: { egg: 0.85, dive: 1.2 },
   mix: { egg: 1.05, dive: 0.9 },
   ambush: { egg: 0.8, dive: 1.3 },
+  feathers: { egg: 0.7, dive: 0.45 },
+  comets: { egg: 0.7, dive: 0.35 },
   boss: { egg: 0, dive: 0.2 },
 });
 
@@ -101,6 +117,8 @@ const GRID_ROWS = [
   ["sniper", "hen", "diver", "hen", "chick"],
   ["spinner", "bomber", "spinner", "hen", "chick"],
   ["shell", "rooster", "miner", "sniper", "hen"],
+  ["diver", "sniper", "shell", "miner", "spinner"],
+  ["rooster", "sniper", "diver", "shell", "bomber"],
 ];
 
 export function waveInfo(chapter, wave) {
@@ -116,11 +134,12 @@ export function wavePacing(info) {
   const base = PACING[info.template];
   const throughFour = info.chapter < 3 ? 1 + 0.2 * (info.chapter - 1) : 1.7 + 0.55 * (Math.min(info.chapter, 4) - 3);
   const climbed = info.chapter <= 4 ? throughFour : throughFour + 0.22 * (info.chapter - 4);
-  const pressure = info.chapter >= 7 ? 1.55 : climbed;
+  const pressure = info.chapter >= 10 ? 3.3 : info.chapter === 9 ? 2.2 : info.chapter >= 7 ? 1.55 : climbed;
+  const diveScale = info.chapter >= 10 ? 2.8 : info.chapter === 9 ? 2.15 : info.chapter >= 7 ? 1.7 : 1;
   return {
     eggRate: base.egg * pressure * (1 + 0.04 * (info.wave - 1)),
-    diveRate: base.dive * (info.chapter >= 7 ? climbed * 1.7 : climbed),
-    diveLoop: info.chapter >= 7 ? 0.95 : info.chapter >= 4 ? 0.75 : info.chapter >= 3 ? 0.58 : info.chapter === 2 ? 0.2 : 0,
+    diveRate: base.dive * climbed * diveScale,
+    diveLoop: info.chapter >= 9 ? 1 : info.chapter >= 7 ? 0.95 : info.chapter >= 4 ? 0.75 : info.chapter >= 3 ? 0.58 : info.chapter === 2 ? 0.2 : 0,
   };
 }
 
@@ -187,7 +206,8 @@ function grid(api, rows, cols, style) {
 
 function flock(api, chapter) {
   const perRibbon = 14 + chapter * 3;
-  const extra = [null, "bomber", "diver", "rooster", "miner", "sniper", "spinner", "shell"][chapter - 1];
+  const flockExtra = [null, "bomber", "diver", "rooster", "miner", "sniper", "spinner", "shell", "diver", "sniper"];
+  const extra = flockExtra[(chapter - 1) % flockExtra.length];
   for (let ribbon = 0; ribbon < 2; ribbon += 1) {
     const side = ribbon === 0 ? -1 : 1;
     for (let i = 0; i < perRibbon; i += 1) {
@@ -252,6 +272,8 @@ const RING_KINDS = [
   ["sniper", "rooster", "hen"],
   ["spinner", "bomber", "hen"],
   ["shell", "miner", "rooster"],
+  ["diver", "sniper", "shell", "spinner"],
+  ["rooster", "sniper", "diver", "bomber", "shell"],
 ];
 
 function ring(api, chapter) {
@@ -434,6 +456,34 @@ function ambush(api) {
   grid(api, ["sniper", "shell", "diver", "miner"], 5, "spiral");
 }
 
+function rain(api, chapter, kind, r, speed) {
+  const count = 12 + chapter * 2;
+  const span = 14;
+  for (let i = 0; i < count; i += 1) {
+    api.later((i / count) * span + rand(api.rng, 0, 0.4), () => {
+      api.drop({
+        kind,
+        x: rand(api.rng, 24, W - 24),
+        y: -24,
+        vx: rand(api.rng, -50, 50),
+        vy: rand(api.rng, speed, speed + 90),
+        r,
+        gravity: 0.2,
+      });
+    });
+  }
+}
+
+function feathers(api, chapter) {
+  grid(api, chapter >= 10 ? ["hen", "diver", "sniper"] : ["hen", "diver"], chapter >= 10 ? 6 : 5, "swoop");
+  rain(api, chapter, "quill", 8, 180);
+}
+
+function comets(api, chapter) {
+  grid(api, chapter >= 10 ? ["bomber", "spinner", "diver"] : ["bomber", "spinner"], 4, "drop");
+  rain(api, chapter, "yolk", 14, 150);
+}
+
 const BUILDERS = {
   grid: (api, ch) => grid(api, GRID_ROWS[ch - 1], 8, "swoop"),
   flock,
@@ -463,6 +513,8 @@ const BUILDERS = {
   reflex,
   mix,
   ambush,
+  feathers,
+  comets,
 };
 
 const SWAY = {
@@ -475,6 +527,8 @@ const SWAY = {
   reflex: { ax: 70, ay: 16, fx: 0.8, fy: 1.4 },
   mix: { ax: 36, ay: 10, fx: 0.45, fy: 1 },
   ambush: { ax: 28, ay: 8, fx: 0.35, fy: 0.8 },
+  feathers: { ax: 34, ay: 12, fx: 0.5, fy: 1.1 },
+  comets: { ax: 48, ay: 14, fx: 0.6, fy: 1.2 },
 };
 
 /**

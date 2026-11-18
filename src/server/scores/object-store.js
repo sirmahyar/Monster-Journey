@@ -26,6 +26,9 @@ export function createBucketScoreStore(envBinding, fetchImpl = globalThis.fetch)
     async insert(entry) {
       const creds = storageCredentials(envBinding);
       const current = await readBoard(creds, fetchImpl);
+      const rowPreview = { name: entry.name, score: entry.score, chapter: entry.chapter, wave: entry.wave, createdAt: new Date().toISOString() };
+      const same = current.find((item) => sameAttempt(item, rowPreview));
+      if (same) return same;
       const row = {
         id: Date.now(),
         name: entry.name,
@@ -46,7 +49,16 @@ export function createBucketScoreStore(envBinding, fetchImpl = globalThis.fetch)
  * @param {object[]} current
  * @param {object} row
  */
+function sameAttempt(item, row) {
+  if (item.name !== row.name || item.score !== row.score || item.chapter !== row.chapter || item.wave !== row.wave) return false;
+  const then = Date.parse(item.createdAt || "");
+  const now = Date.parse(row.createdAt || new Date().toISOString());
+  if (!Number.isFinite(then) || !Number.isFinite(now)) return true;
+  return Math.abs(now - then) < 2 * 60 * 1000;
+}
+
 export function mergeScores(current, row) {
+  if (current.some((item) => sameAttempt(item, row))) return current.slice();
   const next = current.filter((item) => item.id !== row.id);
   next.push(row);
   next.sort((a, b) => b.score - a.score || b.id - a.id);

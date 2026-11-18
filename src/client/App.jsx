@@ -10,7 +10,35 @@ import { strings } from "./strings.js";
 
 const BEST_KEY = "cluck-raid-best";
 const NAME_KEY = "cluck-raid-name";
+const QUEUE_KEY = "cluck-raid-queue";
 const MAX_SCORE = 9_999_999;
+
+function readQueue() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeQueue(rows) {
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(rows.slice(-8)));
+  } catch {
+    /* storage can be unavailable in private windows */
+  }
+}
+
+function rememberScore(entry) {
+  const rows = readQueue().filter((row) => !(row.name === entry.name && row.score === entry.score && row.chapter === entry.chapter && row.wave === entry.wave));
+  rows.push(entry);
+  writeQueue(rows);
+}
+
+function forgetScore(entry) {
+  writeQueue(readQueue().filter((row) => !(row.name === entry.name && row.score === entry.score && row.chapter === entry.chapter && row.wave === entry.wave)));
+}
 
 function load(key, fallback) {
   try {
@@ -47,6 +75,7 @@ export function App() {
   const posted = useRef(new Set());
   const inflight = useRef(new Set());
   const failed = useRef(new Map());
+  const live = useRef(null);
   nameRef.current = name;
 
   const mode = screen === "play" || screen === "over" ? "play" : "demo";
@@ -56,6 +85,7 @@ export function App() {
     whenOpeningMusicReady().catch(() => {}).finally(() => {
       if (!cancel) setBooting(false);
     });
+    for (const entry of readQueue()) record(entry);
     return () => {
       cancel = true;
     };
@@ -124,19 +154,23 @@ export function App() {
     const score = Math.min(MAX_SCORE, Math.floor(Number(entry.score) || 0));
     const { chapter, wave } = entry;
     if (score <= 0 || chapter == null || wave == null) return;
-    const clean = normalizeName(nameRef.current);
+    const named = normalizeName(entry.name || "");
+    const clean = isValidName(named) ? named : normalizeName(nameRef.current);
     if (!isValidName(clean)) return;
-    const key = `${score}:${chapter}:${wave}`;
+    const saved = { name: clean, score, chapter, wave };
+    const key = `${clean}:${score}:${chapter}:${wave}`;
+    rememberScore(saved);
     const book = posted.current;
     const flying = inflight.current;
     const misses = failed.current;
     if (book.has(key) || flying.has(key)) return;
     flying.add(key);
     setPending((n) => n + 1);
-    submitScore({ name: clean, score, chapter, wave })
+    submitScore(saved)
       .then(async (row) => {
         book.add(key);
         misses.delete(key);
+        forgetScore(saved);
         setSavedId(row?.id ?? -1);
         if (misses.size === 0) setSaveError("");
         const rows = await fetchScores().catch(() => null);
@@ -146,7 +180,7 @@ export function App() {
         }
       })
       .catch(() => {
-        misses.set(key, { score, chapter, wave });
+        misses.set(key, saved);
         setSaveError(strings.saveFailed);
       })
       .finally(() => {
@@ -163,7 +197,7 @@ export function App() {
       setBest(score);
       store(BEST_KEY, score);
     }
-    if (!summary.victory) record(next);
+    record(next);
     setScreen("over");
   };
 
@@ -173,10 +207,16 @@ export function App() {
     if (score <= 0 || chapter == null || wave == null) return;
     const clean = normalizeName(nameRef.current);
     if (!isValidName(clean)) return;
-    const key = `${score}:${chapter}:${wave}`;
-    if (posted.current.has(key) || inflight.current.has(key)) return;
-    posted.current.add(key);
-    submitScoreOnLeave({ name: clean, score, chapter, wave });
+    const saved = { name: clean, score, chapter, wave };
+    const key = `${clean}:${score}:${chapter}:${wave}`;
+    rememberScore(saved);
+    if (posted.current.has(key)) return;
+    submitScoreOnLeave(saved);
+  };
+
+  const quit = () => {
+    if (screen === "play" && live.current) record(live.current);
+    go("menu");
   };
 
   const requestPause = (force) => {
@@ -197,7 +237,7 @@ export function App() {
     <main className="app">
       <div className="backdrop" aria-hidden="true" />
       <div className={`stage screen-${screen}`}>
-        <GameCanvas mode={mode} runId={runId} paused={paused} onFinish={finish} onLeave={leaveRun} onPause={requestPause} />
+        <GameCanvas mode={mode} runId={runId} paused={paused} onFinish={finish} onLeave={leaveRun} onSnapshot={(summary) => { live.current = summary; }} onPause={requestPause} />
         {screen === "play" && !paused && (
           <button type="button" className="pause-btn" onClick={() => requestPause(true)} aria-label={strings.pause}>
             <span />
@@ -220,7 +260,7 @@ export function App() {
             onToggle={toggle}
             onResume={() => requestPause()}
             onRestart={askName}
-            onQuit={() => go("menu")}
+            onQuit={quit}
           />
         )}
         {screen === "name" && (

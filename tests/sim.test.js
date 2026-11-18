@@ -267,7 +267,7 @@ describe("bosses", () => {
     for (let chapter = 1; chapter <= CHAPTER_COUNT; chapter += 1) {
       const state = createGame({ random: seeded(40 + chapter), chapter, wave: WAVES_PER_CHAPTER });
       state.player.level = MAX_LEVEL;
-      const events = run(state, 150, hunter, godMode);
+      const events = run(state, 240, hunter, godMode);
       expect(finite(state.eggs)).toBe(true);
       expect(events.some((e) => e.type === "boss_attack")).toBe(true);
       expect(events.some((e) => e.type === "boss_dead")).toBe(true);

@@ -2,57 +2,72 @@ import { W } from "./config.js";
 import { TAU, clamp, easeInCubic, easeInOutSine, easeOutBack, easeOutCubic, lerp, overlap, rand } from "./math.js";
 
 const SPECS = Object.freeze({
-  grandhen: { name: "The Grand Hen", hp: 500, homeY: 180, circles: [[0, 0, 74], [-84, 6, 30], [84, 6, 30]] },
-  reactor: { name: "Yolk Reactor", hp: 750, homeY: 190, circles: [[0, 0, 82], [0, 74, 36]] },
+  grandhen: { name: "The Grand Hen", hp: 700, homeY: 180, circles: [[0, 0, 74], [-84, 6, 30], [84, 6, 30]] },
+  reactor: { name: "Yolk Reactor", hp: 1000, homeY: 190, circles: [[0, 0, 82], [0, 74, 36]] },
   ironrooster: {
     name: "Iron Rooster",
-    hp: 1000,
+    hp: 1400,
     homeY: 190,
     circles: [[0, 10, 70], [0, -66, 34], [-82, 24, 34], [82, 24, 34]],
   },
   carrier: {
     name: "Coop Carrier",
-    hp: 1250,
+    hp: 1750,
     homeY: 175,
     circles: [[0, 0, 96], [-150, 8, 40], [150, 8, 40]],
     parts: [[-128, 54, 28, 220], [128, 54, 28, 220]],
   },
   barnowl: {
     name: "The Barn Owl",
-    hp: 1450,
+    hp: 2100,
     homeY: 180,
     circles: [[0, 0, 70], [0, -50, 36], [-78, 18, 28], [78, 18, 28]],
   },
   plume: {
     name: "The Plume",
-    hp: 1550,
+    hp: 2400,
     homeY: 185,
     circles: [[0, 8, 68], [0, -70, 32], [-90, 20, 26], [90, 20, 26]],
   },
   cyclone: {
     name: "Yolk Cyclone",
-    hp: 1650,
+    hp: 2800,
     homeY: 190,
     circles: [[0, 0, 78], [0, 70, 30]],
   },
   king: {
     name: "The Coop King",
-    hp: 1750,
+    hp: 3400,
     homeY: 170,
     circles: [[0, -10, 80], [-120, 16, 34], [120, 16, 34]],
-    parts: [[-110, 60, 26, 200], [110, 60, 26, 200], [0, 78, 24, 180]],
+    parts: [[-110, 60, 26, 260], [110, 60, 26, 260], [0, 78, 24, 220]],
+  },
+  matron: {
+    name: "The Night Matron",
+    hp: 3800,
+    homeY: 170,
+    circles: [[0, 0, 78], [-96, 10, 30], [96, 10, 30], [0, -62, 28]],
+  },
+  eternity: {
+    name: "The Eternal Hen",
+    hp: 3000,
+    homeY: 160,
+    circles: [[0, -8, 88], [-120, 18, 34], [120, 18, 34], [0, 70, 30]],
+    parts: [[-130, 48, 26, 320], [130, 48, 26, 320]],
   },
 });
 
 const ATTACKS = Object.freeze({
-  grandhen: [["fan", "rain", "summon"], ["fan", "rain", "summon", "charge", "spiral"], ["fan", "charge", "spiral", "rain", "summon"]],
-  reactor: [["ring", "spiral", "bombs"], ["ring", "spiral", "bombs", "beams"], ["spiral2", "beams", "ring", "bombs"]],
-  ironrooster: [["missiles", "stomp", "dash"], ["missiles", "sweep", "stomp", "dash"], ["missiles", "sweep", "dash", "stomp", "fan"]],
-  carrier: [["twin", "hatch", "ring"], ["beams", "spiral", "missiles", "hatch", "bombs"], ["beams", "spiral2", "missiles", "hatch", "ring"]],
-  barnowl: [["mines", "fan", "summon"], ["mines", "needles", "rain", "ring"], ["mines", "spirals", "needles", "summon"]],
-  plume: [["needles", "missiles", "fan"], ["needles", "sweep", "bounce", "missiles"], ["needles", "beams", "bounce", "fan"]],
-  cyclone: [["gust", "swoop", "fan"], ["needles", "swoop", "bounce"], ["gust", "fan", "swoop"]],
-  king: [["bounce", "twin", "hatch"], ["mines", "beams", "missiles", "hatch"], ["bounce", "spirals", "needles", "ring"]],
+  grandhen: [["fan", "rain", "bounce"], ["fan", "needles", "summon", "charge"], ["fan", "gust", "spiral", "rain"]],
+  reactor: [["ring", "gust", "bombs"], ["ring", "mines", "beams", "spiral"], ["spiral2", "beams", "bounce", "bombs"]],
+  ironrooster: [["missiles", "needles", "dash"], ["missiles", "sweep", "gust", "stomp"], ["missiles", "fan", "bounce", "dash"]],
+  carrier: [["twin", "hatch", "bounce"], ["beams", "gust", "missiles", "mines"], ["beams", "spiral2", "needles", "ring"]],
+  barnowl: [["mines", "needles", "swoop"], ["mines", "gust", "bounce", "fan"], ["spirals", "needles", "beams", "swoop"]],
+  plume: [["needles", "gust", "fan"], ["needles", "missiles", "bounce", "sweep"], ["beams", "gust", "swoop", "fan"]],
+  cyclone: [["gust", "swoop", "mines"], ["needles", "bounce", "fan"], ["gust", "beams", "swoop"]],
+  king: [["bounce", "twin", "needles"], ["mines", "beams", "gust", "hatch"], ["ring", "missiles", "spirals", "fan"]],
+  matron: [["needles", "mines", "swoop", "gust"], ["beams", "bounce", "missiles", "fan"], ["ring", "spirals", "beams", "swoop"]],
+  eternity: [["fan", "beams", "needles", "mines"], ["ring", "missiles", "gust", "bounce"], ["spiral2", "beams", "swoop", "ring", "fan"]],
 });
 
 const REST = [1.5, 1.05, 0.72];
@@ -422,7 +437,8 @@ export function updateBoss(b, dt, api) {
       b.attack = null;
       b.lockMove = false;
       b.charge = 0;
-      b.rest = REST[b.phase] * rand(api.rng, 0.85, 1.2);
+      const calm = b.kind === "eternity" ? 0.28 : b.kind === "matron" ? 0.5 : 1;
+      b.rest = REST[b.phase] * calm * rand(api.rng, 0.85, 1.2);
     }
   } else {
     b.rest -= dt;

@@ -30,7 +30,7 @@ export async function submitScore(entry) {
 export function submitScoreOnLeave(entry) {
   const body = JSON.stringify(entry);
   if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
-    const blob = new Blob([body], { type: "application/json" });
+    const blob = new Blob([body], { type: "text/plain;charset=UTF-8" });
     if (navigator.sendBeacon("/api/scores", blob)) return;
   }
   fetch("/api/scores", {

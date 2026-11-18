@@ -2,7 +2,7 @@ export const W = 720;
 export const H = 960;
 export const STEP = 1 / 60;
 
-export const CHAPTER_COUNT = 8;
+export const CHAPTER_COUNT = 10;
 export const WAVES_PER_CHAPTER = 8;
 
 export const PLAYER = Object.freeze({

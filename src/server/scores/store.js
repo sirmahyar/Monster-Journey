@@ -20,6 +20,9 @@ export function createMemoryScores() {
         .map(publicRow);
     },
     async insert(entry) {
+      const now = Date.now();
+      const same = rows.find((item) => item.name === entry.name && item.score === entry.score && item.chapter === entry.chapter && item.wave === entry.wave && now - Date.parse(item.createdAt) < 2 * 60 * 1000);
+      if (same) return publicRow(same);
       const row = {
         id: nextId,
         name: entry.name,

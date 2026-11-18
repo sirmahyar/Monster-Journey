@@ -59,6 +59,8 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1 } = {})
       invuln: PLAYER.invuln,
       shield: 0,
       frost: 0,
+      haste: 0,
+      magnet: 0,
       lives: PLAYER.lives,
       bombs: PLAYER.bombs,
       food: 0,
@@ -120,9 +122,10 @@ function spawnGolden(state) {
     mode: "flyby",
     dir,
     x: dir > 0 ? -60 : W + 60,
-    y: 120,
-    baseY: rand(state.rng, 90, 170),
-    speed: 165 + 15 * state.chapter,
+    y: 150,
+    baseY: rand(state.rng, 110, 220),
+    speed: 100,
+    passes: 0,
   });
   emit(state, "golden", {});
 }
@@ -158,6 +161,7 @@ function startWave(state) {
         later: (at, fn) => state.timers.push({ at, fn, optional: false }),
         setFormation: (sway) => Object.assign(state.formation, sway),
         spawnGolden: () => spawnGolden(state),
+        drop: (spec) => addEgg(state, spec),
       },
       info,
     );
@@ -223,6 +227,8 @@ function updatePlayer(state, input, dt) {
   p.invuln = Math.max(0, p.invuln - dt);
   p.shield = Math.max(0, p.shield - dt);
   p.frost = Math.max(0, p.frost - dt);
+  p.haste = Math.max(0, (p.haste || 0) - dt);
+  p.magnet = Math.max(0, (p.magnet || 0) - dt);
   if (!p.alive) {
     p.firing = false;
     cool(state, p, dt);
@@ -272,8 +278,8 @@ function updatePlayer(state, input, dt) {
     const shots = volley(p.weapon, p.level, p.x, p.y, p.volley);
     for (const s of shots) state.shots.push(s);
     state.stats.fired += shots.length;
-    p.fireCd = weapon.rate;
-    if (p.frost <= 0) p.heat += weapon.heat * 1.1;
+    p.fireCd = weapon.rate * (p.haste > 0 ? 0.55 : 1);
+    if (p.frost <= 0) p.heat += weapon.heat * 1.21;
     emit(state, "shot", { weapon: p.weapon, level: p.level, x: p.x, y: p.y });
     if (p.rockets && p.rocketCd <= 0) {
       p.rocketCd = 0.85;
@@ -674,7 +680,7 @@ function updateEggs(state, dt) {
     g.t += dt;
     if (g.weave) g.vx += Math.cos(g.t * 8) * 140 * dt;
     if (g.bend) bendShot(g, p, dt);
-    if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce") {
+    if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce" || g.kind === "goldenegg") {
       g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * (g.gravity || 1) * dt);
     } else if (g.kind === "yolk") {
       g.vy = Math.min(260, g.vy + 60 * dt);
@@ -729,7 +735,7 @@ function updateEggs(state, dt) {
       g.bounces -= 1;
     }
     const depth = g.oy == null ? g.y : g.oy;
-    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster") && g.y >= FLOOR_Y) {
+    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster" || g.kind === "goldenegg") && g.y >= FLOOR_Y) {
       emit(state, "splat", { x: g.x, y: FLOOR_Y, big: g.r > 11, yolk: g.kind === "yolk" });
       continue;
     }
@@ -807,6 +813,12 @@ function collect(state, k) {
   } else if (k.kind === "life") {
     p.lives = Math.min(PLAYER.maxLives, p.lives + 1);
     emit(state, "life", { x: p.x, y: p.y });
+  } else if (k.kind === "haste") {
+    p.haste = 7;
+    emit(state, "coolant", { x: p.x, y: p.y });
+  } else if (k.kind === "magnet") {
+    p.magnet = 8;
+    emit(state, "shield_on", { x: p.x, y: p.y });
   }
   emit(state, "pickup", { kind: k.kind, weapon: k.weapon, x: k.x, y: k.y, points: PICKUPS[k.kind].score });
 }
