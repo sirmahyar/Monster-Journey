@@ -4,11 +4,11 @@ import { clamp, lerp, pick, rand } from "./math.js";
 import { WEAPON_ORDER } from "./weapons.js";
 
 export const PICKUPS = Object.freeze({
-  kernel: Object.freeze({ r: 9, food: 1, score: 25 }),
-  nugget: Object.freeze({ r: 13, food: 3, score: 75 }),
-  burger: Object.freeze({ r: 16, food: 6, score: 150 }),
-  pizza: Object.freeze({ r: 16, food: 8, score: 200 }),
-  cob: Object.freeze({ r: 13, food: 5, score: 150 }),
+  kernel: Object.freeze({ r: 12, food: 1, score: 25 }),
+  nugget: Object.freeze({ r: 17, food: 3, score: 75 }),
+  burger: Object.freeze({ r: 20, food: 6, score: 150 }),
+  pizza: Object.freeze({ r: 20, food: 8, score: 200 }),
+  cob: Object.freeze({ r: 17, food: 5, score: 150 }),
   power: Object.freeze({ r: 14, food: 0, score: 500 }),
   crate: Object.freeze({ r: 17, food: 0, score: 300 }),
   shield: Object.freeze({ r: 14, food: 0, score: 300 }),
@@ -19,6 +19,8 @@ export const PICKUPS = Object.freeze({
   haste: Object.freeze({ r: 13, food: 0, score: 250 }),
   magnet: Object.freeze({ r: 13, food: 0, score: 250 }),
   rocket: Object.freeze({ r: 14, food: 0, score: 400 }),
+  mystery: Object.freeze({ r: 16, food: 0, score: 350 }),
+  feather: Object.freeze({ r: 15, food: 0, score: 220 }),
 });
 
 export function makePickup(kind, x, y, rng, extra = {}) {
@@ -39,9 +41,9 @@ export function makePickup(kind, x, y, rng, extra = {}) {
 /** A few chickens leave a meal worth several coins instead of one coin. */
 function foodKind(e, rng) {
   const meal = rng();
-  if (meal < 0.008) return "pizza";
-  if (meal < 0.02) return "burger";
-  if (meal < 0.035) return "nugget";
+  if (meal < 0.012) return "pizza";
+  if (meal < 0.028) return "burger";
+  if (meal < 0.048) return "nugget";
   return e.r >= 24 && rng() < 0.22 ? "cob" : "kernel";
 }
 
@@ -64,6 +66,8 @@ function dropCuts(chapter) {
     0.0012 * gift,
     0.001 * gift,
     0.0016 * gift,
+    0.00085 * gift,
+    0.00075 * gift,
   ];
   let cursor = 0;
   return widths.map((width) => {
@@ -88,7 +92,7 @@ export function rollDrops(e, rng, player) {
     const weapon = crateWeapon(rng, player);
     if (weapon) out.push({ kind: "crate", weapon });
   }
-  if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "rocket") {
+  if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "rocket" || e.carrier === "mystery" || e.carrier === "feather") {
     out.push({ kind: e.carrier });
   }
   if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.01615) {
@@ -96,7 +100,7 @@ export function rollDrops(e, rng, player) {
     if (weapon) out.push({ kind: "crate", weapon });
   }
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
-  const [power, coolant, shield, nova, life, gem, haste, magnet, rocket] = dropCuts(e.chapter || 1);
+  const [power, coolant, shield, nova, life, gem, haste, magnet, rocket, mystery, feather] = dropCuts(e.chapter || 1);
   const roll = rng();
   if (roll < power) out.push({ kind: "power" });
   else if (roll < coolant) out.push({ kind: "coolant" });
@@ -106,6 +110,8 @@ export function rollDrops(e, rng, player) {
   else if (roll < haste) out.push({ kind: "haste" });
   else if (roll < magnet) out.push({ kind: "magnet" });
   else if (roll < rocket && (e.chapter || 1) >= 4) out.push({ kind: "rocket" });
+  else if (roll < mystery) out.push({ kind: "mystery" });
+  else if (roll < feather) out.push({ kind: "feather" });
   return out;
 }
 

@@ -16,7 +16,7 @@ import {
 import { bombBoss, bossCircles, hitBoss, makeBoss, updateBoss } from "./bosses.js";
 import { ENEMY_TYPES, fireFrom, makeEnemy, moveEnemy, startDive } from "./enemies.js";
 import { PICKUPS, bossLoot, makePickup, rollDrops, updatePickup } from "./loot.js";
-import { TAU, clamp, easeInOutSine, lerp, overlap, rand, steer } from "./math.js";
+import { TAU, clamp, easeInOutSine, lerp, overlap, pick, rand, steer } from "./math.js";
 import { CHAPTERS, buildWave, waveInfo, wavePacing } from "./waves.js";
 import { MAX_LEVEL, WEAPONS, arsenal, chapterGift, rocketsUnlocked, volley } from "./weapons.js";
 
@@ -428,7 +428,8 @@ function bombHit(state, e, dmg) {
     const floor = Math.max(1, e.maxHp * 0.4);
     e.hp = Math.max(floor, e.hp - dmg * 0.45);
     e.flash = 0.09;
-    emit(state, "hit", { x: e.x, y: e.y, kind: e.kind });
+    if (e.kind === "rock") emit(state, "stone_chip", { x: e.x, y: e.y, size: e.size || 1 });
+    else emit(state, "hit", { x: e.x, y: e.y, kind: e.kind });
     return;
   }
   damageEnemy(state, e, dmg, null);
@@ -448,8 +449,10 @@ function damageEnemy(state, e, dmg, shot) {
   }
   e.hp -= rest;
   e.flash = 0.09;
-  if (e.hp > 0) emit(state, "hit", { x, y, kind: e.kind });
-  else killEnemy(state, e);
+  if (e.hp > 0) {
+    if (e.kind === "rock") emit(state, "stone_chip", { x, y, size: e.size || 1 });
+    else emit(state, "hit", { x, y, kind: e.kind });
+  } else killEnemy(state, e);
 }
 
 function killEnemy(state, e) {
@@ -659,7 +662,7 @@ function divePacer(state, dt) {
 }
 
 function updateEnemies(state, dt) {
-  const world = { formation: state.formation, time: state.time, rng: state.rng };
+  const world = { formation: state.formation, time: state.time, rng: state.rng, player: state.player };
   const p = state.player;
   for (const e of state.enemies) {
     if (e.dead) continue;
@@ -900,6 +903,16 @@ function collect(state, k) {
   } else if (k.kind === "rocket" && state.chapter >= 4) {
     p.rockets = true;
     emit(state, "weapon", { weapon: p.weapon, x: p.x, y: p.y });
+  } else if (k.kind === "mystery") {
+    emit(state, "pickup", { kind: k.kind, x: k.x, y: k.y, points: PICKUPS[k.kind].score });
+    const bonus = pick(state.rng, ["shield", "coolant", "haste", "magnet", "gem", "power"]);
+    collect(state, { ...k, kind: bonus, x: p.x, y: p.y - 6 });
+    return;
+  } else if (k.kind === "feather") {
+    p.frost = Math.max(p.frost, 4.5);
+    p.heat = Math.max(0, p.heat - 35);
+    p.overheated = false;
+    emit(state, "coolant", { x: p.x, y: p.y });
   }
   emit(state, "pickup", { kind: k.kind, weapon: k.weapon, x: k.x, y: k.y, points: PICKUPS[k.kind].score });
 }

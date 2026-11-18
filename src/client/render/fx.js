@@ -179,6 +179,10 @@ export function fxEvent(fx, ev) {
       smoke(fx, ev.x, ev.y, 5, "#6f5f86", 16);
       shake(fx, 0.22);
       break;
+    case "stone_chip":
+      debris(fx, ev.x, ev.y, 3 + (ev.size || 1), "#b09a88", 90);
+      burst(fx, ev.x, ev.y, { count: 2, color: "#d8c7b8", speed: 120, life: 0.18, size: 1.5 });
+      break;
     case "hit":
       burst(fx, ev.x, ev.y, { count: 3, color: "#fff1c2", speed: 180, life: 0.22, size: 2 });
       break;

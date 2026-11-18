@@ -175,12 +175,18 @@ export function moveEnemy(e, dt, world) {
       e.pathT = Math.min(1, e.pathT + dt / e.pathDur);
       const k = e.pathT * (0.55 + 0.45 * e.pathT);
       const p = bezier(e.path, k);
+      const player = world.player;
+      const home = !e.once;
+      const aim = player && e.pathT > 0.32 ? clamp((e.pathT - 0.32) / 0.68, 0, 1) : 0;
+      const aimPull = home ? aim * 0.9 : aim * 0.72;
+      const ax = player ? lerp(p.x, player.x, aimPull) : p.x;
+      const ay = player ? lerp(p.y, player.y, aimPull) : p.y;
       if (e.once) {
-        e.x = p.x;
-        e.y = p.y;
+        e.x = ax;
+        e.y = ay;
       } else {
-        e.x = clamp(p.x, 28, W - 28);
-        e.y = clamp(p.y, 48, H - 80);
+        e.x = clamp(ax, 28, W - 28);
+        e.y = clamp(ay, 48, H - 80);
       }
       if (e.pathT >= 1) {
         if (e.once) {
@@ -266,24 +272,24 @@ export function startDive(e, target, rng, style = "swoop") {
   const sx = e.x;
   const sy = e.y;
   const side = rng() < 0.5 ? -1 : 1;
-  const tx = clamp(target.x + rand(rng, -50, 50), 40, W - 40);
+  const aimX = clamp(target.x + rand(rng, -24, 24), 52, W - 52);
+  const aimY = clamp(target.y + rand(rng, -16, 32), 105, H - 82);
   const fast = e.chapter >= 10 ? 0.42 : e.chapter >= 7 ? 0.68 : 1;
   const homeX = e.slotX || sx;
   const homeY = e.slotY || sy;
-  const low = clamp(target.y - 80, 160, H - 150);
   if (e.once) {
     if (style === "loop") {
-      e.path = [sx, sy, sx + side * 280, sy + 300, sx - side * 260, sy + 330, tx, H + 100];
+      e.path = [sx, sy, sx + side * 180, sy + 160, aimX - side * 90, aimY - 70, aimX, aimY, aimX + side * 30, H + 90];
       e.pathDur = rand(rng, 2.4, 2.9) * fast;
     } else {
-      e.path = [sx, sy, sx + side * rand(rng, 60, 170), sy - 80, tx - side * 90, target.y - 150, tx + side * rand(rng, 40, 150), H + 100];
+      e.path = [sx, sy, sx + side * rand(rng, 50, 120), sy - 40, aimX - side * 70, aimY - 90, aimX, aimY, aimX, H + 100];
       e.pathDur = rand(rng, 1.8, 2.3) * fast;
     }
   } else if (style === "loop") {
-    e.path = [sx, sy, sx + side * 150, Math.min(sy + 120, low), tx, low, homeX, homeY];
+    e.path = [sx, sy, sx + side * 120, lerp(sy, aimY, 0.45), aimX - side * 40, aimY - 50, aimX, aimY, homeX, homeY];
     e.pathDur = rand(rng, 1.7, 2.1) * fast;
   } else {
-    e.path = [sx, sy, sx + side * 80, sy - 20, tx, low, homeX, homeY];
+    e.path = [sx, sy, sx + side * 70, sy - 10, aimX - side * 35, aimY - 45, aimX, aimY, homeX, homeY];
     e.pathDur = rand(rng, 1.25, 1.6) * fast;
   }
   e.mode = "dive";

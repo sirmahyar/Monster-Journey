@@ -322,13 +322,15 @@ export function playEvent(ev, extra = {}) {
         crackle(a, { count: 6, spread: 0.08, gain: 0.06, freq: 3200, pan });
       }
       break;
+    case "stone_chip":
+      if (!(a = ready("stone", 0.03))) break;
+      noise(a, { dur: 0.045, gain: 0.075, filter: "bandpass", freq: 820, q: 2.2, pan });
+      tone(a, { freq: jitter(280), to: 155, dur: 0.045, gain: 0.05, pan });
+      break;
     case "hit":
       if (!(a = ready("hit", 0.035))) break;
       if (BIRDS.has(ev.kind)) {
         if (free(a, "hitcall", 0.13) && Math.random() < 0.55) voice(a, ev.kind === "chick" ? "peep" : henCall(), { rate: jitter(CALL_RATE[ev.kind], 0.1), gain: HIT_GAIN[ev.kind], pan, maxLength: 0.2 });
-      } else if (ev.kind === "rock") {
-        noise(a, { dur: 0.05, gain: 0.07, filter: "bandpass", freq: 900, q: 2, pan });
-        tone(a, { freq: jitter(300), to: 170, dur: 0.05, gain: 0.05, pan });
       } else {
         tone(a, { freq: jitter(2400, 0.03), dur: 0.05, gain: 0.025, pan });
         tone(a, { freq: jitter(3380, 0.03), dur: 0.035, gain: 0.012, pan });

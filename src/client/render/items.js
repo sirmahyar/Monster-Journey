@@ -488,11 +488,14 @@ export function drawEggs(ctx, eggs, time) {
   }
 }
 
-const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8" };
+const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8", mystery: "#d48cff", feather: "#b8f0ff" };
+const FOOD_KINDS = new Set(["kernel", "cob", "nugget", "burger", "pizza"]);
+const FOOD_DRAW = 1.38;
 
 function pickupSprite(kind, weapon) {
+  const size = FOOD_KINDS.has(kind) ? 56 : 44;
   return cached(`pickup:${kind}:${weapon || ""}`, () =>
-    sprite(44, 44, (g) => {
+    sprite(size, size, (g) => {
       if (kind === "kernel") {
         g.beginPath();
         g.moveTo(0, -9);
@@ -546,6 +549,27 @@ function pickupSprite(kind, weapon) {
         g.beginPath();
         g.ellipse(0, 5, 11, 4, 0, 0, TAU);
         g.fill();
+      } else if (kind === "mystery") {
+        g.fillStyle = "#9b6bff";
+        g.fillRect(-12, -12, 24, 24);
+        g.strokeStyle = "#f6ecff";
+        g.lineWidth = 1.6;
+        g.strokeRect(-12, -12, 24, 24);
+        g.fillStyle = "#fff5d6";
+        g.font = "bold 18px sans-serif";
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText("?", 0, 1);
+      } else if (kind === "feather") {
+        g.beginPath();
+        g.moveTo(-10, 10);
+        g.quadraticCurveTo(0, -14, 11, 8);
+        g.quadraticCurveTo(6, 2, -10, 10);
+        g.fillStyle = linear(g, -8, -8, 8, 10, [[0, "#f8feff"], [0.5, "#a8e8ff"], [1, "#5eb8ff"]]);
+        g.fill();
+        g.strokeStyle = "#ffffff";
+        g.lineWidth = 1.2;
+        g.stroke();
       } else if (kind === "pizza") {
         g.beginPath();
         g.moveTo(0, -13);
@@ -632,13 +656,16 @@ export function drawPickups(ctx, pickups, time) {
     const color = k.kind === "crate" ? ACCENT[k.weapon] : PICKUP_COLOR[k.kind];
     const bob = Math.sin(k.t * 4 + k.spin) * 2;
     ctx.globalCompositeOperation = "lighter";
-    const big = k.kind !== "kernel" && k.kind !== "cob";
-    blit(ctx, glowDot(`pk:${color}`, big ? 26 : 16, color), k.x, k.y + bob, 0, 1, 1, big ? 0.55 + 0.25 * Math.sin(time * 6 + k.spin) : 0.35);
+    const food = FOOD_KINDS.has(k.kind);
+    const big = food || (k.kind !== "kernel" && k.kind !== "cob");
+    const glowR = food ? 30 : big ? 26 : 16;
+    blit(ctx, glowDot(`pk:${color}`, glowR, color), k.x, k.y + bob, 0, 1, 1, food ? 0.62 + 0.28 * Math.sin(time * 6 + k.spin) : big ? 0.55 + 0.25 * Math.sin(time * 6 + k.spin) : 0.35);
     ctx.globalCompositeOperation = "source-over";
     const spr = pickupSprite(k.kind, k.weapon);
-    if (k.kind === "kernel") blit(ctx, spr, k.x, k.y + bob, 0, Math.cos(k.angle * 2), 1);
-    else if (k.kind === "cob") blit(ctx, spr, k.x, k.y + bob, k.angle * 0.5);
-    else blit(ctx, spr, k.x, k.y + bob, 0, 1 + Math.sin(time * 5) * 0.05);
+  const drawScale = food ? FOOD_DRAW : 1;
+    if (k.kind === "kernel") blit(ctx, spr, k.x, k.y + bob, 0, Math.cos(k.angle * 2) * drawScale, drawScale);
+    else if (k.kind === "cob") blit(ctx, spr, k.x, k.y + bob, k.angle * 0.5, drawScale, drawScale);
+    else blit(ctx, spr, k.x, k.y + bob, 0, (1 + Math.sin(time * 5) * 0.05) * drawScale, drawScale);
     if (k.kind === "power") {
       ctx.strokeStyle = "rgba(255,190,120,0.8)";
       ctx.lineWidth = 1.5;
