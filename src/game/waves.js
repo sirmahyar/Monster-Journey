@@ -187,7 +187,7 @@ function entryPath(style, side, slotX, slotY, rng) {
     return [sx, -70, sx, slotY + 220, slotX, slotY + 120, slotX, slotY];
   }
   if (style === "spiral") return [W / 2, -70, m(W + 160), 330, m(-160), 560, slotX, slotY];
-  return [m(-140), 120, m(W + 160), 280, m(-150), 520, slotX, slotY];
+  return [m(-70), 140, m(W * 0.55), 660, m(W * 0.92), 230, slotX, slotY];
 }
 
 function grid(api, rows, cols, style) {
@@ -562,13 +562,7 @@ export function buildWave(api, info) {
   api.setFormation(SWAY[info.template] || { ax: 60, ay: 12, fx: 0.5, fy: 1.2 });
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "golden");
-  const gifts = ["power", "shield", "coolant", "nova"];
-  const markNova = (gift) => {
-    if (gift !== "nova") return gift;
-    if (!api.canNova?.()) return "";
-    api.noteNova?.();
-    return "nova";
-  };
+  const gifts = ["power", "shield", "coolant"];
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
   if (info.chapter >= 4) gifts.push("rocket");
   const powerChance = info.chapter <= 3 ? 0.81 : 0.9;
@@ -581,13 +575,13 @@ export function buildWave(api, info) {
   const marked = scaledCount((info.chapter >= 3 ? 3 : 2) * 0.95, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
-    const gift = markNova(keptGift(pickGift(gifts, api.rng), info.chapter, api.rng));
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
     if (gift) pool[index].carrier = gift;
     pool.splice(index, 1);
   }
   for (const enemy of pool) {
     if (api.rng() >= 0.03325) continue;
-    const gift = markNova(keptGift(pickGift(gifts, api.rng), info.chapter, api.rng));
+    const gift = keptGift(pickGift(gifts, api.rng), info.chapter, api.rng);
     if (gift) enemy.carrier = gift;
   }
   return spawned;

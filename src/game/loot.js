@@ -57,7 +57,7 @@ function dropCuts(chapter) {
     0.012065 * early,
     0.0076 * early * 0.85,
     0.0038 * early * 0.85,
-    0.0038 * 0.9 * 0.85 * 0.4,
+    0,
     0.001425,
     0.00151,
     0.0012,
@@ -72,7 +72,7 @@ function dropCuts(chapter) {
 }
 
 /** What a destroyed enemy leaves behind. */
-export function rollDrops(e, rng, player, novaBudget = null) {
+export function rollDrops(e, rng, player) {
   const out = [];
   if (e.kind === "golden") {
     out.push({ kind: "power" });
@@ -89,9 +89,6 @@ export function rollDrops(e, rng, player, novaBudget = null) {
   }
   if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "rocket") {
     out.push({ kind: e.carrier });
-  } else if (e.carrier === "nova" && (!novaBudget || novaBudget.canSpawn())) {
-    out.push({ kind: "nova" });
-    novaBudget?.note();
   }
   if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.0323) {
     const weapon = crateWeapon(rng, player);
@@ -103,10 +100,6 @@ export function rollDrops(e, rng, player, novaBudget = null) {
   if (roll < power) out.push({ kind: "power" });
   else if (roll < coolant) out.push({ kind: "coolant" });
   else if (roll < shield) out.push({ kind: "shield" });
-  else if (roll < nova && (!novaBudget || novaBudget.canSpawn())) {
-    out.push({ kind: "nova" });
-    novaBudget?.note();
-  }
   else if (roll < life) out.push({ kind: "life" });
   else if (roll < gem) out.push({ kind: "gem" });
   else if (roll < haste) out.push({ kind: "haste" });
@@ -116,7 +109,9 @@ export function rollDrops(e, rng, player, novaBudget = null) {
 }
 
 export function bossLoot(rng, player) {
-  const out = [{ kind: "power" }, { kind: "life" }, { kind: "nova" }];
+  const out = [{ kind: "power" }, { kind: "life" }];
+  const bombs = rng() < 0.55 ? 1 : 2;
+  for (let i = 0; i < bombs; i += 1) out.push({ kind: "nova" });
   const weapon = crateWeapon(rng, player);
   if (weapon) out.push({ kind: "crate", weapon });
   for (let i = 0; i < 4; i += 1) out.push({ kind: "cob" });

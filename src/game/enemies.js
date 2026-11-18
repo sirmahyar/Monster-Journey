@@ -1,5 +1,5 @@
 import { H, W } from "./config.js";
-import { bezier, clamp, lerp, lerpWrapX, rand, wrapX } from "./math.js";
+import { bezier, clamp, lerp, rand } from "./math.js";
 
 export const ENEMY_TYPES = Object.freeze({
   chick: Object.freeze({ r: 16, hp: 2, score: 100, egg: "egg", eggWeight: 0.45, food: 0.3, dive: 0.4 }),
@@ -159,7 +159,7 @@ export function moveEnemy(e, dt, world) {
       const p = bezier(e.path, e.pathT);
       const a = anchor(e, world);
       const w = blendWeight(e.pathT);
-      e.x = wrapX(lerp(p.x, a.x, w), W);
+      e.x = lerp(p.x, a.x, w);
       e.y = lerp(p.y, a.y, w);
       if (e.pathT >= 1) e.mode = "home";
       break;
@@ -179,7 +179,7 @@ export function moveEnemy(e, dt, world) {
         e.x = p.x;
         e.y = p.y;
       } else {
-        e.x = p.x;
+        e.x = clamp(p.x, 28, W - 28);
         e.y = clamp(p.y, 48, H - 80);
       }
       if (e.pathT >= 1) {
@@ -199,12 +199,9 @@ export function moveEnemy(e, dt, world) {
       const a = anchor(e, world);
       e.returnT = Math.min(1, e.returnT + dt / (e.returnDur || 1.7));
       const k = e.returnT * e.returnT * (3 - 2 * e.returnT);
-      e.x = lerpWrapX(e.returnX, a.x, k, W);
+      e.x = lerp(e.returnX, a.x, k);
       e.y = lerp(e.returnY, a.y, k);
-      if (e.returnT >= 1) {
-        e.mode = "home";
-        e.x = wrapX(a.x, W);
-      }
+      if (e.returnT >= 1) e.mode = "home";
       break;
     }
     case "roam": {
@@ -283,13 +280,11 @@ export function startDive(e, target, rng, style = "swoop") {
       e.pathDur = rand(rng, 1.8, 2.3) * fast;
     }
   } else if (style === "loop") {
-    const edge = side > 0 ? W + 130 : -130;
-    e.path = [sx, sy, sx + side * 150, Math.min(sy + 120, low), tx, low, edge, low + 40, homeX, homeY];
+    e.path = [sx, sy, sx + side * 150, Math.min(sy + 120, low), tx, low, homeX, homeY];
     e.pathDur = rand(rng, 1.7, 2.1) * fast;
   } else {
-    const edge = side > 0 ? W + 120 : -120;
-    e.path = [sx, sy, sx + side * 80, sy - 20, tx, low, edge, low - 30, homeX, homeY];
-    e.pathDur = rand(rng, 1.35, 1.75) * fast;
+    e.path = [sx, sy, sx + side * 80, sy - 20, tx, low, homeX, homeY];
+    e.pathDur = rand(rng, 1.25, 1.6) * fast;
   }
   e.mode = "dive";
   e.pathT = 0;
