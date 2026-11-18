@@ -80,6 +80,12 @@ export function wavePacing(info) {
   };
 }
 
+/** Twenty percent fewer than `full`, rounded at random so the average holds. */
+function scaledCount(full, rng) {
+  const want = full * 0.8;
+  return Math.floor(want) + (rng() < want - Math.floor(want) ? 1 : 0);
+}
+
 function entryPath(style, side, slotX, slotY, rng) {
   const m = (x) => (side < 0 ? x : W - x);
   if (style === "drop") {
@@ -294,8 +300,8 @@ export function buildWave(api, info) {
   api.setFormation(SWAY[info.template] || { ax: 60, ay: 12, fx: 0.5, fy: 1.2 });
   BUILDERS[info.template](tracked, info.chapter);
   const pool = spawned.filter((e) => e.kind !== "rock" && e.kind !== "golden");
-  const crates = arsenal(info.chapter).length > 1 ? (info.chapter >= 3 ? 3 : 2) : 0;
-  const powers = info.wave === 2 || info.wave === 4 || info.wave === 6 ? 1 : 0;
+  const crates = arsenal(info.chapter).length > 1 ? scaledCount(info.chapter >= 3 ? 3 : 2, api.rng) : 0;
+  const powers = info.wave === 2 || info.wave === 4 || info.wave === 6 ? scaledCount(1, api.rng) : 0;
   for (let i = 0; i < crates + powers && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = i < crates ? "crate" : "power";

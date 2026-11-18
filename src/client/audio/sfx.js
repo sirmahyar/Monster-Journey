@@ -176,12 +176,15 @@ function voice(a, clip, { rate = 1, gain = 0.5, pan = 0, delay = 0, index, maxLe
 /** A few hens clucking over each other as a flock flies in. */
 function flock(a, count = 4, spread = 0.7) {
   for (let i = 0; i < count; i += 1) {
-    voice(a, "cluck", { rate: 0.82 + Math.random() * 0.45, gain: 0.12 + Math.random() * 0.1, pan: (Math.random() - 0.5) * 1.4, delay: Math.random() * spread });
+    voice(a, henCall(), { rate: 0.82 + Math.random() * 0.45, gain: 0.12 + Math.random() * 0.1, pan: (Math.random() - 0.5) * 1.4, delay: Math.random() * spread });
   }
   noise(a, { dur: 0.7, gain: 0.035, filter: "bandpass", freq: 700, to: 1600, q: 0.8, attack: 0.25 });
 }
 
 const CALL_RATE = { chick: 1.04, hen: 1, diver: 1.1, bomber: 0.88, rooster: 0.78, golden: 1.16, saucer: 1.18 };
+function henCall() {
+  return Math.random() < 0.6 ? "cluck" : "soft";
+}
 const HIT_GAIN = { chick: 0.2, hen: 0.24, diver: 0.24, bomber: 0.26, rooster: 0.28, golden: 0.26 };
 const BIRDS = new Set(["chick", "hen", "diver", "bomber", "rooster", "golden"]);
 
@@ -221,7 +224,7 @@ export function playEvent(ev, extra = {}) {
     case "hit":
       if (!(a = ready("hit", 0.035))) break;
       if (BIRDS.has(ev.kind)) {
-        if (free(a, "hitcall", 0.13) && Math.random() < 0.55) voice(a, ev.kind === "chick" ? "peep" : "cluck", { rate: jitter(CALL_RATE[ev.kind]), gain: HIT_GAIN[ev.kind], pan, maxLength: 0.14 });
+        if (free(a, "hitcall", 0.13) && Math.random() < 0.55) voice(a, ev.kind === "chick" ? "peep" : henCall(), { rate: jitter(CALL_RATE[ev.kind], 0.1), gain: HIT_GAIN[ev.kind], pan, maxLength: 0.2 });
       } else if (ev.kind === "rock") {
         noise(a, { dur: 0.05, gain: 0.07, filter: "bandpass", freq: 900, q: 2, pan });
         tone(a, { freq: jitter(300), to: 170, dur: 0.05, gain: 0.05, pan });
@@ -258,8 +261,8 @@ export function playEvent(ev, extra = {}) {
         break;
       }
       if (free(a, "call", 0.06)) {
-        if (ev.kind === "chick") voice(a, "peep", { rate: jitter(1.04, 0.07), gain: 0.42, pan });
-        else voice(a, "cluck", { rate: jitter(CALL_RATE[ev.kind] || 1, 0.05), gain: ev.kind === "rooster" ? 0.5 : 0.42, pan, maxLength: 0.2 });
+        if (ev.kind === "chick") voice(a, "peep", { rate: jitter(1.04, 0.1), gain: 0.42, pan });
+        else voice(a, henCall(), { rate: jitter(CALL_RATE[ev.kind] || 1, 0.1), gain: ev.kind === "rooster" ? 0.5 : 0.42, pan, maxLength: 0.28 });
       }
       if (ev.kind === "golden") chime(a, [88, 91, 95, 98, 100], { step: 0.05, gain: 0.045 });
       break;
@@ -269,12 +272,12 @@ export function playEvent(ev, extra = {}) {
       else if (ev.egg === "quill") noise(a, { dur: 0.08, gain: 0.04, filter: "bandpass", freq: 3000, to: 1300, q: 2.5, pan });
       else {
         tone(a, { freq: jitter(700), to: ev.egg === "yolk" ? 260 : 380, dur: 0.06, gain: 0.03, pan });
-        if (free(a, "eggcall", 0.22)) voice(a, ev.kind === "chick" ? "peep" : "cluck", { rate: jitter(CALL_RATE[ev.kind] || 1), gain: ev.kind === "chick" ? 0.12 : 0.16, pan, maxLength: 0.16 });
+        if (free(a, "eggcall", 0.22)) voice(a, ev.kind === "chick" ? "peep" : henCall(), { rate: jitter(CALL_RATE[ev.kind] || 1, 0.1), gain: ev.kind === "chick" ? 0.12 : 0.16, pan, maxLength: 0.22 });
       }
       break;
     case "dive":
       if ((a = ready("dive", 0.35))) {
-        voice(a, ev.kind === "chick" ? "peep" : "bawk", { rate: jitter(ev.kind === "chick" ? 1.1 : 1.12, 0.05), gain: 0.3, pan, maxLength: 0.35 });
+        voice(a, ev.kind === "chick" ? "peep" : Math.random() < 0.5 ? "bawk" : henCall(), { rate: jitter(ev.kind === "chick" ? 1.1 : 1.05, 0.1), gain: 0.3, pan, maxLength: 0.4 });
         noise(a, { dur: 0.45, gain: 0.04, filter: "bandpass", freq: 600, to: 1800, q: 0.9, pan, attack: 0.12 });
       }
       break;
