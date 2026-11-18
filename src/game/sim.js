@@ -713,7 +713,7 @@ function updatePickups(state, dt) {
   let w = 0;
   for (const k of state.pickups) {
     updatePickup(k, dt, p);
-    if (p.alive && overlap(k.x, k.y, k.r + 10, p.x, p.y, PLAYER.radius)) {
+    if (k.t > 0.35 && p.alive && overlap(k.x, k.y, k.r + 10, p.x, p.y, PLAYER.radius)) {
       collect(state, k);
       continue;
     }

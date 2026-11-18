@@ -168,7 +168,7 @@ describe("simulation", () => {
   it("applies power, weapon crates, food and nova pickups", () => {
     const state = createGame({ random: seeded(6), chapter: 2 });
     const p = state.player;
-    const drop = (kind, extra = {}) => state.pickups.push({ kind, x: p.x, y: p.y, vx: 0, vy: 0, r: 12, t: 0, spin: 0, angle: 0, ...extra });
+    const drop = (kind, extra = {}) => state.pickups.push({ kind, x: p.x, y: p.y, vx: 0, vy: 0, r: 12, t: 1, spin: 0, angle: 0, ...extra });
     for (let i = 0; i < MAX_LEVEL + 2; i += 1) drop("power");
     run(state, STEP);
     expect(p.level).toBe(MAX_LEVEL);
@@ -199,7 +199,9 @@ describe("simulation", () => {
     expect(drops).toEqual([{ kind: "burger" }]);
     const state = createGame({ random: seeded(3) });
     const before = state.player.food;
-    state.pickups.push(makePickup("burger", state.player.x, state.player.y, state.rng));
+    const meal = makePickup("burger", state.player.x, state.player.y, state.rng);
+    meal.t = 1;
+    state.pickups.push(meal);
     run(state, STEP);
     expect(state.player.food).toBe(before + 6);
   });
@@ -209,7 +211,7 @@ describe("simulation", () => {
     expect(early.player.weapons).toEqual(["pulse"]);
     expect(early.player.rockets).toBe(false);
     expect(early.enemies.some((e) => e.carrier === "crate" || e.carrier === "power")).toBe(false);
-    early.pickups.push({ kind: "crate", x: early.player.x, y: early.player.y, vx: 0, vy: 0, r: 12, t: 0, spin: 0, angle: 0, weapon: "ion" });
+    early.pickups.push({ kind: "crate", x: early.player.x, y: early.player.y, vx: 0, vy: 0, r: 12, t: 1, spin: 0, angle: 0, weapon: "ion" });
     run(early, STEP);
     expect(early.player.weapon).toBe("pulse");
     const mid = createGame({ random: seeded(8), chapter: 1, wave: 4 });

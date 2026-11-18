@@ -94,7 +94,7 @@ export function updatePickup(k, dt, player) {
   const dx = player.x - k.x;
   const dy = player.y - k.y;
   const dist = Math.hypot(dx, dy) || 1;
-  if (player.alive && dist < 120) {
+  if (k.t > 0.35 && player.alive && dist < 120) {
     const speed = 440;
     const blend = Math.min(1, dt * 7);
     k.vx = lerp(k.vx, (dx / dist) * speed, blend);

@@ -305,7 +305,7 @@ export function playEvent(ev, extra = {}) {
       if (!(a = ready(`pickup:${ev.kind}`, 0.04))) break;
       if (ev.kind === "kernel" || ev.kind === "cob" || ev.kind === "nugget" || ev.kind === "burger" || ev.kind === "pizza") {
         if (free(a, "yum", 0.16)) {
-          playBite(a, Math.random() < 0.5 ? "munch" : "eating", { gain: 0.95, pan });
+          playBite(a, Math.random() < 0.5 ? "munch" : "eating", { gain: 0.32, pan });
         }
       } else if (ev.kind === "crate") {
         noise(a, { dur: 0.05, gain: 0.08, filter: "bandpass", freq: 520, q: 1.5 });
