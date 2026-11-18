@@ -1,8 +1,44 @@
 import { W } from "../../game/config.js";
-import { audio, output } from "./engine.js";
+import { cdnPath, BITE_FILES } from "../../shared/assets.js";
+import { audio, onAudioReady, output } from "./engine.js";
 import { playClip } from "./samples.js";
 
 const last = new Map();
+const bites = new Map();
+let bitesRequested = false;
+
+function loadBites(ctx) {
+  if (bitesRequested) return;
+  bitesRequested = true;
+  for (const [id, name] of Object.entries(BITE_FILES)) {
+    fetch(cdnPath(name))
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.arrayBuffer();
+      })
+      .then((data) => ctx.decodeAudioData(data.slice(0)))
+      .then((buffer) => bites.set(id, buffer))
+      .catch(() => {});
+  }
+}
+
+onAudioReady((ctx) => loadBites(ctx));
+
+function playBite(a, id, { gain = 0.9, pan = 0, delay = 0 } = {}) {
+  const buffer = bites.get(id);
+  if (!buffer) {
+    loadBites(a.ctx);
+    return;
+  }
+  const t = a.ctx.currentTime + delay;
+  const src = a.ctx.createBufferSource();
+  src.buffer = buffer;
+  const g = a.ctx.createGain();
+  g.gain.setValueAtTime(gain, t);
+  src.connect(g);
+  g.connect(output(a, a.sfx, pan, t));
+  src.start(t);
+}
 
 function ready(name, gap) {
   const a = audio();
@@ -268,12 +304,9 @@ export function playEvent(ev, extra = {}) {
     case "pickup":
       if (!(a = ready(`pickup:${ev.kind}`, 0.04))) break;
       if (ev.kind === "kernel" || ev.kind === "cob" || ev.kind === "nugget" || ev.kind === "burger" || ev.kind === "pizza") {
-        if (free(a, "yum", 0.18)) {
-          crackle(a, { count: 7, spread: 0.045, gain: 0.2, freq: 2400, pan });
-          noise(a, { dur: 0.11, gain: 0.22, filter: "lowpass", freq: 1600, to: 220, pan, attack: 0.001 });
-          noise(a, { dur: 0.08, gain: 0.16, filter: "bandpass", freq: 2800, to: 700, q: 1.6, pan, delay: 0.05 });
-          tone(a, { type: "triangle", freq: 520, to: 260, dur: 0.22, gain: 0.1, pan, attack: 0.02, delay: 0.14 });
-          tone(a, { type: "sine", freq: 240, to: 110, dur: 0.48, gain: 0.18, pan, attack: 0.04, delay: 0.2, filter: "lowpass", cutoff: 420 });
+        if (free(a, "yum", 0.16)) {
+          playBite(a, "munch", { gain: 0.95, pan });
+          playBite(a, "eating", { gain: 0.85, pan, delay: 0.08 });
         }
       } else if (ev.kind === "crate") {
         noise(a, { dur: 0.05, gain: 0.08, filter: "bandpass", freq: 520, q: 1.5 });

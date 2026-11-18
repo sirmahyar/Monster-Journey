@@ -4,6 +4,12 @@ export const ASSET_STORAGE_HOST = "s3.ir-central1.arvanstorage.ir";
 export const ASSET_BUCKET = `https://${ASSET_BUCKET_NAME}.${ASSET_STORAGE_HOST}`;
 export const SCOREBOARD_KEY = "scoreboard.json";
 
+/** Recorded bites. Played only when the ship collects food. */
+export const BITE_FILES = Object.freeze({
+  munch: "munch-sound-effect.mp3",
+  eating: "eating-sound-effect_kG4sLLH.mp3",
+});
+
 /** Object keys exactly as they appear in the bucket. */
 export const MUSIC_FILES = Object.freeze({
   boss: "01. C I3 Boss Battle Theme.mp3",
