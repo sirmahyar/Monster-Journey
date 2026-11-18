@@ -303,6 +303,16 @@ export function fxEvent(fx, ev) {
     case "shield_block":
       burst(fx, ev.x, ev.y, { count: 6, color: "#9ff0ff", speed: 200, life: 0.3, size: 2 });
       break;
+    case "poop_burst":
+      smoke(fx, ev.x, ev.y, 16, "#a4e85a", 20);
+      smoke(fx, ev.x, ev.y, 10, "#6fa83a", 14);
+      puff(fx, ev.x, ev.y, "#c8ff7a", 24);
+      popup(fx, ev.x, ev.y - 18, T.poopGas, { color: "#b8ff6a", size: 17, life: 1.15 });
+      shake(fx, 0.1);
+      break;
+    case "poop_gas":
+      glow(fx, ev.x, ev.y, ev.r || 52, "#8bff4a", 0.45);
+      break;
     default:
       break;
   }

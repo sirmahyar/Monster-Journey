@@ -29,6 +29,57 @@ const FROST_TIME = 6;
 const SHIELD_TIME = 8;
 /** Hazards are drawn at full radius but only the inner part of them hurts. */
 const HAZARD_HIT = 0.58;
+const MAX_GASES = 28;
+
+function spawnPoopGas(state, x, y, scale = 1) {
+  if (state.gases.length >= MAX_GASES) state.gases.shift();
+  state.gases.push({
+    x,
+    y,
+    r0: 32 * scale,
+    r1: 108 * scale,
+    life: 4.8,
+    age: 0,
+  });
+  emit(state, "poop_gas", { x, y, r: 52 * scale });
+}
+
+function popPoop(state, x, y, scale, shot = null) {
+  spawnPoopGas(state, x, y, scale);
+  emit(state, "poop_burst", { x, y });
+  if (shot) countHit(state, shot);
+}
+
+function updateGases(state, dt) {
+  const p = state.player;
+  let w = 0;
+  for (const c of state.gases) {
+    c.age += dt;
+    c.life -= dt;
+    if (c.life <= 0) continue;
+    const k = Math.min(1, c.age / 1.15);
+    const r = c.r0 + (c.r1 - c.r0) * k;
+    if (p.alive && p.invuln <= 0 && p.shield <= 0 && overlap(c.x, c.y, r * 0.72, p.x, p.y, PLAYER.radius * 0.8)) {
+      killPlayer(state);
+    }
+    state.gases[w] = c;
+    w += 1;
+  }
+  state.gases.length = w;
+}
+
+function shotHitsPoopEgg(state, s) {
+  if (s.kind === "rocket") return false;
+  for (let i = state.eggs.length - 1; i >= 0; i -= 1) {
+    const g = state.eggs[i];
+    if (g.kind !== "poop") continue;
+    if (!overlap(s.x, s.y, s.r, g.x, g.y, g.r * 0.85)) continue;
+    state.eggs.splice(i, 1);
+    popPoop(state, g.x, g.y, 0.95, s);
+    return true;
+  }
+  return false;
+}
 
 function emit(state, type, data = {}) {
   state.events.push({ type, ...data });
@@ -77,6 +128,7 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1, resume
       volley: 0,
     },
     shots: [],
+    gases: [],
     eggs: [],
     enemies: [],
     pickups: [],
@@ -219,6 +271,7 @@ function startWave(state) {
 function advance(state) {
   state.enemies = [];
   state.timers = [];
+  state.gases = [];
   if (state.wave < WAVES_PER_CHAPTER) {
     state.wave += 1;
     startWave(state);
@@ -389,6 +442,7 @@ function respawn(state) {
   p.invuln = PLAYER.invuln;
   p.fireCd = 0.3;
   state.eggs = state.eggs.filter((g) => Math.hypot(g.x - p.x, g.y - p.y) > 180);
+  state.gases = state.gases.filter((c) => Math.hypot(c.x - p.x, c.y - p.y) > 140);
   emit(state, "respawn", { x: p.x, y: p.y });
 }
 
@@ -408,6 +462,7 @@ function updateNova(state, dt) {
   n.y = lerp(n.sy, H * 0.36, 1 - (1 - k) * (1 - k));
   if (k < 1) return;
   state.nova = null;
+  for (const g of state.eggs) if (g.kind === "poop") spawnPoopGas(state, g.x, g.y, 0.85);
   emit(state, "nova", { x: n.x, y: n.y, eggs: state.eggs.map((g) => [g.x, g.y]) });
   state.eggs.length = 0;
   state.beams.length = 0;
@@ -449,6 +504,11 @@ function damageEnemy(state, e, dmg, shot) {
 }
 
 function killEnemy(state, e) {
+  if (e.kind === "poop") {
+    e.dead = true;
+    popPoop(state, e.x, e.y, 1.15);
+    return;
+  }
   e.dead = true;
   state.combo += 1;
   state.comboTimer = COMBO_WINDOW;
@@ -598,6 +658,10 @@ function updateShots(state, dt) {
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     if (s.life <= 0 || s.y < -40 || s.y > H + 40 || s.x < -40 || s.x > W + 40) continue;
+    if (shotHitsPoopEgg(state, s)) {
+      if (s.pierce <= 0) continue;
+      s.pierce -= 1;
+    }
     if (collideShot(state, s, ox, oy)) continue;
     state.shots[w] = s;
     w += 1;
@@ -993,6 +1057,7 @@ export function stepGame(state, input = {}, dt = STEP) {
   updateEnemies(state, dt);
   updateBossState(state, dt);
   updateEggs(state, dt);
+  updateGases(state, dt);
   updateBeams(state, dt);
   updatePickups(state, dt);
   updateCombo(state, dt);

@@ -393,6 +393,12 @@ export function playEvent(ev, extra = {}) {
         if (ev.yolk || ev.big) noise(a, { dur: 0.22, gain: 0.06, filter: "bandpass", freq: 760, to: 240, q: 3, pan, delay: 0.03 });
       }
       break;
+    case "poop_burst":
+      if ((a = ready("poop", 0.12))) {
+        noise(a, { dur: 0.28, gain: 0.12, filter: "bandpass", freq: 420, to: 120, q: 0.7, pan });
+        tone(a, { freq: 180, to: 60, dur: 0.35, gain: 0.07, pan, attack: 0.02 });
+      }
+      break;
     case "yolk_split":
     case "pop":
       if ((a = ready("pop", 0.06))) {

@@ -284,6 +284,34 @@ describe("simulation", () => {
     expect(a.score).toBe(b.score);
     expect(a.enemies.length).toBe(b.enemies.length);
   });
+
+  it("spreads toxic gas when falling poop is shot", () => {
+    const state = createGame({ random: seeded(901), chapter: 4 });
+    state.stage = "active";
+    state.stageTime = 10;
+    state.eggs.push({ kind: "poop", x: W / 2, y: 220, vx: 0, vy: 40, r: 15, t: 0, gravity: 1 });
+    state.shots.push({ x: W / 2, y: 218, vx: 0, vy: -80, r: 8, dmg: 8, life: 1.5, kind: "pulse", pierce: 0, level: 1 });
+    godMode(state);
+    stepGame(state, { fire: false });
+    const events = drainEvents(state);
+    expect(state.eggs.length).toBe(0);
+    expect(state.gases.length).toBe(1);
+    expect(events.some((e) => e.type === "poop_burst")).toBe(true);
+  });
+
+  it("spreads toxic gas when a drifting poop hazard is destroyed", () => {
+    const state = createGame({ random: seeded(902), chapter: 3 });
+    state.stage = "active";
+    const poop = makeEnemy(99, "poop", 3, { x: W / 2, y: 180, mode: "drift", hp: 1, maxHp: 1 });
+    state.enemies.push(poop);
+    state.shots.push({ x: W / 2, y: 178, vx: 0, vy: -80, r: 8, dmg: 20, life: 1.5, kind: "pulse", pierce: 0, level: 1 });
+    godMode(state);
+    stepGame(state, { fire: false });
+    const events = drainEvents(state);
+    expect(state.enemies.find((e) => e.kind === "poop")).toBeUndefined();
+    expect(state.gases.length).toBe(1);
+    expect(events.some((e) => e.type === "poop_burst")).toBe(true);
+  });
 });
 
 describe("bosses", () => {
