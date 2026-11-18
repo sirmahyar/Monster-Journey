@@ -19,7 +19,6 @@ export const PICKUPS = Object.freeze({
   haste: Object.freeze({ r: 13, food: 0, score: 250 }),
   magnet: Object.freeze({ r: 13, food: 0, score: 250 }),
   rocket: Object.freeze({ r: 14, food: 0, score: 400 }),
-  mystery: Object.freeze({ r: 16, food: 0, score: 350 }),
   feather: Object.freeze({ r: 15, food: 0, score: 220 }),
 });
 
@@ -67,7 +66,6 @@ function dropCuts(chapter) {
     0.001 * gift,
     0.0016 * gift,
     0.00085 * gift,
-    0.00075 * gift,
   ];
   let cursor = 0;
   return widths.map((width) => {
@@ -92,7 +90,7 @@ export function rollDrops(e, rng, player) {
     const weapon = crateWeapon(rng, player);
     if (weapon) out.push({ kind: "crate", weapon });
   }
-  if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "rocket" || e.carrier === "mystery" || e.carrier === "feather") {
+  if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "rocket" || e.carrier === "feather") {
     out.push({ kind: e.carrier });
   }
   if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.01615) {
@@ -100,7 +98,7 @@ export function rollDrops(e, rng, player) {
     if (weapon) out.push({ kind: "crate", weapon });
   }
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
-  const [power, coolant, shield, nova, life, gem, haste, magnet, rocket, mystery, feather] = dropCuts(e.chapter || 1);
+  const [power, coolant, shield, nova, life, gem, haste, magnet, rocket, feather] = dropCuts(e.chapter || 1);
   const roll = rng();
   if (roll < power) out.push({ kind: "power" });
   else if (roll < coolant) out.push({ kind: "coolant" });
@@ -110,7 +108,6 @@ export function rollDrops(e, rng, player) {
   else if (roll < haste) out.push({ kind: "haste" });
   else if (roll < magnet) out.push({ kind: "magnet" });
   else if (roll < rocket && (e.chapter || 1) >= 4) out.push({ kind: "rocket" });
-  else if (roll < mystery) out.push({ kind: "mystery" });
   else if (roll < feather) out.push({ kind: "feather" });
   return out;
 }

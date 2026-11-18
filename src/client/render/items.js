@@ -488,7 +488,7 @@ export function drawEggs(ctx, eggs, time) {
   }
 }
 
-const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8", rocket: "#ff9a3d", mystery: "#d48cff", feather: "#b8f0ff" };
+const PICKUP_COLOR = { kernel: "#ffd23f", cob: "#ffd23f", nugget: "#f0b429", burger: "#e07a2f", pizza: "#ff5a4a", power: "#ff5a3d", shield: "#4fd8ff", nova: "#ff4fd8", coolant: "#9be8ff", life: "#ff4f6d", gem: "#ffe14a", haste: "#7dff6b", magnet: "#ff8ad8", rocket: "#ff9a3d", feather: "#b8f0ff" };
 function pickupSprite(kind, weapon) {
   return cached(`pickup:${kind}:${weapon || ""}`, () =>
     sprite(44, 44, (g) => {
@@ -545,17 +545,6 @@ function pickupSprite(kind, weapon) {
         g.beginPath();
         g.ellipse(0, 5, 11, 4, 0, 0, TAU);
         g.fill();
-      } else if (kind === "mystery") {
-        g.fillStyle = "#9b6bff";
-        g.fillRect(-12, -12, 24, 24);
-        g.strokeStyle = "#f6ecff";
-        g.lineWidth = 1.6;
-        g.strokeRect(-12, -12, 24, 24);
-        g.fillStyle = "#fff5d6";
-        g.font = "bold 18px sans-serif";
-        g.textAlign = "center";
-        g.textBaseline = "middle";
-        g.fillText("?", 0, 1);
       } else if (kind === "feather") {
         g.beginPath();
         g.moveTo(-10, 10);

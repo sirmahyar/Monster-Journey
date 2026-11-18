@@ -565,7 +565,6 @@ export function buildWave(api, info) {
   const pool = spawned.filter((e) => e.kind !== "golden");
   const gifts = ["power", "shield", "coolant"];
   if (arsenal(info.chapter).length > 1) gifts.push("crate");
-  if (info.chapter >= 2) gifts.push("mystery");
   if (info.chapter >= 3) gifts.push("feather");
   if (info.chapter >= 4) gifts.push("rocket");
   const powerChance = info.chapter <= 3 ? 0.405 : 0.45;

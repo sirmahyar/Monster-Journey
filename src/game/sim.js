@@ -16,7 +16,7 @@ import {
 import { bombBoss, bossCircles, hitBoss, makeBoss, updateBoss } from "./bosses.js";
 import { ENEMY_TYPES, fireFrom, makeEnemy, moveEnemy, startDive } from "./enemies.js";
 import { PICKUPS, bossLoot, makePickup, rollDrops, updatePickup } from "./loot.js";
-import { TAU, clamp, easeInOutSine, lerp, overlap, pick, rand, steer } from "./math.js";
+import { TAU, clamp, easeInOutSine, lerp, overlap, rand, steer } from "./math.js";
 import { CHAPTERS, buildWave, waveInfo, wavePacing } from "./waves.js";
 import { MAX_LEVEL, WEAPONS, arsenal, chapterGift, rocketsUnlocked, volley } from "./weapons.js";
 
@@ -907,11 +907,6 @@ function collect(state, k) {
   } else if (k.kind === "rocket" && state.chapter >= 4) {
     p.rockets = true;
     emit(state, "weapon", { weapon: p.weapon, x: p.x, y: p.y });
-  } else if (k.kind === "mystery") {
-    emit(state, "pickup", { kind: k.kind, x: k.x, y: k.y, points: PICKUPS[k.kind].score });
-    const bonus = pick(state.rng, ["shield", "coolant", "haste", "magnet", "gem", "power"]);
-    collect(state, { ...k, kind: bonus, x: p.x, y: p.y - 6 });
-    return;
   } else if (k.kind === "feather") {
     p.frost = Math.max(p.frost, 4.5);
     p.heat = Math.max(0, p.heat - 35);
