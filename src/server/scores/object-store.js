@@ -2,7 +2,7 @@ import { SCOREBOARD_KEY } from "../../shared/assets.js";
 import { readEdgeEnv } from "../adapters/edge-env.js";
 import { GameError } from "../errors.js";
 
-const BOARD_LIMIT = 200;
+const BOARD_LIMIT = 20;
 const CONTENT_TYPE = "application/json";
 /** The public file the game reads, then the sample's upload endpoint if that host refuses the write. */
 const WRITE_HOSTS = ["s3.ir-central1.arvanstorage.ir", "s3.ir-thr-at1.arvanstorage.ir"];
@@ -19,9 +19,9 @@ const WRITE_HOSTS = ["s3.ir-central1.arvanstorage.ir", "s3.ir-thr-at1.arvanstora
  */
 export function createBucketScoreStore(envBinding, fetchImpl = globalThis.fetch) {
   return {
-    async top(limit = 50) {
+    async top(limit = BOARD_LIMIT) {
       const rows = await readBoard(storageCredentials(envBinding), fetchImpl);
-      return rows.slice(0, limit);
+      return rows.slice(0, Math.min(BOARD_LIMIT, limit));
     },
     async insert(entry) {
       const creds = storageCredentials(envBinding);

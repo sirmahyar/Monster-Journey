@@ -57,7 +57,7 @@ Four chapters each have eight waves, and the last wave of each chapter is a boss
 
 ## Scoreboard
 
-`GET /api/scores` returns the top 50 scores.
+`GET /api/scores` returns the top 20 scores. Only those 20 are kept in `scoreboard.json`.
 
 The game asks for a pilot name before the first wave and posts the current score at the end of every chapter, and again when the run ends. `POST /api/scores` accepts `{ "name", "score", "chapter", "wave" }`. The name is 1 to 16 Persian or English letters, digits, spaces, or zero-width non-joiners. The score is an integer from 0 to 9999999. Chapter is 1 to 4. Wave is 1 to 8.
 

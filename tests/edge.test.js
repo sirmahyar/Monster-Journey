@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { connectionFromEdge } from "../src/server/scores/edge-db.js";
 import { passwordFromEdgeValue } from "../src/server/scores/mysql-wire.js";
-import { createBucketScoreStore } from "../src/server/scores/object-store.js";
+import { createBucketScoreStore, mergeScores } from "../src/server/scores/object-store.js";
 import { createMemoryScores } from "../src/server/scores/store.js";
 import { handleSiteRequest } from "../src/server/http/site.js";
 
@@ -161,6 +161,17 @@ describe("bucket scoreboard", () => {
     const store = createBucketScoreStore(env, fetchImpl);
     await expect(store.insert({ name: "مهیار", score: 10, chapter: 1, wave: 1 })).rejects.toThrow(/could not be read/);
     expect(puts).toBe(0);
+  });
+
+  it("keeps only the top 20 scores", () => {
+    let board = [];
+    for (let i = 1; i <= 25; i += 1) {
+      board = mergeScores(board, { id: i, name: `p${i}`, score: i, chapter: 1, wave: 1, createdAt: "t" });
+    }
+    expect(board).toHaveLength(20);
+    expect(board[0].score).toBe(25);
+    expect(board.at(-1).score).toBe(6);
+    expect(board.some((row) => row.score === 1)).toBe(false);
   });
 
   it("refuses to write when the storage keys are missing", async () => {

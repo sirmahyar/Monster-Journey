@@ -20,7 +20,7 @@ export async function handleRequest(request, config) {
       });
     }
     if (request.method === "GET") {
-      const scores = await config.store.top(50);
+      const scores = await config.store.top(20);
       return json(request, allowedOrigin, 200, { scores });
     }
     if (request.method !== "POST") {
