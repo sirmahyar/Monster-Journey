@@ -27,6 +27,30 @@ export const CHAPTERS = Object.freeze([
     bossName: "Coop Carrier",
     waves: ["gauntlet", "flock", "ring", "dive", "snake", "rocks", "saucers"],
   }),
+  Object.freeze({
+    name: "Night Roost",
+    boss: "barnowl",
+    bossName: "The Barn Owl",
+    waves: ["mines", "grid", "flock", "snake", "ring", "dive", "rocks"],
+  }),
+  Object.freeze({
+    name: "Feather Orbit",
+    boss: "plume",
+    bossName: "The Plume",
+    waves: ["snipers", "grid", "dive", "ring", "saucers", "bombers", "gauntlet"],
+  }),
+  Object.freeze({
+    name: "Yolk Gale",
+    boss: "cyclone",
+    bossName: "Yolk Cyclone",
+    waves: ["cyclone", "bombers", "flock", "ring", "snake", "rocks", "saucers"],
+  }),
+  Object.freeze({
+    name: "Galaxy Crown",
+    boss: "king",
+    bossName: "The Coop King",
+    waves: ["shells", "gauntlet", "mines", "snipers", "cyclone", "dive", "rocks"],
+  }),
 ]);
 
 export const WAVE_NAMES = Object.freeze({
@@ -39,6 +63,10 @@ export const WAVE_NAMES = Object.freeze({
   rocks: "Meteor Shower",
   bombers: "Yolk Bombers",
   gauntlet: "Feather Gauntlet",
+  mines: "Mine Drift",
+  snipers: "Sniper Perch",
+  cyclone: "Yolk Cyclone",
+  shells: "Shell Wall",
 });
 
 const PACING = Object.freeze({
@@ -51,6 +79,10 @@ const PACING = Object.freeze({
   rocks: { egg: 0.5, dive: 0 },
   bombers: { egg: 2.4, dive: 0.04 },
   gauntlet: { egg: 2.7, dive: 0.3 },
+  mines: { egg: 2.0, dive: 0.08 },
+  snipers: { egg: 1.6, dive: 0.12 },
+  cyclone: { egg: 1.4, dive: 0.2 },
+  shells: { egg: 2.3, dive: 0.1 },
   boss: { egg: 0, dive: 0.2 },
 });
 
@@ -59,6 +91,10 @@ const GRID_ROWS = [
   ["bomber", "hen", "hen", "chick"],
   ["rooster", "hen", "diver", "hen", "chick"],
   ["rooster", "bomber", "diver", "hen", "hen"],
+  ["miner", "hen", "miner", "chick", "hen"],
+  ["sniper", "hen", "diver", "hen", "chick"],
+  ["spinner", "bomber", "spinner", "hen", "chick"],
+  ["shell", "rooster", "miner", "sniper", "hen"],
 ];
 
 export function waveInfo(chapter, wave) {
@@ -72,7 +108,8 @@ export function waveInfo(chapter, wave) {
 
 export function wavePacing(info) {
   const base = PACING[info.template];
-  const pressure = info.chapter < 3 ? 1 + 0.2 * (info.chapter - 1) : 1.7 + 0.55 * (info.chapter - 3);
+  const throughFour = info.chapter < 3 ? 1 + 0.2 * (info.chapter - 1) : 1.7 + 0.55 * (Math.min(info.chapter, 4) - 3);
+  const pressure = info.chapter <= 4 ? throughFour : throughFour + 0.22 * (info.chapter - 4);
   return {
     eggRate: base.egg * pressure * (1 + 0.04 * (info.wave - 1)),
     diveRate: base.dive * pressure,
@@ -133,7 +170,7 @@ function grid(api, rows, cols, style) {
 
 function flock(api, chapter) {
   const perRibbon = 14 + chapter * 3;
-  const extra = [null, "bomber", "diver", "rooster"][chapter - 1];
+  const extra = [null, "bomber", "diver", "rooster", "miner", "sniper", "spinner", "shell"][chapter - 1];
   for (let ribbon = 0; ribbon < 2; ribbon += 1) {
     const side = ribbon === 0 ? -1 : 1;
     for (let i = 0; i < perRibbon; i += 1) {
@@ -163,7 +200,13 @@ function snake(api, chapter) {
   const length = 10 + chapter * 2;
   const speed = 150 + chapter * 18;
   const head = chapter >= 2 ? "rooster" : "hen";
-  const body = chapter >= 3 ? ["hen", "hen", "bomber"] : ["hen"];
+  const body = chapter >= 7
+    ? ["hen", "spinner", "bomber"]
+    : chapter >= 5
+      ? ["hen", "miner", "bomber"]
+      : chapter >= 3
+        ? ["hen", "hen", "bomber"]
+        : ["hen"];
   for (let s = 0; s < 2; s += 1) {
     for (let i = 0; i < length; i += 1) {
       api.spawn(i === 0 ? head : body[i % body.length], {
@@ -183,8 +226,19 @@ function snake(api, chapter) {
   }
 }
 
+const RING_KINDS = [
+  ["hen"],
+  ["hen", "bomber"],
+  ["hen", "rooster"],
+  ["bomber", "rooster", "hen"],
+  ["miner", "hen", "chick"],
+  ["sniper", "rooster", "hen"],
+  ["spinner", "bomber", "hen"],
+  ["shell", "miner", "rooster"],
+];
+
 function ring(api, chapter) {
-  const kinds = [["hen"], ["hen", "bomber"], ["hen", "rooster"], ["bomber", "rooster", "hen"]][chapter - 1];
+  const kinds = RING_KINDS[chapter - 1];
   const spinScale = 1 + 0.12 * (chapter - 1);
   const rings =
     chapter === 1
@@ -195,7 +249,7 @@ function ring(api, chapter) {
       : [
           { cx: W / 2, cy: 280, radius: 220, n: 16, spin: 0.55 },
           { cx: W / 2, cy: 280, radius: 100, n: 8, spin: -1.25 },
-          ...(chapter === 4 ? [{ cx: W / 2, cy: 280, radius: 160, n: 12, spin: 0.9 }] : []),
+          ...(chapter >= 4 ? [{ cx: W / 2, cy: 280, radius: 160, n: 12, spin: 0.9 }] : []),
         ];
   rings.forEach((def, k) => {
     for (let i = 0; i < def.n; i += 1) {
@@ -278,6 +332,56 @@ function rocks(api, chapter) {
   api.later(span * 0.45, () => api.spawnGolden());
 }
 
+function mines(api) {
+  grid(api, ["miner", "miner", "hen", "chick"], 7, "drop");
+}
+
+function snipers(api, chapter) {
+  const n = 4 + Math.min(2, Math.max(0, chapter - 6));
+  for (let i = 0; i < n; i += 1) {
+    const slotX = 90 + (i / (n - 1)) * (W - 180);
+    api.spawn("sniper", {
+      mode: "enter",
+      home: "formation",
+      slotX,
+      slotY: 120,
+      path: entryPath("drop", i % 2 ? 1 : -1, slotX, 120, api.rng),
+      pathDur: 1.6,
+      delay: i * 0.15,
+      variant: i % 4,
+    });
+  }
+  grid(api, ["diver", "hen"], 6, "spiral");
+}
+
+function cyclone(api, chapter) {
+  const n = 14;
+  for (let i = 0; i < n; i += 1) {
+    const angle0 = (i / n) * TAU;
+    const radius = i % 2 ? 180 : 100;
+    api.spawn(i % 3 === 0 ? "bomber" : "spinner", {
+      mode: "enter",
+      home: "orbit",
+      cx: W / 2,
+      cy: 260,
+      radius,
+      angle0,
+      orbitSpin: (i % 2 ? 1.1 : -1.6) * (1 + 0.05 * Math.max(0, chapter - 7)),
+      pulse: 20,
+      squash: 0.8,
+      path: [W / 2, -80, W / 2 + Math.cos(angle0) * 220, 90, W / 2, 200, W / 2, 260],
+      pathDur: 1.8,
+      delay: i * 0.06,
+      phase: angle0,
+      variant: i % 4,
+    });
+  }
+}
+
+function shells(api) {
+  grid(api, ["shell", "miner", "shell", "hen"], 6, "swoop");
+}
+
 const BUILDERS = {
   grid: (api, ch) => grid(api, GRID_ROWS[ch - 1], 8, "swoop"),
   flock,
@@ -291,11 +395,19 @@ const BUILDERS = {
     grid(api, ["rooster", "bomber", "diver", "hen", "chick"], 9, "drop");
     if (ch >= 4) saucers(api, 0);
   },
+  mines,
+  snipers,
+  cyclone,
+  shells,
 };
 
 const SWAY = {
   ring: { ax: 30, ay: 10, fx: 0.4, fy: 0.9 },
   gauntlet: { ax: 45, ay: 14, fx: 0.55, fy: 1.1 },
+  mines: { ax: 40, ay: 8, fx: 0.35, fy: 0.8 },
+  snipers: { ax: 20, ay: 6, fx: 0.25, fy: 0.6 },
+  cyclone: { ax: 50, ay: 16, fx: 0.7, fy: 1.3 },
+  shells: { ax: 24, ay: 8, fx: 0.3, fy: 0.7 },
 };
 
 /**
@@ -320,14 +432,14 @@ export function buildWave(api, info) {
     pool[index].carrier = "power";
     pool.splice(index, 1);
   }
-  const marked = scaledCount(info.chapter >= 3 ? 3 : 2, api.rng);
+  const marked = scaledCount((info.chapter >= 3 ? 3 : 2) * 0.95, api.rng);
   for (let i = 0; i < marked && pool.length > 0; i += 1) {
     const index = randInt(api.rng, 0, pool.length - 1);
     pool[index].carrier = pickGift(gifts, api.rng);
     pool.splice(index, 1);
   }
   for (const enemy of pool) {
-    if (api.rng() >= 0.035) continue;
+    if (api.rng() >= 0.03325) continue;
     enemy.carrier = pickGift(gifts, api.rng);
   }
   return spawned;

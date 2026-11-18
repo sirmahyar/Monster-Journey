@@ -31,6 +31,10 @@ export const FEATHER_TINTS = {
   rooster: ROOSTER_COLORS.map((c) => c.body),
   saucer: ["#cfd8e6", "#ffe45c", "#bfe9ff", "#ffd0f0"],
   golden: [GOLD.body, GOLD.wing, "#fff3b0", GOLD.body],
+  miner: ["#3d4654", "#6d7788", "#ff5a3d", "#1c222c"],
+  sniper: ["#e7eef8", "#8fd8ff", "#8ea0b8", "#243044"],
+  spinner: CHICK_COLORS,
+  shell: ["#d9e2ee", "#8fd0ff", "#6d7c90", "#f4f7fb"],
 };
 
 function legs(g, r, swing) {
@@ -508,6 +512,63 @@ const PAINTERS = {
     hen(g, r * 1.0, v, f, b, { colors: BOMBER_COLORS[v % BOMBER_COLORS.length], helmet: true });
     helmet(g, r);
     eggBelt(g, r);
+  },
+  miner: (g, r, v, f, b) => {
+    hen(g, r, v, f, b, { colors: { body: "#4a5566", shade: "#1c222c", wing: "#6a7688" }, helmet: true });
+    g.fillStyle = "#141820";
+    g.fillRect(-r * 0.72, r * 0.12, r * 1.44, r * 0.28);
+    for (const x of [-0.42, 0, 0.42]) {
+      ellipse(g, x * r, r * 0.28, r * 0.16, r * 0.16);
+      g.fillStyle = "#2c3442";
+      g.fill();
+      g.strokeStyle = "#0e1218";
+      g.lineWidth = r * 0.03;
+      g.stroke();
+      ellipse(g, x * r, r * 0.2, r * 0.05, r * 0.05);
+      g.fillStyle = "#ff5a3d";
+      g.fill();
+    }
+  },
+  sniper: (g, r, v, f, b) => {
+    hen(g, r, v, f, b, { colors: { body: "#eef3fb", shade: "#8ea0b8", wing: "#c5d4e6" } });
+    g.strokeStyle = "#243044";
+    g.lineWidth = r * 0.07;
+    g.lineCap = "round";
+    g.beginPath();
+    g.moveTo(r * 0.15, -r * 0.16);
+    g.lineTo(r * 1.05, -r * 0.48);
+    g.stroke();
+    ellipse(g, r * 1.18, -r * 0.52, r * 0.22, r * 0.16);
+    g.fillStyle = "#172033";
+    g.fill();
+    g.strokeStyle = "#7fd8ff";
+    g.lineWidth = r * 0.04;
+    g.stroke();
+  },
+  spinner: (g, r, v, f, b) => {
+    g.save();
+    g.rotate((f / FRAMES) * TAU);
+    g.strokeStyle = rgba("#ffd24a", 0.95);
+    g.lineWidth = r * 0.08;
+    g.beginPath();
+    g.arc(0, 0, r * 1.25, 0.2, TAU - 0.15);
+    g.stroke();
+    g.restore();
+    chick(g, r * 0.92, v, f, b);
+  },
+  shell: (g, r, v, f, b) => {
+    hen(g, r, v, f, b, { colors: { body: "#e7eef6", shade: "#7d8da3", wing: "#c5d0de" }, helmet: true });
+    g.beginPath();
+    g.arc(0, r * 0.02, r * 1.12, Math.PI * 1.08, Math.PI * 1.92);
+    g.strokeStyle = rgba("#e7f4ff", 0.95);
+    g.lineWidth = r * 0.1;
+    g.stroke();
+    ellipse(g, 0, r * 0.55, r * 0.95, r * 0.26);
+    g.fillStyle = linear(g, 0, r * 0.28, 0, r * 0.82, [[0, "#f7fbff"], [1, "#6e7d92"]]);
+    g.fill();
+    g.strokeStyle = "#2c3544";
+    g.lineWidth = r * 0.045;
+    g.stroke();
   },
 };
 

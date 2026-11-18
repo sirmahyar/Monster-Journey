@@ -17,6 +17,31 @@ const SPECS = Object.freeze({
     circles: [[0, 0, 96], [-150, 8, 40], [150, 8, 40]],
     parts: [[-128, 54, 28, 220], [128, 54, 28, 220]],
   },
+  barnowl: {
+    name: "The Barn Owl",
+    hp: 1450,
+    homeY: 180,
+    circles: [[0, 0, 70], [0, -50, 36], [-78, 18, 28], [78, 18, 28]],
+  },
+  plume: {
+    name: "The Plume",
+    hp: 1550,
+    homeY: 185,
+    circles: [[0, 8, 68], [0, -70, 32], [-90, 20, 26], [90, 20, 26]],
+  },
+  cyclone: {
+    name: "Yolk Cyclone",
+    hp: 1650,
+    homeY: 190,
+    circles: [[0, 0, 78], [0, 70, 30]],
+  },
+  king: {
+    name: "The Coop King",
+    hp: 1750,
+    homeY: 170,
+    circles: [[0, -10, 80], [-120, 16, 34], [120, 16, 34]],
+    parts: [[-110, 60, 26, 200], [110, 60, 26, 200], [0, 78, 24, 180]],
+  },
 });
 
 const ATTACKS = Object.freeze({
@@ -24,6 +49,10 @@ const ATTACKS = Object.freeze({
   reactor: [["ring", "spiral", "bombs"], ["ring", "spiral", "bombs", "beams"], ["spiral2", "beams", "ring", "bombs"]],
   ironrooster: [["missiles", "stomp", "dash"], ["missiles", "sweep", "stomp", "dash"], ["missiles", "sweep", "dash", "stomp", "fan"]],
   carrier: [["twin", "hatch", "ring"], ["beams", "spiral", "missiles", "hatch", "bombs"], ["beams", "spiral2", "missiles", "hatch", "ring"]],
+  barnowl: [["mines", "fan", "summon"], ["mines", "needles", "rain", "ring"], ["mines", "spirals", "needles", "summon"]],
+  plume: [["needles", "missiles", "fan"], ["needles", "sweep", "bounce", "missiles"], ["needles", "beams", "bounce", "fan"]],
+  cyclone: [["spirals", "ring", "bombs"], ["spirals", "spiral", "bombs", "beams"], ["spirals", "spiral2", "bounce", "ring"]],
+  king: [["bounce", "twin", "hatch"], ["mines", "beams", "missiles", "hatch"], ["bounce", "spirals", "needles", "ring"]],
 });
 
 const REST = [1.5, 1.05, 0.72];
@@ -70,7 +99,7 @@ function syncParts(b) {
 
 function phaseOf(b) {
   const ratio = b.hp / b.maxHp;
-  if (b.kind === "carrier") return b.parts.some((p) => p.alive) ? 0 : ratio > 0.35 ? 1 : 2;
+  if (b.parts.length > 0) return b.parts.some((p) => p.alive) ? 0 : ratio > 0.35 ? 1 : 2;
   return ratio > 0.66 ? 0 : ratio > 0.33 ? 1 : 2;
 }
 
@@ -286,6 +315,42 @@ function runAttack(b, a, dt, api) {
         a.n += 1;
       }
       b.mouth = a.t < 1.9 ? 1 : 0;
+      return a.t >= 2;
+    case "mines": {
+      const count = 4 + b.phase;
+      while (a.n < count && a.t >= 0.3 + a.n * 0.4) {
+        api.egg({ kind: "mine", x: b.x + rand(rng, -80, 80), y: b.y + 40, vx: rand(rng, -40, 40), vy: 50, r: 12, arm: 0.7, life: 2.1 });
+        a.n += 1;
+        api.event("boss_shoot", {});
+      }
+      return a.t >= 0.5 + count * 0.4;
+    }
+    case "needles":
+      while (a.n < 5 && a.t >= 0.25 + a.n * 0.28) {
+        aimAt(api, b.x, b.y + 30, 480, "needle", { r: 5 });
+        if (b.phase >= 1) {
+          aimAt(api, b.x - 30, b.y + 20, 440, "needle", { r: 5 });
+          aimAt(api, b.x + 30, b.y + 20, 440, "needle", { r: 5 });
+        }
+        a.n += 1;
+        api.event("boss_shoot", {});
+      }
+      return a.t >= 2.1;
+    case "spirals":
+      a.acc += dt;
+      while (a.acc >= 0.35) {
+        a.acc -= 0.35;
+        const side = a.n % 2 ? 1 : -1;
+        a.n += 1;
+        api.egg({ kind: "spiral", x: b.x + side * 40, y: b.y + 30, vx: side * 30, vy: 70, r: 12, spin: side * 4.5, orbit: 32 });
+      }
+      return a.t >= 2.6;
+    case "bounce":
+      while (a.n < 6 && a.t >= 0.2 + a.n * 0.22) {
+        const side = a.n % 2 ? 1 : -1;
+        api.egg({ kind: "bounce", x: b.x, y: b.y + 40, vx: side * (120 + b.phase * 30), vy: 40, r: 12, bounces: 1, gravity: 1 });
+        a.n += 1;
+      }
       return a.t >= 2;
     default:
       return true;

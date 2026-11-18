@@ -8,6 +8,10 @@ export const THEMES = [
   { top: "#0b1236", bottom: "#46300c", nebula: ["#ffb23f", "#ff6a3d", "#ffd86b"], planet: "#ffcf6b", ring: false },
   { top: "#03201f", bottom: "#0c3d2e", nebula: ["#2fffc1", "#2fa3ff", "#7dff6b"], planet: "#6bffd0", ring: true },
   { top: "#17040b", bottom: "#420a14", nebula: ["#ff3b3b", "#ff7b2f", "#b02fff"], planet: "#ff5a3d", ring: false },
+  { top: "#070818", bottom: "#1a1038", nebula: ["#6a5cff", "#9b7bff", "#3d4a8a"], planet: "#b9a6ff", ring: true },
+  { top: "#041820", bottom: "#0c3a48", nebula: ["#7ee0ff", "#c8f6ff", "#3d8cff"], planet: "#d8fff2", ring: false },
+  { top: "#2a1204", bottom: "#5a2a08", nebula: ["#ffb020", "#ff6a1a", "#ffe08a"], planet: "#ffd36a", ring: true },
+  { top: "#140818", bottom: "#3a1028", nebula: ["#ffd24a", "#ff4f8b", "#8a4dff"], planet: "#ffe08a", ring: true },
 ];
 
 function seededRandom(seed) {

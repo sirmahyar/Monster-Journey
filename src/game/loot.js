@@ -66,17 +66,17 @@ export function rollDrops(e, rng, player) {
   if (e.carrier === "power" || e.carrier === "shield" || e.carrier === "coolant" || e.carrier === "nova") {
     out.push({ kind: e.carrier });
   }
-  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.04) {
+  if ((player.weapons || WEAPON_ORDER).length > 1 && rng() < 0.038) {
     const weapon = crateWeapon(rng, player);
     if (weapon) out.push({ kind: "crate", weapon });
   }
   if (rng() < ENEMY_TYPES[e.kind].food) out.push({ kind: foodKind(e, rng) });
   const roll = rng();
-  if (roll < 0.0127) out.push({ kind: "power" });
-  else if (roll < 0.0207) out.push({ kind: "coolant" });
-  else if (roll < 0.0257) out.push({ kind: "shield" });
-  else if (roll < 0.0297) out.push({ kind: "nova" });
-  else if (roll < 0.0312) out.push({ kind: "life" });
+  if (roll < 0.012065) out.push({ kind: "power" });
+  else if (roll < 0.019665) out.push({ kind: "coolant" });
+  else if (roll < 0.024415) out.push({ kind: "shield" });
+  else if (roll < 0.028215) out.push({ kind: "nova" });
+  else if (roll < 0.02964) out.push({ kind: "life" });
   return out;
 }
 

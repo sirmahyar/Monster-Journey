@@ -107,12 +107,14 @@ function bossBar(ctx, b, time) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, 14, 7);
   ctx.stroke();
-  for (const notch of b.kind === "carrier" ? [0.35] : [0.66, 0.33]) {
+  for (const notch of b.parts.length > 0 ? [0.35] : [0.66, 0.33]) {
     ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.fillRect(x + w * notch - 1, y - 2, 2, 18);
   }
   b.parts.forEach((part, i) => {
-    const px = W / 2 + (i === 0 ? -1 : 1) * 60 - 40;
+    const px = b.parts.length === 2
+      ? W / 2 + (i === 0 ? -1 : 1) * 60 - 40
+      : W / 2 + (i - (b.parts.length - 1) / 2) * 90 - 40;
     bar(ctx, px, y + 20, 80, 6, part.alive ? part.hp / part.maxHp : 0, "#5dffb1", "rgba(40,10,30,0.7)");
   });
   if (b.intro > 0) text(ctx, T.invulnerable, W / 2, y + 38, 13, rgba("#ffffff", 0.5 + 0.5 * Math.sin(time * 10)), "center");

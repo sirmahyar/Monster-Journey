@@ -8,6 +8,10 @@ export const ENEMY_TYPES = Object.freeze({
   bomber: Object.freeze({ r: 26, hp: 8, score: 350, egg: "yolk", eggWeight: 0.75, food: 0.7, dive: 0.15 }),
   rooster: Object.freeze({ r: 30, hp: 14, score: 500, egg: "quill", eggWeight: 0.9, food: 0.85, dive: 0.6 }),
   saucer: Object.freeze({ r: 30, hp: 7, score: 650, egg: "spark", eggWeight: 1.3, food: 0.8, dive: 0, shield: 8 }),
+  miner: Object.freeze({ r: 24, hp: 7, score: 400, egg: "mine", eggWeight: 0.7, food: 0.6, dive: 0.2 }),
+  sniper: Object.freeze({ r: 24, hp: 6, score: 450, egg: "needle", eggWeight: 0.85, food: 0.5, dive: 0.1 }),
+  spinner: Object.freeze({ r: 18, hp: 4, score: 280, egg: "spiral", eggWeight: 0.9, food: 0.4, dive: 0.35 }),
+  shell: Object.freeze({ r: 28, hp: 12, score: 600, egg: "bounce", eggWeight: 0.8, food: 0.65, dive: 0.15, shield: 10 }),
   golden: Object.freeze({ r: 26, hp: 30, score: 2500, egg: null, eggWeight: 0, food: 1, dive: 0 }),
   rock: Object.freeze({ r: 38, hp: 16, score: 150, egg: null, eggWeight: 0, food: 0.12, dive: 0 }),
 });
@@ -19,9 +23,11 @@ export const ROCK_SIZES = Object.freeze({
 });
 
 export function hpScale(chapter) {
-  const steady = 1 + 0.4 * (chapter - 1);
-  if (chapter < 3) return steady;
-  return steady + 0.7 * (chapter - 2);
+  const capped = Math.min(chapter, 4);
+  const steady = 1 + 0.4 * (capped - 1);
+  const early = capped < 3 ? steady : steady + 0.7 * (capped - 2);
+  if (chapter <= 4) return early;
+  return early + 0.45 * (chapter - 4);
 }
 
 /**
@@ -251,9 +257,15 @@ export function fireFrom(e, target, rng, chapter) {
           { ...egg, x: x + 12, vx: egg.vx + 45 },
         ];
       }
+      if (chapter >= 5 && e.kind === "hen" && rng() < 0.22) {
+        return [{ kind: "cluster", x, y, vx: egg.vx, vy: egg.vy, r: 14, splitY: rand(rng, 380, 560), gravity: 1 }];
+      }
       return [egg];
     }
     case "yolk":
+      if (chapter >= 7 && rng() < 0.28) {
+        return [{ kind: "spiral", x, y, vx: rand(rng, -25, 25), vy: 80, r: 11, spin: rng() < 0.5 ? 4.2 : -4.2, orbit: 26 }];
+      }
       if (chapter >= 3 && rng() < 0.5) {
         return [{ kind: "bigyolk", x, y, vx: rand(rng, -20, 20), vy: 95, r: 17, splitY: rand(rng, 420, 640) }];
       }
@@ -261,13 +273,32 @@ export function fireFrom(e, target, rng, chapter) {
     case "quill": {
       const speed = 290 + 25 * chapter + (chapter >= 3 ? 45 * (chapter - 2) : 0);
       const offsets = chapter >= 3 ? [-14, 0, 14] : [0];
-      return offsets.map((off) => ({ kind: "quill", x, y, ...aimed(x, y, target, speed, off), r: 7 }));
+      return offsets.map((off) => ({
+        kind: "quill",
+        x,
+        y,
+        ...aimed(x, y, target, speed, off),
+        r: 7,
+        bend: chapter >= 6 && off === 0 ? 0.9 : 0,
+      }));
     }
     case "spark": {
       const speed = 330 + 30 * chapter + (chapter >= 3 ? 40 * (chapter - 2) : 0);
       const shots = [{ kind: "spark", x, y, ...aimed(x, y, target, speed), r: 8 }];
+      if (chapter >= 7) shots[0].weave = true;
       if (chapter >= 2) shots.push({ kind: "spark", x, y, ...aimed(x, y, target, speed * 0.82, 0), r: 8 });
       return shots;
+    }
+    case "mine":
+      return [{ kind: "mine", x, y, vx: rand(rng, -18, 18), vy: 48, r: 12, arm: 0.8, life: 2.15 }];
+    case "needle":
+      return [{ kind: "needle", x, y, ...aimed(x, y, target, 520 + 18 * chapter), r: 5 }];
+    case "spiral":
+      return [{ kind: "spiral", x, y, vx: rand(rng, -30, 30), vy: 70, r: 11, spin: rng() < 0.5 ? 5 : -5, orbit: 30 }];
+    case "bounce": {
+      let vx = rand(rng, -110, 110);
+      if (Math.abs(vx) < 40) vx = vx < 0 ? -70 : 70;
+      return [{ kind: "bounce", x, y, vx, vy: 70, r: 12, bounces: 1, gravity: 1 }];
     }
     default:
       return [];

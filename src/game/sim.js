@@ -633,6 +633,39 @@ function updateBossState(state, dt) {
   clearWave(state);
 }
 
+function bendShot(g, target, dt) {
+  const speed = Math.hypot(g.vx, g.vy) || 1;
+  const cur = Math.atan2(g.vy, g.vx);
+  const aim = Math.atan2(target.y - g.y, target.x - g.x);
+  let diff = aim - cur;
+  if (diff > Math.PI) diff -= TAU;
+  if (diff < -Math.PI) diff += TAU;
+  const next = cur + clamp(diff, -g.bend * dt, g.bend * dt);
+  g.vx = Math.cos(next) * speed;
+  g.vy = Math.sin(next) * speed;
+}
+
+function burstRing(spawned, g, count, speed, r) {
+  for (let i = 0; i < count; i += 1) {
+    const angle = (i / count) * TAU + g.t;
+    spawned.push({ kind: "pellet", x: g.x, y: g.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r, t: 0, gravity: 1 });
+  }
+}
+
+function stepSpiral(g, dt) {
+  if (g.ox == null) {
+    g.ox = g.x;
+    g.oy = g.y;
+    g.phase = 0;
+  }
+  g.ox += g.vx * dt;
+  g.oy += g.vy * dt;
+  g.phase += (g.spin || 4) * dt;
+  const orbit = g.orbit || 28;
+  g.x = g.ox + Math.cos(g.phase) * orbit;
+  g.y = g.oy + Math.sin(g.phase) * orbit * 0.55;
+}
+
 function updateEggs(state, dt) {
   const p = state.player;
   const spawned = [];
@@ -640,20 +673,22 @@ function updateEggs(state, dt) {
   for (const g of state.eggs) {
     g.t += dt;
     if (g.weave) g.vx += Math.cos(g.t * 8) * 140 * dt;
-    if (g.kind === "egg") g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * g.gravity * dt);
-    else if (g.kind === "yolk") {
+    if (g.bend) bendShot(g, p, dt);
+    if (g.kind === "egg" || g.kind === "cluster" || g.kind === "bounce") {
+      g.vy = Math.min(EGG_MAX_FALL, g.vy + EGG_GRAVITY * (g.gravity || 1) * dt);
+    } else if (g.kind === "yolk") {
       g.vy = Math.min(260, g.vy + 60 * dt);
       g.vx += Math.sin(g.t * 6) * 40 * dt;
     } else if (g.kind === "bigyolk") {
       g.vy = Math.min(220, g.vy + 50 * dt);
-      if (g.y >= g.splitY) {
-        for (let i = 0; i < 8; i += 1) {
-          const angle = (i / 8) * TAU + g.t;
-          spawned.push({ kind: "pellet", x: g.x, y: g.y, vx: Math.cos(angle) * 170, vy: Math.sin(angle) * 170, r: 8, t: 0, gravity: 1 });
-        }
-        emit(state, "yolk_split", { x: g.x, y: g.y });
-        continue;
+    } else if (g.kind === "mine") {
+      if (g.t < (g.arm || 0.85)) g.vy = Math.min(80, g.vy + 30 * dt);
+      else {
+        g.vx *= Math.max(0, 1 - dt * 4);
+        g.vy *= Math.max(0, 1 - dt * 4);
       }
+    } else if (g.kind === "spiral") {
+      g.vy = Math.min(160, g.vy + 20 * dt);
     } else if (g.kind === "missile") {
       steer(g, p.x, p.y, g.homing, dt);
       const speed = Math.hypot(g.vx, g.vy);
@@ -668,13 +703,37 @@ function updateEggs(state, dt) {
         continue;
       }
     }
-    g.x += g.vx * dt;
-    g.y += g.vy * dt;
-    if ((g.kind === "egg" || g.kind === "yolk") && g.y >= FLOOR_Y) {
+    if (g.kind === "bigyolk" && g.y >= g.splitY) {
+      burstRing(spawned, g, 8, 170, 8);
+      emit(state, "yolk_split", { x: g.x, y: g.y });
+      continue;
+    }
+    if (g.kind === "cluster" && g.y >= (g.splitY || 480)) {
+      for (const vx of [-70, 0, 70]) spawned.push({ kind: "egg", x: g.x, y: g.y, vx, vy: 95, r: 8, t: 0, gravity: 1 });
+      emit(state, "yolk_split", { x: g.x, y: g.y });
+      continue;
+    }
+    if (g.kind === "mine" && (g.t >= (g.life || 2.2) || g.y >= FLOOR_Y)) {
+      burstRing(spawned, g, 6, 150, 6);
+      emit(state, "pop", { x: g.x, y: g.y });
+      continue;
+    }
+    if (g.kind === "spiral") stepSpiral(g, dt);
+    else {
+      g.x += g.vx * dt;
+      g.y += g.vy * dt;
+    }
+    if (g.kind === "bounce" && g.bounces > 0 && (g.x < 18 || g.x > W - 18)) {
+      g.vx *= -1;
+      g.x = clamp(g.x, 18, W - 18);
+      g.bounces -= 1;
+    }
+    const depth = g.oy == null ? g.y : g.oy;
+    if ((g.kind === "egg" || g.kind === "yolk" || g.kind === "bounce" || g.kind === "cluster") && g.y >= FLOOR_Y) {
       emit(state, "splat", { x: g.x, y: FLOOR_Y, big: g.r > 11, yolk: g.kind === "yolk" });
       continue;
     }
-    if (g.y > H + 30 || g.y < -60 || g.x < -60 || g.x > W + 60) continue;
+    if (depth > H + 40 || depth < -80 || g.x < -80 || g.x > W + 80) continue;
     if (p.alive && overlap(g.x, g.y, g.r * HAZARD_HIT, p.x, p.y, PLAYER.radius * 0.75)) {
       if (p.shield > 0) {
         emit(state, "shield_block", { x: g.x, y: g.y });

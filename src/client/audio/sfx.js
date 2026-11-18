@@ -181,12 +181,12 @@ function flock(a, count = 4, spread = 0.7) {
   noise(a, { dur: 0.7, gain: 0.035, filter: "bandpass", freq: 700, to: 1600, q: 0.8, attack: 0.25 });
 }
 
-const CALL_RATE = { chick: 1.04, hen: 1, diver: 1.1, bomber: 0.88, rooster: 0.78, golden: 1.16, saucer: 1.18 };
+const CALL_RATE = { chick: 1.04, hen: 1, diver: 1.1, bomber: 0.88, rooster: 0.78, golden: 1.16, saucer: 1.18, miner: 0.84, sniper: 1.12, spinner: 1.08, shell: 0.8 };
 function henCall() {
   return Math.random() < 0.6 ? "cluck" : "soft";
 }
-const HIT_GAIN = { chick: 0.2, hen: 0.24, diver: 0.24, bomber: 0.26, rooster: 0.28, golden: 0.26 };
-const BIRDS = new Set(["chick", "hen", "diver", "bomber", "rooster", "golden"]);
+const HIT_GAIN = { chick: 0.2, hen: 0.24, diver: 0.24, bomber: 0.26, rooster: 0.28, golden: 0.26, miner: 0.24, sniper: 0.22, spinner: 0.2, shell: 0.26 };
+const BIRDS = new Set(["chick", "hen", "diver", "bomber", "rooster", "golden", "miner", "sniper", "spinner", "shell"]);
 
 const SHOT = {
   pulse: (a, pan) => {
@@ -204,7 +204,10 @@ function bossVoice(a, kind, mood) {
   const angry = mood === "angry";
   if (kind === "grandhen") voice(a, angry ? "bawk" : "cackle", { rate: angry ? 0.62 : 0.72, gain: 0.62, lowpass: 3800, reverb: 0.55, maxLength: angry ? 0.6 : 2.1, priority: true });
   else if (kind === "ironrooster") voice(a, angry ? "bawk" : "crow", { index: angry ? undefined : 1, rate: angry ? 0.58 : 0.8, gain: 0.58, lowpass: 3600, reverb: 0.5, maxLength: angry ? 0.6 : 2.4, priority: true });
-  else if (kind === "carrier") flock(a, angry ? 5 : 8, angry ? 0.5 : 1.2);
+  else if (kind === "carrier" || kind === "king") flock(a, angry ? 5 : 8, angry ? 0.5 : 1.2);
+  else if (kind === "barnowl") voice(a, angry ? "bawk" : "cackle", { rate: angry ? 0.5 : 0.64, gain: 0.58, lowpass: 2800, reverb: 0.6, maxLength: angry ? 0.55 : 1.8, priority: true });
+  else if (kind === "plume") voice(a, angry ? "bawk" : "crow", { index: angry ? undefined : 1, rate: angry ? 0.62 : 0.86, gain: 0.56, lowpass: 3600, reverb: 0.5, maxLength: angry ? 0.55 : 2.1, priority: true });
+  else if (kind === "cyclone") voice(a, angry ? "bawk" : "cackle", { rate: angry ? 0.7 : 0.9, gain: 0.55, lowpass: 3400, reverb: 0.45, maxLength: angry ? 0.5 : 1.6, priority: true });
 }
 
 /** Plays the sound that belongs to one simulation event. */
@@ -276,7 +279,8 @@ export function playEvent(ev, extra = {}) {
     case "egg":
       if (!(a = ready("egg", 0.1))) break;
       if (ev.egg === "spark") tone(a, { freq: 1400, to: 480, dur: 0.09, gain: 0.025, pan, filter: "lowpass", cutoff: 2400 });
-      else if (ev.egg === "quill") noise(a, { dur: 0.08, gain: 0.04, filter: "bandpass", freq: 3000, to: 1300, q: 2.5, pan });
+      else if (ev.egg === "quill" || ev.egg === "needle") noise(a, { dur: 0.08, gain: 0.04, filter: "bandpass", freq: ev.egg === "needle" ? 4200 : 3000, to: 1300, q: 2.5, pan });
+      else if (ev.egg === "mine") tone(a, { freq: 180, to: 70, dur: 0.12, gain: 0.05, pan });
       else {
         tone(a, { freq: jitter(700), to: ev.egg === "yolk" ? 260 : 380, dur: 0.06, gain: 0.03, pan });
         if (free(a, "eggcall", 0.22)) voice(a, ev.kind === "chick" ? "peep" : henCall(), { rate: jitter(CALL_RATE[ev.kind] || 1, 0.1), gain: ev.kind === "chick" ? 0.12 : 0.16, pan, maxLength: 0.22 });

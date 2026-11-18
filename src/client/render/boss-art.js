@@ -362,8 +362,145 @@ function carrier(ctx, b, time) {
   ctx.stroke();
 }
 
-const PAINT = { grandhen: grandHen, reactor, ironrooster: ironRooster, carrier };
-const SIZE = { grandhen: 110, reactor: 120, ironrooster: 120, carrier: 190 };
+function barnOwl(ctx, b, time) {
+  const r = 70;
+  const flap = Math.sin(time * 3) * 0.35;
+  parts.wing(ctx, r, -1, flap, "#6e5a86", "#2c2038", 1.05);
+  parts.wing(ctx, r, 1, flap, "#6e5a86", "#2c2038", 1.05);
+  parts.body(ctx, r, { body: "#3a3150", shade: "#1a1424" }, 1.05, 0.95);
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * r * 0.35, -r * 0.85);
+    ctx.lineTo(side * r * 0.15, -r * 1.35);
+    ctx.lineTo(side * r * 0.7, -r * 0.95);
+    ctx.closePath();
+    ctx.fillStyle = "#241c32";
+    ctx.fill();
+  }
+  for (const side of [-1, 1]) {
+    ellipse(ctx, side * r * 0.32, -r * 0.18, r * 0.28, r * 0.32);
+    ctx.fillStyle = "#f4e27a";
+    ctx.fill();
+    ellipse(ctx, side * r * 0.32, -r * 0.16, r * 0.12, r * 0.16);
+    ctx.fillStyle = "#1a1208";
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.02);
+  ctx.lineTo(-r * 0.1, r * 0.16);
+  ctx.lineTo(r * 0.1, r * 0.16);
+  ctx.closePath();
+  ctx.fillStyle = "#e0a04a";
+  ctx.fill();
+  if (b.mouth > 0.2) eyeGlow(ctx, r, "#ffe08a", 0.45);
+  for (let i = 0; i < 4; i += 1) {
+    const a = time * 1.4 + (i / 4) * TAU;
+    ellipse(ctx, Math.cos(a) * r * 1.35, Math.sin(a) * r * 0.45 + r * 0.35, 7, 7);
+    ctx.fillStyle = "#2a3140";
+    ctx.fill();
+    ctx.fillStyle = "#ff5a3d";
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * r * 1.35, Math.sin(a) * r * 0.45 + r * 0.28, 2, 0, TAU);
+    ctx.fill();
+  }
+}
+
+function plume(ctx, b, time) {
+  const r = 68;
+  ctx.save();
+  ctx.rotate(Math.sin(time * 1.6) * 0.08);
+  for (let i = 0; i < 7; i += 1) {
+    const a = -0.9 + (i / 6) * 1.8;
+    ctx.save();
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.2);
+    ctx.quadraticCurveTo(r * 0.35, -r * 1.3, 0, -r * 2.15);
+    ctx.quadraticCurveTo(-r * 0.35, -r * 1.3, 0, -r * 0.2);
+    ctx.fillStyle = i % 2 ? "#fff1c8" : "#ffb15a";
+    ctx.fill();
+    ctx.strokeStyle = "#7a3410";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+  parts.wing(ctx, r, -1, Math.sin(time * 4) * 0.4, "#ffd7a8", "#c47a3a", 1.1);
+  parts.wing(ctx, r, 1, Math.sin(time * 4) * 0.4, "#ffd7a8", "#c47a3a", 1.1);
+  parts.body(ctx, r, { body: "#f3e2cc", shade: "#c49a6a" });
+  parts.eyes(ctx, r, time % 3.4 < 0.1, { angry: b.phase >= 1, size: 0.18 });
+  parts.beak(ctx, r, b.mouth > 0.3);
+  parts.plume(ctx, r, b.phase >= 2 ? "#ff4a3a" : "#2f8f78");
+}
+
+function cycloneBoss(ctx, b, time) {
+  const r = 78;
+  ctx.save();
+  ctx.rotate(b.spin + time * 1.6);
+  eggPath(ctx, r);
+  ctx.fillStyle = radial(ctx, 0, 0, r, [[0, "#fff6c8"], [0.55, "#ffc21a"], [1, "#e06a00"]], -r * 0.3, -r * 0.4);
+  ctx.fill();
+  ctx.strokeStyle = "#a34d00";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  for (let i = 0; i < 6; i += 1) {
+    const a = (i / 6) * TAU;
+    ellipse(ctx, Math.cos(a) * r * 0.72, Math.sin(a) * r * 0.72, 10, 8);
+    ctx.fillStyle = i % 2 ? "#fff1a8" : "#ff8a1a";
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  blit(ctx, glowDot("cyclone", 40, "#ffd24a"), 0, 0, 0, 1.4, 1.4, 0.45 + 0.2 * Math.sin(time * 8));
+  ctx.restore();
+}
+
+function king(ctx, b, time) {
+  const r = 80;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.9, r * 0.15);
+  ctx.quadraticCurveTo(-r * 1.35, r * 1.1, 0, r * 1.35);
+  ctx.quadraticCurveTo(r * 1.35, r * 1.1, r * 0.9, r * 0.15);
+  ctx.closePath();
+  ctx.fillStyle = linear(ctx, 0, 0, 0, r * 1.3, [[0, "#8a1d3a"], [1, "#3c0c1c"]]);
+  ctx.fill();
+  ctx.strokeStyle = "#ffd24a";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  parts.wing(ctx, r, -1, Math.sin(time * 2.5) * 0.3, "#fff6e4", "#e0b56a", 1.05);
+  parts.wing(ctx, r, 1, Math.sin(time * 2.5) * 0.3, "#fff6e4", "#e0b56a", 1.05);
+  parts.body(ctx, r, { body: "#fff8ee", shade: "#e2c49a" });
+  ctx.save();
+  ctx.translate(0, -r * 0.15);
+  ctx.scale(1.45, 1.45);
+  parts.crown(ctx, r * 0.7);
+  ctx.restore();
+  parts.eyes(ctx, r, time % 4 < 0.1, { angry: b.phase >= 1, size: 0.2 });
+  parts.beak(ctx, r, b.mouth > 0.3);
+  if (b.phase >= 1) eyeGlow(ctx, r, "#ffd24a", 0.4 + 0.3 * Math.sin(time * 10));
+}
+
+const PAINT = {
+  grandhen: grandHen,
+  reactor,
+  ironrooster: ironRooster,
+  carrier,
+  barnowl: barnOwl,
+  plume,
+  cyclone: cycloneBoss,
+  king,
+};
+const SIZE = {
+  grandhen: 110,
+  reactor: 120,
+  ironrooster: 120,
+  carrier: 190,
+  barnowl: 130,
+  plume: 150,
+  cyclone: 120,
+  king: 150,
+};
 
 export function drawBoss(ctx, b, time, player) {
   let x = b.x;

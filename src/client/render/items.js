@@ -320,6 +320,72 @@ function eggSprite(kind, r) {
         g.fill();
       });
     }
+    if (kind === "needle") {
+      return sprite(r * 3, r * 10, (g) => {
+        g.fillStyle = linear(g, 0, -r * 4, 0, r * 4, [[0, "#f4fbff"], [0.4, "#8fd8ff"], [1, "#1a6ea8"]]);
+        g.beginPath();
+        g.moveTo(0, -r * 4.2);
+        g.lineTo(r * 0.45, r * 3.2);
+        g.lineTo(-r * 0.45, r * 3.2);
+        g.closePath();
+        g.fill();
+        g.strokeStyle = "#08324f";
+        g.lineWidth = 1;
+        g.stroke();
+      });
+    }
+    if (kind === "mine") {
+      return sprite(r * 4, r * 4, (g) => {
+        g.beginPath();
+        g.arc(0, 0, r, 0, TAU);
+        g.fillStyle = radial(g, 0, 0, r, [[0, "#6d7788"], [0.6, "#2a3140"], [1, "#12161e"]], -r * 0.3, -r * 0.35);
+        g.fill();
+        g.strokeStyle = "#0c1016";
+        g.lineWidth = 1.4;
+        g.stroke();
+        g.fillStyle = "#ff5a3d";
+        g.beginPath();
+        g.arc(0, -r * 0.15, r * 0.22, 0, TAU);
+        g.fill();
+      });
+    }
+    if (kind === "spiral") {
+      return sprite(r * 4.2, r * 4.2, (g) => {
+        g.strokeStyle = "rgba(255, 196, 60, 0.9)";
+        g.lineWidth = Math.max(1.4, r * 0.16);
+        g.beginPath();
+        g.arc(0, 0, r * 1.35, 0.4, TAU - 0.2);
+        g.stroke();
+        ellipse(g, 0, 0, r * 0.7, r * 0.66);
+        g.fillStyle = radial(g, 0, 0, r * 0.7, [[0, "#fff4b0"], [1, "#e07a00"]], -r * 0.2, -r * 0.2);
+        g.fill();
+      });
+    }
+    if (kind === "cluster" || kind === "bounce") {
+      return sprite(r * 3.6, r * 3.8, (g) => {
+        eggShape(g, r);
+        g.fillStyle = kind === "bounce"
+          ? radial(g, 0, 0, r * 1.3, [[0, "#ffffff"], [0.55, "#d7f4ff"], [1, "#7eb6d8"]], -r * 0.3, -r * 0.45)
+          : radial(g, 0, 0, r * 1.3, [[0, "#ffffff"], [0.6, "#f7e7c4"], [1, "#c9a36a"]], -r * 0.3, -r * 0.45);
+        g.fill();
+        g.strokeStyle = kind === "bounce" ? "#1d5f86" : "rgba(90,50,20,0.9)";
+        g.lineWidth = Math.max(1.6, r * 0.16);
+        g.stroke();
+        if (kind === "cluster") {
+          g.strokeStyle = "rgba(90,40,10,0.7)";
+          g.beginPath();
+          g.moveTo(-r * 0.15, -r * 0.2);
+          g.lineTo(r * 0.05, r * 0.15);
+          g.lineTo(-r * 0.05, r * 0.55);
+          g.stroke();
+          g.fillStyle = "#f4d27a";
+          for (const [sx, sy] of [[-0.28, 0.15], [0.22, 0.05], [0.02, 0.42]]) {
+            ellipse(g, sx * r, sy * r, r * 0.12, r * 0.1);
+            g.fill();
+          }
+        }
+      });
+    }
     return sprite(r * 3.6, r * 3.8, (g) => {
       g.fillStyle = radial(g, 0, 0, r * 1.8, [[0, "rgba(255,248,225,0.6)"], [0.6, "rgba(255,240,210,0.22)"], [1, "rgba(255,240,210,0)"]]);
       g.fillRect(-r * 1.8, -r * 1.9, r * 3.6, r * 3.8);
@@ -346,16 +412,20 @@ function eggSprite(kind, r) {
 export function drawEggs(ctx, eggs, time) {
   for (const e of eggs) {
     const spr = eggSprite(e.kind, e.r);
-    if (e.kind === "quill" || e.kind === "missile") blit(ctx, spr, e.x, e.y, Math.atan2(e.vy, e.vx) + Math.PI / 2);
-    else if (e.kind === "yolk" || e.kind === "bigyolk") {
+    if (e.kind === "quill" || e.kind === "missile" || e.kind === "needle") blit(ctx, spr, e.x, e.y, Math.atan2(e.vy, e.vx) + Math.PI / 2);
+    else if (e.kind === "yolk" || e.kind === "bigyolk" || e.kind === "spiral") {
       const wob = Math.sin(e.t * 9) * 0.08;
-      blit(ctx, spr, e.x, e.y, 0, 1 + wob, 1 - wob);
+      blit(ctx, spr, e.x, e.y, e.kind === "spiral" ? e.t * (e.spin || 4) : 0, 1 + wob, 1 - wob);
       if (e.kind === "bigyolk") {
         ctx.globalCompositeOperation = "lighter";
         blit(ctx, glowDot("warn", e.r * 2, "#ff3b1f"), e.x, e.y, 0, 1, 1, 0.3 + 0.3 * Math.sin(time * 14));
       }
-    } else if (e.kind === "egg") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 7 + e.x) * 0.35);
+    } else if (e.kind === "egg" || e.kind === "cluster" || e.kind === "bounce") blit(ctx, spr, e.x, e.y, Math.sin(e.t * 7 + e.x) * 0.35);
     else blit(ctx, spr, e.x, e.y, e.kind === "spark" ? time * 8 : 0);
+    if (e.kind === "mine" && e.t >= (e.arm || 0.85)) {
+      ctx.globalCompositeOperation = "lighter";
+      blit(ctx, glowDot("mine", e.r * 2.2, "#ff5a3d"), e.x, e.y, 0, 1, 1, 0.35 + 0.45 * Math.sin(time * 16));
+    }
     if (e.kind === "missile") {
       ctx.globalCompositeOperation = "lighter";
       blit(ctx, glowDot("trail", 8, "#ffae3d"), e.x - e.vx * 0.04, e.y - e.vy * 0.04, 0, 1, 1, 0.8);
