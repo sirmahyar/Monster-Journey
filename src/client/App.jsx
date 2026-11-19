@@ -73,7 +73,7 @@ export function App() {
   const [saveError, setSaveError] = useState("");
   const [savedId, setSavedId] = useState(null);
   const [booting, setBooting] = useState(true);
-  const [savedRun, setSavedRun] = useState(() => readRunSave());
+  const [savedRun, setSavedRun] = useState(null);
   const nameRef = useRef(name);
   const lastPersist = useRef(0);
   const posted = useRef(new Set());
@@ -90,6 +90,9 @@ export function App() {
       if (!cancel) setBooting(false);
     });
     for (const entry of readQueue()) record(entry);
+    readRunSave().then((row) => {
+      if (!cancel) setSavedRun(row);
+    });
     return () => {
       cancel = true;
     };
@@ -202,8 +205,9 @@ export function App() {
     if (!force && now - lastPersist.current < 3500) return;
     lastPersist.current = now;
     const pilot = normalizeName(nameRef.current);
-    writeRunSave({ ...save, pilot: isValidName(pilot) ? pilot : "" });
-    setSavedRun(readRunSave());
+    void writeRunSave({ ...save, pilot: isValidName(pilot) ? pilot : "" }).then(() =>
+      readRunSave().then(setSavedRun),
+    );
   };
 
   const finish = (summary) => {
@@ -236,7 +240,7 @@ export function App() {
   };
 
   const continueSaved = () => {
-    const save = readRunSave();
+    const save = savedRun;
     if (!save) return;
     unlockAudio();
     playUi("start");
@@ -267,7 +271,7 @@ export function App() {
 
   const quit = () => {
     if (screen === "play" && live.current) record(live.current);
-    setSavedRun(readRunSave());
+    readRunSave().then(setSavedRun);
     go("menu");
   };
 
