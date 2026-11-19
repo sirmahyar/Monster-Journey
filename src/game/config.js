@@ -52,7 +52,7 @@ export const HEAT = Object.freeze({
   coolFiring: 6,
   coolLocked: 36,
   unlockAt: 28,
-  fireGain: 1.67706,
+  fireGain: 1.341648,
 });
 
 export const FOOD_PER_BOMB = 120;

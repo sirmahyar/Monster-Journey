@@ -157,8 +157,8 @@ describe("simulation", () => {
     expect(state.player.lives).toBe(0);
   });
 
-  it("raises shot heat thirty percent slower", () => {
-    expect(HEAT.fireGain).toBeCloseTo(2.3958 * 0.7, 5);
+  it("raises shot heat slower than the original tuning", () => {
+    expect(HEAT.fireGain).toBeCloseTo(2.3958 * 0.7 * 0.8, 5);
   });
 
   it("overheats under constant fire and cools down", () => {
