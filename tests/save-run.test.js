@@ -1,13 +1,35 @@
+import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CHAPTER_COUNT } from "../src/game/config.js";
 import { createGame, exportRunSave } from "../src/game/sim.js";
-import { clearRunSave, parseRunSave, readRunSave, writeRunSave } from "../src/client/save-run.js";
+import {
+  clearRunSave,
+  parseRunSave,
+  readRunSave,
+  verifyRunSaveToken,
+  writeRunSave,
+} from "../src/client/save-run.js";
+
+const sample = {
+  chapter: 3,
+  wave: 5,
+  score: 12000,
+  lives: 3,
+  bombs: 2,
+  food: 40,
+  level: 4,
+  weapon: "pulse",
+  weapons: ["pulse", "laser"],
+  rockets: true,
+  stats: { kills: 10, fired: 50, hits: 40, bestCombo: 4, food: 2, bosses: 1, deaths: 0, time: 99 },
+};
 
 describe("run save", () => {
   const bag = new Map();
 
   beforeEach(() => {
     bag.clear();
+    vi.stubGlobal("crypto", webcrypto);
     vi.stubGlobal("localStorage", {
       getItem: (key) => bag.get(key) ?? null,
       setItem: (key, value) => {
@@ -24,32 +46,30 @@ describe("run save", () => {
     vi.unstubAllGlobals();
   });
 
-  it("round-trips a run through localStorage", () => {
-    const payload = {
-      v: 1,
-      savedAt: Date.now(),
-      chapter: 3,
-      wave: 5,
-      score: 12000,
-      lives: 3,
-      bombs: 2,
-      food: 40,
-      level: 4,
-      weapon: "pulse",
-      weapons: ["pulse", "laser"],
-      rockets: true,
-      stats: { kills: 10, fired: 50, hits: 40, bestCombo: 4, food: 2, bosses: 1, deaths: 0, time: 99 },
-    };
-    writeRunSave(payload);
-    const row = readRunSave();
+  it("round-trips a signed token through localStorage", async () => {
+    await writeRunSave(sample);
+    const stored = bag.get("cluck-raid-run");
+    expect(typeof stored).toBe("string");
+    expect(stored.startsWith("cr2.")).toBe(true);
+    expect(stored.includes(".")).toBe(true);
+    const row = await readRunSave();
     expect(row?.chapter).toBe(3);
     expect(row?.wave).toBe(5);
     expect(row?.score).toBe(12000);
   });
 
+  it("rejects tampered tokens", async () => {
+    await writeRunSave(sample);
+    const stored = bag.get("cluck-raid-run");
+    const tampered = `${stored.slice(0, -4)}AAAA`;
+    bag.set("cluck-raid-run", tampered);
+    expect(await readRunSave()).toBeNull();
+    expect(await verifyRunSaveToken(tampered)).toBeNull();
+  });
+
   it("rejects invalid saves", () => {
-    expect(parseRunSave({ v: 1, chapter: 0, wave: 1, score: 1, lives: 1, bombs: 1, level: 1, weapon: "pulse", weapons: ["pulse"], stats: {} })).toBeNull();
-    expect(parseRunSave({ v: 1, chapter: CHAPTER_COUNT + 1, wave: 1, score: 1, lives: 1, bombs: 1, level: 1, weapon: "pulse", weapons: ["pulse"], stats: {} })).toBeNull();
+    expect(parseRunSave({ v: 2, chapter: 0, wave: 1, score: 1, lives: 1, bombs: 1, level: 1, weapon: "pulse", weapons: ["pulse"], stats: {} })).toBeNull();
+    expect(parseRunSave({ v: 2, chapter: CHAPTER_COUNT + 1, wave: 1, score: 1, lives: 1, bombs: 1, level: 1, weapon: "pulse", weapons: ["pulse"], stats: {} })).toBeNull();
   });
 
   it("exports live game progress", () => {
