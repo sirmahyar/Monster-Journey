@@ -3,7 +3,7 @@ import { CHAPTER_COUNT, H, HEAT, PLAYER, STEP, W, WAVES_PER_CHAPTER, playerPity 
 import { bossCircles, hitBoss, makeBoss } from "../src/game/bosses.js";
 import { makeEnemy } from "../src/game/enemies.js";
 import { makePickup, rollDrops } from "../src/game/loot.js";
-import { createGame, drainEvents, gameSummary, stepGame } from "../src/game/sim.js";
+import { createGame, drainEvents, exportRunSave, gameSummary, stepGame } from "../src/game/sim.js";
 import { CHAPTERS, waveInfo } from "../src/game/waves.js";
 import { MAX_LEVEL, WEAPON_ORDER, focusedDps, volley } from "../src/game/weapons.js";
 
@@ -321,6 +321,19 @@ describe("simulation", () => {
     expect(events.some((e) => e.type === "gas_burn")).toBe(true);
     run(state, 2, { fire: false });
     expect(state.player.lives).toBe(livesBefore - 1);
+  });
+
+  it("emits chapter_saved after a chapter warp", () => {
+    const state = createGame({ random: seeded(905), chapter: 1, wave: WAVES_PER_CHAPTER });
+    state.stage = "warp";
+    state.stageTime = 3.3;
+    godMode(state);
+    stepGame(state, { fire: false });
+    const events = drainEvents(state);
+    expect(state.chapter).toBe(2);
+    expect(state.wave).toBe(1);
+    expect(events.some((e) => e.type === "chapter_saved")).toBe(true);
+    expect(exportRunSave(state)?.chapter).toBe(2);
   });
 
   it("emits poop burst hud text key for renderer", async () => {

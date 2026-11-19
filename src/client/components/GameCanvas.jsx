@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { H, PLAYER, STEP, W } from "../../game/config.js";
-import { createGame, drainEvents, gameSummary, stepGame } from "../../game/sim.js";
+import { createGame, drainEvents, exportRunSave, gameSummary, stepGame } from "../../game/sim.js";
 import { suspendAudio, unlockAudio } from "../audio/engine.js";
 import { playMusic, stopMusic } from "../audio/music.js";
 import { playEvent, playSting } from "../audio/sfx.js";
@@ -40,12 +40,12 @@ function typing(event) {
 
 /**
  * The playfield. In "demo" mode an autopilot flies behind the menu; in "play" mode the player does.
- * @param {{ mode: "demo"|"play", runId: number, paused: boolean, onFinish: (summary: object) => void, onLeave: (entry: { score: number, chapter: number, wave: number }) => void, onSnapshot: (entry: object) => void, onPause: (force?: boolean) => void }} props
+ * @param {{ mode: "demo"|"play", runId: number, paused: boolean, onFinish: (summary: object) => void, onLeave: (entry: { score: number, chapter: number, wave: number }) => void, onSnapshot: (entry: object) => void, onPersist: (save: object, opts?: { force?: boolean }) => void, onPause: (force?: boolean) => void }} props
  */
-export function GameCanvas({ mode, runId, paused, start, onFinish, onLeave, onSnapshot, onPause }) {
+export function GameCanvas({ mode, runId, paused, start, onFinish, onLeave, onSnapshot, onPersist, onPause }) {
   const canvasRef = useRef(null);
-  const props = useRef({ mode, paused, start, onFinish, onLeave, onSnapshot, onPause });
-  props.current = { mode, paused, start, onFinish, onLeave, onSnapshot, onPause };
+  const props = useRef({ mode, paused, start, onFinish, onLeave, onSnapshot, onPersist, onPause });
+  props.current = { mode, paused, start, onFinish, onLeave, onSnapshot, onPersist, onPause };
   const control = useRef({ reset: null, bomb: null, mode: null });
   const [touch, setTouch] = useState(false);
 
@@ -66,7 +66,9 @@ export function GameCanvas({ mode, runId, paused, start, onFinish, onLeave, onSn
     const reset = () => {
       const play = props.current.mode === "play";
       const start = props.current.start;
-      game = play ? createGame(start ? { chapter: start.chapter, wave: 1, resume: start } : {}) : makeDemo();
+      game = play
+        ? createGame(start ? { chapter: start.chapter, wave: start.wave || 1, resume: start } : {})
+        : makeDemo();
       control.current.mode = props.current.mode;
       finished = false;
       resetRenderer(r, game.chapter);
@@ -142,10 +144,20 @@ export function GameCanvas({ mode, runId, paused, start, onFinish, onLeave, onSn
     const leave = (event) => {
       keys.clear();
       pointer.fire = false;
-      if (playing() && (document.hidden || event.type === "blur")) props.current.onPause(true);
+      if (playing() && (document.hidden || event.type === "blur")) {
+        flushSave(true);
+        props.current.onPause(true);
+      }
     };
+    const flushSave = (force = false) => {
+      if (props.current.mode !== "play" || !game || game.over) return;
+      const save = exportRunSave(game);
+      if (save) props.current.onPersist?.(save, { force });
+    };
+
     const pageHide = (event) => {
       if (event.persisted || props.current.mode !== "play" || !game) return;
+      flushSave(true);
       props.current.onLeave?.(gameSummary(game));
     };
 
@@ -175,6 +187,7 @@ export function GameCanvas({ mode, runId, paused, start, onFinish, onLeave, onSn
       if (control.current.mode !== "play") return;
       for (const ev of events) {
         playEvent(ev, { food: game.player.food, boss: game.boss?.kind });
+        if (ev.type === "chapter_saved") flushSave(true);
         if (ev.type === "wave") playMusic(ev.boss ? "boss" : "stage", ev.chapter);
         else if (ev.type === "boss_dead") playMusic("stage", game.chapter);
         else if (ev.type === "gameover" || ev.type === "victory") {
@@ -201,7 +214,10 @@ export function GameCanvas({ mode, runId, paused, start, onFinish, onLeave, onSn
         }
         if (steps === 6) acc = 0;
         react(drainEvents(game));
-        if (!demo) props.current.onSnapshot?.(gameSummary(game));
+        if (!demo) {
+          props.current.onSnapshot?.(gameSummary(game));
+          flushSave(false);
+        }
         if (demo) {
           demoClock += real;
           if (game.over || demoClock > 70) reset();
