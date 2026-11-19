@@ -6,6 +6,7 @@ import { whenOpeningMusicReady } from "./audio/music.js";
 import { playUi } from "./audio/sfx.js";
 import { GameCanvas } from "./components/GameCanvas.jsx";
 import { Board, GameOver, Help, Menu, NameGate, Pause } from "./components/Screens.jsx";
+import { clearRunSave, readRunSave, writeRunSave } from "./save-run.js";
 import { strings } from "./strings.js";
 
 const BEST_KEY = "cluck-raid-best";
@@ -72,7 +73,9 @@ export function App() {
   const [saveError, setSaveError] = useState("");
   const [savedId, setSavedId] = useState(null);
   const [booting, setBooting] = useState(true);
+  const [savedRun, setSavedRun] = useState(() => readRunSave());
   const nameRef = useRef(name);
+  const lastPersist = useRef(0);
   const posted = useRef(new Set());
   const inflight = useRef(new Set());
   const failed = useRef(new Map());
@@ -142,6 +145,8 @@ export function App() {
     inflight.current = new Set();
     failed.current = new Map();
     setStart(null);
+    clearRunSave();
+    setSavedRun(null);
     unlockAudio();
     playUi("start");
     setResult(null);
@@ -191,10 +196,24 @@ export function App() {
       });
   };
 
+  const persistRun = (save, { force = false } = {}) => {
+    if (!save) return;
+    const now = Date.now();
+    if (!force && now - lastPersist.current < 3500) return;
+    lastPersist.current = now;
+    const pilot = normalizeName(nameRef.current);
+    writeRunSave({ ...save, pilot: isValidName(pilot) ? pilot : "" });
+    setSavedRun(readRunSave());
+  };
+
   const finish = (summary) => {
     const score = Math.min(MAX_SCORE, summary.score);
     const next = { ...summary, score, newBest: score > 0 && score > best };
     setResult(next);
+    if (summary.victory) {
+      clearRunSave();
+      setSavedRun(null);
+    }
     if (score > best) {
       setBest(score);
       store(BEST_KEY, score);
@@ -216,6 +235,23 @@ export function App() {
     submitScoreOnLeave(saved);
   };
 
+  const continueSaved = () => {
+    const save = readRunSave();
+    if (!save) return;
+    unlockAudio();
+    playUi("start");
+    posted.current = new Set();
+    inflight.current = new Set();
+    failed.current = new Map();
+    setStart(save);
+    setResult(null);
+    setSavedId(null);
+    setSaveError("");
+    setPaused(false);
+    setRunId((id) => id + 1);
+    setScreen("play");
+  };
+
   const continueChapter = () => {
     if (!result?.checkpoint) return;
     unlockAudio();
@@ -231,6 +267,7 @@ export function App() {
 
   const quit = () => {
     if (screen === "play" && live.current) record(live.current);
+    setSavedRun(readRunSave());
     go("menu");
   };
 
@@ -252,7 +289,19 @@ export function App() {
     <main className="app">
       <div className="backdrop" aria-hidden="true" />
       <div className={`stage screen-${screen}`}>
-        <GameCanvas mode={mode} runId={runId} paused={paused} start={start} onFinish={finish} onLeave={leaveRun} onSnapshot={(summary) => { live.current = summary; }} onPause={requestPause} />
+        <GameCanvas
+          mode={mode}
+          runId={runId}
+          paused={paused}
+          start={start}
+          onFinish={finish}
+          onLeave={leaveRun}
+          onSnapshot={(summary) => {
+            live.current = summary;
+          }}
+          onPersist={persistRun}
+          onPause={requestPause}
+        />
         {screen === "play" && !paused && (
           <button type="button" className="pause-btn" onClick={() => requestPause(true)} aria-label={strings.pause}>
             <span />
@@ -265,6 +314,8 @@ export function App() {
             prefs={prefs}
             onToggle={toggle}
             onPlay={askName}
+            onContinue={continueSaved}
+            savedRun={savedRun}
             onBoard={() => go("board")}
             onHelp={() => go("help")}
           />

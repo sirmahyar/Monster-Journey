@@ -86,15 +86,27 @@ export function Logo({ small = false }) {
   );
 }
 
-export function Menu({ best, prefs, onToggle, onPlay, onBoard, onHelp }) {
+export function Menu({ best, prefs, onToggle, onPlay, onContinue, savedRun, onBoard, onHelp }) {
   return (
     <section className="overlay overlay-menu">
       <Logo />
       <p className="tagline">{strings.tagline}</p>
       <div className="menu-actions">
-        <button type="button" className="btn primary big" data-testid="launch" onClick={onPlay}>
-          {strings.play}
-        </button>
+        {savedRun && onContinue ? (
+          <>
+            <button type="button" className="btn primary big" data-testid="continue-run" onClick={onContinue}>
+              {strings.continueRun}
+            </button>
+            <p className="hint save-hint">{strings.continueRunWhere(savedRun.chapter, savedRun.wave)}</p>
+            <button type="button" className="btn big" data-testid="launch" onClick={onPlay}>
+              {strings.newRun}
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn primary big" data-testid="launch" onClick={onPlay}>
+            {strings.play}
+          </button>
+        )}
         <div className="row">
           <button type="button" className="btn" data-testid="open-board" onClick={onBoard}>{strings.board}</button>
           <button type="button" className="btn" onClick={onHelp}>{strings.help}</button>

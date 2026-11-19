@@ -192,6 +192,26 @@ export function createGame({ random = Math.random, chapter = 1, wave = 1, resume
   return state;
 }
 
+/** Snapshot for browser resume (chapter, wave, gear and score). */
+export function exportRunSave(state) {
+  if (state.over || state.victory) return null;
+  const p = state.player;
+  if (!p.alive && p.lives <= 0) return null;
+  return {
+    chapter: state.chapter,
+    wave: state.wave,
+    score: Math.floor(state.score),
+    lives: p.lives,
+    bombs: p.bombs,
+    food: p.food,
+    level: p.level,
+    weapon: p.weapon,
+    weapons: p.weapons.slice(),
+    rockets: Boolean(p.rockets),
+    stats: { ...state.stats },
+  };
+}
+
 function addEnemy(state, kind, fields) {
   const enemy = makeEnemy(state.nextId, kind, state.chapter, fields);
   state.nextId += 1;
@@ -322,6 +342,7 @@ function updateStage(state) {
     state.chapter += 1;
     state.wave = 1;
     startWave(state);
+    emit(state, "chapter_saved", { chapter: state.chapter, wave: state.wave });
   } else if (state.stage === "dead" && t >= DEAD_TIME) {
     state.over = true;
     emit(state, "gameover", { score: state.score });
