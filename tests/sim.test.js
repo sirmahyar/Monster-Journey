@@ -157,6 +157,10 @@ describe("simulation", () => {
     expect(state.player.lives).toBe(0);
   });
 
+  it("raises shot heat thirty percent slower", () => {
+    expect(HEAT.fireGain).toBeCloseTo(2.3958 * 0.7, 5);
+  });
+
   it("overheats under constant fire and cools down", () => {
     const state = createGame({ random: seeded(5) });
     const events = run(state, 40, { fire: true }, godMode);
